@@ -86,6 +86,7 @@ function Login({ onLogin }) {
 function MainApp({ user, onLogout }) {
   const [tab, setTab] = useState(user.role === '직원' ? 'mycalls' : 'dashboard');
   const isAdmin = user.role === '관리자';
+  const isManager = user.role === '점장';
   const isChecker = user.role === '검수자' || user.role === '관리자';
 
   return (
@@ -99,8 +100,9 @@ function MainApp({ user, onLogout }) {
       </header>
 
       <nav>
-        {(isAdmin || isChecker) && <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>대시보드</button>}
+        {(isAdmin || isChecker || isManager) && <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>대시보드</button>}
         <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
+        {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 확인</button>}
         {isAdmin && <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>}
         {isAdmin && <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>}
         {isAdmin && <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>}
@@ -111,6 +113,7 @@ function MainApp({ user, onLogout }) {
       <main>
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'mycalls' && <CallList user={user} mode="mine" />}
+        {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
         {tab === 'allcalls' && <CallList user={user} mode="all" />}
         {tab === 'employees' && <Employees />}
         {tab === 'stores' && <Stores />}
@@ -156,7 +159,7 @@ function Card({ title, value }) {
   return <div className="stat"><span>{title}</span><b>{value}</b></div>;
 }
 
-function CallList({ user, mode }) {
+function CallList({ user, mode, readOnly = false }) {
   const [targets, setTargets] = useState([]);
   const [logs, setLogs] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -166,6 +169,7 @@ function CallList({ user, mode }) {
   async function load() {
     let q = supabase.from('happycall_targets').select('*').eq('is_skipped', false).order('target_date', { ascending: false });
     if (mode === 'mine') q = q.eq('assigned_employee', user.name);
+    if (mode === 'store') q = q.eq('assigned_store', user.store_name);
     const { data: t, error } = await q;
     if (error) alert(error.message);
     setTargets(t || []);
@@ -181,7 +185,7 @@ function CallList({ user, mode }) {
 
   return (
     <div>
-      <h2>{mode === 'mine' ? '내 해피콜 리스트' : '전체 해피콜 리스트'}</h2>
+      <h2>{mode === 'mine' ? '내 해피콜 리스트' : mode === 'store' ? `${user.store_name} 해피콜 진행현황` : '전체 해피콜 리스트'}</h2>
       <div className="list">
         {targets.map(t => {
           const log = latestLogByTarget[t.id];
@@ -197,7 +201,7 @@ function CallList({ user, mode }) {
           );
         })}
       </div>
-      {selected && <CallModal target={selected} user={user} onClose={() => setSelected(null)} onSaved={load} />}
+      {selected && <CallModal target={selected} user={user} onClose={() => setSelected(null)} onSaved={load} readOnly={readOnly} />}
     </div>
   );
 }
@@ -213,7 +217,7 @@ function callTypeLabel(type) {
   })[type] || type;
 }
 
-function CallModal({ target, user, onClose, onSaved }) {
+function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [result, setResult] = useState('통화완료');
   const [detail, setDetail] = useState('불만사항없음');
   const [memo, setMemo] = useState('');
@@ -287,10 +291,16 @@ function CallModal({ target, user, onClose, onSaved }) {
         </section>
         <section>
           <h3>통화 결과</h3>
-          <select value={result} onChange={e => onResultChange(e.target.value)}>{Object.keys(CALL_RESULTS).map(v => <option key={v}>{v}</option>)}</select>
-          <select value={detail} onChange={e => setDetail(e.target.value)}>{CALL_RESULTS[result].map(v => <option key={v}>{v}</option>)}</select>
-          <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="메모 입력" />
-          <button className="primary" onClick={save}>저장</button>
+          {readOnly ? (
+            <p className="muted">점장 확인 화면에서는 수정할 수 없습니다. 직원 본인만 내 해피콜 탭에서 결과를 입력할 수 있습니다.</p>
+          ) : (
+            <>
+              <select value={result} onChange={e => onResultChange(e.target.value)}>{Object.keys(CALL_RESULTS).map(v => <option key={v}>{v}</option>)}</select>
+              <select value={detail} onChange={e => setDetail(e.target.value)}>{CALL_RESULTS[result].map(v => <option key={v}>{v}</option>)}</select>
+              <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="메모 입력" />
+              <button className="primary" onClick={save}>저장</button>
+            </>
+          )}
         </section>
       </div>
     </div>
@@ -314,7 +324,7 @@ function Employees() {
     if (empError) alert(empError.message);
     if (storeError) alert(storeError.message);
 
-    const stores = storeData || [];
+    const stores = [{ id: 'admin-option', name: '관리자', status: '관리용' }, ...(storeData || [])];
     setRows(empData || []);
     setStoreOptions(stores);
 
@@ -351,7 +361,7 @@ function Employees() {
       <option value="">매장 선택</option>
       {storeOptions.map(s => (
         <option key={s.id || s.name} value={s.name}>
-          {s.name}{s.status === '폐점' ? ' (폐점)' : ''}
+          {s.name}{s.status === '폐점' ? ' (폐점)' : s.status === '관리용' ? ' (자동배정 제외)' : ''}
         </option>
       ))}
     </select>
@@ -403,6 +413,7 @@ function Employees() {
               <td>
                 <select value={r.role||'직원'} onChange={e=>update(r.id,{role:e.target.value})}>
                   <option>직원</option>
+                  <option>점장</option>
                   <option>검수자</option>
                   <option>관리자</option>
                 </select>
@@ -412,8 +423,9 @@ function Employees() {
         </tbody>
       </table>
 
-      {!storeOptions.length && (
-        <p className="error">매장 목록이 없습니다. 먼저 매장관리에서 매장을 등록해주세요.</p>
+      <p className="muted">관리자 계정은 매장을 '관리자'로 선택하면 매장별 해피콜 자동배정 대상에서 제외됩니다.</p>
+      {storeOptions.length <= 1 && (
+        <p className="error">운영 매장 목록이 없습니다. 먼저 매장관리에서 매장을 등록해주세요.</p>
       )}
     </div>
   );
