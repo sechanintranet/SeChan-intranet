@@ -1,4 +1,4 @@
-# 세찬 해피콜 관리시스템 V4.2
+# 세찬 해피콜 관리시스템 V4.3
 
 V1 기능:
 - 직원명 + 비밀번호 로그인
@@ -89,4 +89,13 @@ Vercel 환경변수:
 - 같은 가입번호는 최신 정보로 업데이트
 - 새 가입번호는 추가
 - 기존 happycall_targets / happycall_logs / assignment_history 보존
+- saveCustomers 교체 블록 수: 1
+
+## V4.3 긴급 수정
+- RAW 저장 방식 재수정
+- upsert 제거
+- 기존 customers.id 절대 변경하지 않도록 수정
+- 기존 가입번호는 정보만 update
+- 신규 가입번호만 insert
+- happycall_targets FK 오류 방지
 - saveCustomers 교체 블록 수: 1

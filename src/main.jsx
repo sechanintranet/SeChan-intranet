@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Component, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
@@ -8,11 +8,60 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
+async function fetchAllRows(tableName, selectText = '*', orderColumn = null) {
+  const pageSize = 1000;
+  let from = 0;
+  let allRows = [];
+
+  while (true) {
+    let query = supabase.from(tableName).select(selectText).range(from, from + pageSize - 1);
+    if (orderColumn) query = query.order(orderColumn, { ascending: true });
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const rows = data || [];
+    allRows = allRows.concat(rows);
+
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return allRows;
+}
+
+
 const CALL_RESULTS = {
   '통화완료': ['불만사항없음', '불만사항있음'],
   '부재중': ['카카오톡발송', '문자발송'],
   '통화거부': ['통화거부']
 };
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="page center">
+          <div className="loginCard">
+            <h1>화면 오류</h1>
+            <p className="error">{this.state.error.message}</p>
+            <p className="muted">화면을 새로고침하거나 관리자에게 이 메시지를 전달해주세요.</p>
+            <button className="primary" onClick={() => location.reload()}>새로고침</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -23,10 +72,21 @@ function App() {
   if (!supabaseUrl || !supabaseAnonKey) return <EnvMissing />;
   if (!user) return <Login onLogin={setUser} />;
 
-  return <MainApp user={user} onLogout={() => {
-    localStorage.removeItem('happycall_user');
-    setUser(null);
-  }} />;
+  return (
+    <ErrorBoundary>
+      <MainApp
+        user={user}
+        onUserUpdate={(nextUser) => {
+          localStorage.setItem('happycall_user', JSON.stringify(nextUser));
+          setUser(nextUser);
+        }}
+        onLogout={() => {
+          localStorage.removeItem('happycall_user');
+          setUser(null);
+        }}
+      />
+    </ErrorBoundary>
+  );
 }
 
 function EnvMissing() {
@@ -83,8 +143,49 @@ function Login({ onLogin }) {
   );
 }
 
-function MainApp({ user, onLogout }) {
+function PasswordChangeModal({ user, onClose, onUserUpdate }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function changePassword() {
+    if ((user.password || '') !== current) return alert('현재 비밀번호가 맞지 않습니다.');
+    if (next.length < 4) return alert('새 비밀번호는 4자리 이상으로 입력해주세요.');
+    if (next !== confirmPw) return alert('새 비밀번호 확인이 일치하지 않습니다.');
+
+    setBusy(true);
+    const { error } = await supabase.from('employees').update({ password: next }).eq('id', user.id);
+    setBusy(false);
+    if (error) return alert(error.message);
+
+    const nextUser = { ...user, password: next };
+    onUserUpdate(nextUser);
+    alert('비밀번호가 변경되었습니다.');
+    onClose();
+  }
+
+  return (
+    <div className="modalBg">
+      <div className="modal smallModal">
+        <div className="modalHead"><h2>비밀번호 변경</h2><button onClick={onClose}>닫기</button></div>
+        <section>
+          <label>현재 비밀번호</label>
+          <input type="password" value={current} onChange={e=>setCurrent(e.target.value)} />
+          <label>새 비밀번호</label>
+          <input type="password" value={next} onChange={e=>setNext(e.target.value)} />
+          <label>새 비밀번호 확인</label>
+          <input type="password" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') changePassword(); }} />
+          <button className="primary" onClick={changePassword} disabled={busy}>변경하기</button>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function MainApp({ user, onLogout, onUserUpdate }) {
   const [tab, setTab] = useState(user.role === '직원' ? 'mycalls' : 'dashboard');
+  const [showPassword, setShowPassword] = useState(false);
   const isAdmin = user.role === '관리자';
   const isManager = user.role === '점장';
   const isChecker = user.role === '검수자' || user.role === '관리자';
@@ -96,13 +197,13 @@ function MainApp({ user, onLogout }) {
           <h1>세찬 해피콜 관리시스템</h1>
           <p>{user.name} · {user.store_name} · {user.role || '직원'}</p>
         </div>
-        <button onClick={onLogout}>로그아웃</button>
+        <div className="headerActions"><button onClick={() => setShowPassword(true)}>비밀번호 변경</button><button onClick={onLogout}>로그아웃</button></div>
       </header>
 
       <nav>
         {(isAdmin || isChecker || isManager) && <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>대시보드</button>}
         <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
-        {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 확인</button>}
+        {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 현황</button>}
         {isAdmin && <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>}
         {isAdmin && <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>}
         {isAdmin && <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>}
@@ -111,7 +212,7 @@ function MainApp({ user, onLogout }) {
       </nav>
 
       <main>
-        {tab === 'dashboard' && <Dashboard />}
+        {tab === 'dashboard' && <Dashboard user={user} />}
         {tab === 'mycalls' && <CallList user={user} mode="mine" />}
         {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
         {tab === 'allcalls' && <CallList user={user} mode="all" />}
@@ -120,37 +221,73 @@ function MainApp({ user, onLogout }) {
         {tab === 'rawupload' && <RawUpload />}
         {tab === 'targetgen' && <TargetGenerator />}
       </main>
+      {showPassword && <PasswordChangeModal user={user} onClose={() => setShowPassword(false)} onUserUpdate={onUserUpdate} />}
     </div>
   );
 }
 
-function Dashboard() {
+function Dashboard({ user }) {
   const [targets, setTargets] = useState([]);
   const [logs, setLogs] = useState([]);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const { data: t } = await supabase.from('happycall_targets').select('*').eq('is_skipped', false);
+    let q = supabase.from('happycall_targets').select('*').eq('is_skipped', false);
+    if (user.role === '점장') q = q.eq('assigned_store', user.store_name);
+    const { data: t } = await q;
     const { data: l } = await supabase.from('happycall_logs').select('*');
     setTargets(t || []);
     setLogs(l || []);
   }
 
-  const loggedTargetIds = new Set(logs.map(l => l.target_id));
+  const targetIds = new Set(targets.map(t => t.id));
+  const filteredLogs = logs.filter(l => targetIds.has(l.target_id));
+  const loggedTargetIds = new Set(filteredLogs.map(l => l.target_id));
   const done = targets.filter(t => loggedTargetIds.has(t.id)).length;
   const pending = targets.length - done;
-  const voc = logs.filter(l => l.call_detail === '불만사항있음').length;
+  const voc = filteredLogs.filter(l => l.call_detail === '불만사항있음').length;
+  const absent = filteredLogs.filter(l => l.call_result === '부재중').length;
+  const refused = filteredLogs.filter(l => l.call_result === '통화거부').length;
+  const doneRate = targets.length ? Math.round((done / targets.length) * 1000) / 10 : 0;
+
+  const byEmployee = {};
+  targets.forEach(t => {
+    const name = t.assigned_employee || '배정불가';
+    if (!byEmployee[name]) byEmployee[name] = { total: 0, done: 0 };
+    byEmployee[name].total += 1;
+    if (loggedTargetIds.has(t.id)) byEmployee[name].done += 1;
+  });
+  const employeeRows = Object.entries(byEmployee).map(([name, v]) => ({
+    name,
+    total: v.total,
+    done: v.done,
+    pending: v.total - v.done,
+    rate: v.total ? Math.round((v.done / v.total) * 1000) / 10 : 0
+  })).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
 
   return (
     <div>
-      <h2>대시보드</h2>
+      <h2>{user.role === '점장' ? `${user.store_name} 매장 대시보드` : '대시보드'}</h2>
       <div className="stats">
         <Card title="전체 대상" value={targets.length} />
         <Card title="완료" value={done} />
         <Card title="미완료" value={pending} />
+        <Card title="완료율" value={`${doneRate}%`} />
         <Card title="불만 있음" value={voc} />
+        <Card title="부재중" value={absent} />
+        <Card title="통화거부" value={refused} />
       </div>
+
+      {user.role === '점장' && (
+        <div className="sectionCard">
+          <h3>직원별 진행률</h3>
+          <table>
+            <thead><tr><th>직원</th><th>대상</th><th>완료</th><th>미완료</th><th>완료율</th></tr></thead>
+            <tbody>{employeeRows.map(r => <tr key={r.name}><td>{r.name}</td><td>{r.total}</td><td>{r.done}</td><td>{r.pending}</td><td>{r.rate}%</td></tr>)}</tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -395,7 +532,7 @@ function Employees() {
             <th>매장</th>
             <th>상태</th>
             <th>비밀번호</th>
-            <th>권한</th>
+            <th>권한</th><th>초기화</th>
           </tr>
         </thead>
         <tbody>
@@ -419,6 +556,7 @@ function Employees() {
                   <option>관리자</option>
                 </select>
               </td>
+              <td><button onClick={() => { if(confirm(`${r.name} 비밀번호를 1234로 초기화할까요?`)) update(r.id,{password:'1234'}); }}>1234 초기화</button></td>
             </tr>
           ))}
         </tbody>
@@ -547,27 +685,64 @@ function RawUpload() {
       return;
     }
 
-    if (!confirm(`기존 customers 데이터를 삭제하고 최신 ${summary.rows.length}건으로 다시 저장할까요?`)) {
+    if (!confirm(`가입번호 기준으로 ${summary.rows.length}건을 저장/업데이트할까요?
+기존 고객 ID는 유지하고, 고객 정보만 업데이트합니다.`)) {
       return;
     }
 
     setBusy(true);
 
     try {
-      const { error: delErr } = await supabase
-        .from('customers')
-        .delete()
-        .neq('join_no', '__never__');
+      const existingRows = await fetchAllRows('customers', 'id,join_no', 'join_no');
+      const existingJoinNos = new Set((existingRows || []).map(r => String(r.join_no)));
 
-      if (delErr) throw delErr;
+      const insertRows = [];
+      const updateRows = [];
 
-      for (let i = 0; i < summary.rows.length; i += 500) {
-        const chunk = summary.rows.slice(i, i + 500);
+      summary.rows.forEach(r => {
+        const cleanRow = {
+          join_no: r.join_no,
+          open_date: r.open_date,
+          store_name: r.store_name,
+          raw_store_name: r.raw_store_name,
+          seller_name: r.seller_name,
+          raw_sheet: r.raw_sheet,
+          raw_row: r.raw_row
+        };
+
+        if (existingJoinNos.has(String(r.join_no))) {
+          updateRows.push(cleanRow);
+        } else {
+          insertRows.push(cleanRow);
+        }
+      });
+
+      for (let i = 0; i < insertRows.length; i += 500) {
+        const chunk = insertRows.slice(i, i + 500);
         const { error } = await supabase.from('customers').insert(chunk);
         if (error) throw error;
       }
 
-      alert(`저장 완료: ${summary.rows.length}건`);
+      for (let i = 0; i < updateRows.length; i++) {
+        const r = updateRows[i];
+        const { error } = await supabase
+          .from('customers')
+          .update({
+            open_date: r.open_date,
+            store_name: r.store_name,
+            raw_store_name: r.raw_store_name,
+            seller_name: r.seller_name,
+            raw_sheet: r.raw_sheet,
+            raw_row: r.raw_row
+          })
+          .eq('join_no', r.join_no);
+
+        if (error) throw error;
+      }
+
+      alert(`저장 완료
+신규 추가: ${insertRows.length}건
+기존 업데이트: ${updateRows.length}건`);
     } catch (e) {
       alert('DB 저장 오류: ' + e.message);
     } finally {
@@ -786,17 +961,12 @@ function TargetGenerator() {
     setPreview([]);
 
     try {
-      const [{data: customers, error: cErr}, {data: employees, error: eErr}, {data: stores, error: sErr}, {data: histories, error: hErr}] = await Promise.all([
-        supabase.from('customers').select('*'),
-        supabase.from('employees').select('*'),
-        supabase.from('stores').select('*'),
-        supabase.from('assignment_history').select('*')
+      const [customers, employees, stores, histories] = await Promise.all([
+        fetchAllRows('customers', '*', 'open_date'),
+        fetchAllRows('employees', '*', 'name'),
+        fetchAllRows('stores', '*', 'name'),
+        fetchAllRows('assignment_history', '*', 'updated_at')
       ]);
-
-      if (cErr) throw cErr;
-      if (eErr) throw eErr;
-      if (sErr) throw sErr;
-      if (hErr) throw hErr;
 
       const activeEmployees = (employees || []).filter(e => e.status === '재직' && e.store_name !== '관리자');
       const staffByStore = {};
