@@ -381,6 +381,7 @@ function Employees() {
         <input placeholder="비밀번호" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
         <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
           <option>직원</option>
+          <option>점장</option>
           <option>검수자</option>
           <option>관리자</option>
         </select>
