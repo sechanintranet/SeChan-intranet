@@ -3,3 +3,6 @@
 .summaryGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
 button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:700px){.summaryGrid{grid-template-columns:1fr 1fr}}
+
+.formGrid.compact{grid-template-columns:240px 160px 220px;align-items:center}
+@media(max-width:700px){.formGrid.compact{grid-template-columns:1fr}}
