@@ -1,4 +1,4 @@
-# 세찬 해피콜 관리시스템 V4.1
+# 세찬 해피콜 관리시스템 V4.2
 
 V1 기능:
 - 직원명 + 비밀번호 로그인
@@ -81,3 +81,12 @@ Vercel 환경변수:
 - 해피콜 생성 시 customers 전체 데이터를 1000건씩 나눠 전부 조회
 - 전체 고객 수가 1000으로 고정되던 문제 해결
 - 당일 해피콜 대상이 과소 계산되던 문제 해결
+
+## V4.2 수정 기능
+- RAW 업로드 저장 방식 변경
+- 기존 customers 전체 삭제 제거
+- 가입번호(join_no) 기준 upsert 저장
+- 같은 가입번호는 최신 정보로 업데이트
+- 새 가입번호는 추가
+- 기존 happycall_targets / happycall_logs / assignment_history 보존
+- saveCustomers 교체 블록 수: 1
