@@ -188,6 +188,7 @@ function PasswordChangeModal({ user, onClose, onUserUpdate }) {
 function MainApp({ user, onLogout, onUserUpdate }) {
   const [tab, setTab] = useState(user.role === '직원' ? 'mycalls' : 'dashboard');
   const [showPassword, setShowPassword] = useState(false);
+  const [openMenu, setOpenMenu] = useState('');
   const isAdmin = user.role === '관리자';
   const isManager = user.role === '점장';
   const isChecker = user.role === '검수자' || user.role === '관리자';
@@ -202,50 +203,66 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         <div className="headerActions"><button onClick={() => setShowPassword(true)}>비밀번호 변경</button><button onClick={onLogout}>로그아웃</button></div>
       </header>
 
-      <nav className="topNav">
+      <nav className="topNav accordionNav">
         {(isAdmin || isChecker || isManager) && <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>대시보드</button>}
         <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
 
         {isManager && (
-          <div className="navGroup">
-            <button type="button">매장관리 ▾</button>
-            <div className="navDropdown">
-              <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 해피콜 현황</button>
-              <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 리스트</button>
-              <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>
-            </div>
+          <div className="accordionGroup">
+            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'store' ? '' : 'store')}>
+              {openMenu === 'store' ? '▼' : '▶'} 매장관리
+            </button>
+            {openMenu === 'store' && (
+              <div className="accordionItems">
+                <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 해피콜 현황</button>
+                <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 리스트</button>
+                <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>
+              </div>
+            )}
           </div>
         )}
 
         {isAdmin && (
-          <div className="navGroup">
-            <button type="button">관리 ▾</button>
-            <div className="navDropdown">
-              <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
-              <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
-              <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>
-              <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>
-            </div>
+          <div className="accordionGroup">
+            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'admin' ? '' : 'admin')}>
+              {openMenu === 'admin' ? '▼' : '▶'} 관리
+            </button>
+            {openMenu === 'admin' && (
+              <div className="accordionItems">
+                <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
+                <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
+                <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>
+                <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>
+              </div>
+            )}
           </div>
         )}
 
         {(isAdmin || isChecker) && (
-          <div className="navGroup">
-            <button type="button">검수/현황 ▾</button>
-            <div className="navDropdown">
-              <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>
-              <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>
-              <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>직원별 현황</button>
-            </div>
+          <div className="accordionGroup">
+            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'review' ? '' : 'review')}>
+              {openMenu === 'review' ? '▼' : '▶'} 검수/현황
+            </button>
+            {openMenu === 'review' && (
+              <div className="accordionItems">
+                <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>
+                <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>
+                <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>직원별 현황</button>
+              </div>
+            )}
           </div>
         )}
 
         {isAdmin && (
-          <div className="navGroup">
-            <button type="button">기록 ▾</button>
-            <div className="navDropdown">
-              <button className={tab==='audit'?'active':''} onClick={()=>setTab('audit')}>감사로그</button>
-            </div>
+          <div className="accordionGroup">
+            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'logs' ? '' : 'logs')}>
+              {openMenu === 'logs' ? '▼' : '▶'} 기록
+            </button>
+            {openMenu === 'logs' && (
+              <div className="accordionItems">
+                <button className={tab==='audit'?'active':''} onClick={()=>setTab('audit')}>감사로그</button>
+              </div>
+            )}
           </div>
         )}
 

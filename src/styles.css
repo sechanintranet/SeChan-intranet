@@ -191,3 +191,51 @@ button:disabled{opacity:.55;cursor:not-allowed}
     margin-top:6px;
   }
 }
+
+/* V11.1 accordion menu */
+.accordionNav{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:flex-start;
+  overflow:visible;
+}
+.accordionGroup{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.accordionHead{
+  font-weight:700;
+}
+.accordionItems{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:8px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#f9fafb;
+  min-width:160px;
+}
+.accordionItems button{
+  text-align:left;
+  justify-content:flex-start;
+  width:100%;
+}
+@media (max-width:768px){
+  .accordionNav{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .accordionGroup{
+    width:100%;
+  }
+  .accordionHead{
+    width:100%;
+    text-align:left;
+  }
+  .accordionItems{
+    width:100%;
+  }
+}
