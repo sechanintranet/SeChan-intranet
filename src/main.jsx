@@ -450,6 +450,10 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [detail, setDetail] = useState('불만사항없음');
   const [memo, setMemo] = useState('');
   const [history, setHistory] = useState([]);
+
+  const rejectedInfo = useMemo(() => {
+    return history.find(h => h.review_status === '반려');
+  }, [history]);
   const [script, setScript] = useState(null);
 
   useEffect(() => { loadDetail(); }, [target.id]);
@@ -487,7 +491,7 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
       const { error } = await supabase.from('happycall_logs').insert(payload);
       if (error) throw error;
 
-      if (rejectedInfo?.id) {
+      if (typeof rejectedInfo !== 'undefined' && rejectedInfo?.id) {
         await supabase.from('happycall_logs').update({
           review_status: '재처리완료'
         }).eq('id', rejectedInfo.id);
@@ -968,6 +972,18 @@ function RawUpload() {
       const latestRows = latestOnly(rawRows)
         .sort((a, b) => String(b.open_date).localeCompare(String(a.open_date)));
 
+            // V8 assignment history sync
+      for (const t of targets) {
+        if (t.assigned_employee && t.assigned_employee !== '배정불가') {
+          await supabase.from('assignment_history').upsert({
+            join_no: t.join_no,
+            assigned_employee: t.assigned_employee,
+            assigned_store: t.assigned_store,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'join_no' });
+        }
+      }
+
       setSummary({
         sheets: sheets.join(', '),
         rawCount: rawRows.length,
@@ -1124,6 +1140,60 @@ function Stores() {
 }
 
 createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);
+
+function resolveAssigneeV8Compact(customer, customers, employees, stores, histories, counter) {
+  const normName = v => String(v || '').replace(/\s+/g, '').trim();
+  const normStore = v => {
+    const x = String(v || '').replace(/\s+/g, '').trim();
+    if (x.includes('금촌')) return '금촌';
+    if (x.includes('야당')) return '야당';
+    if (x.includes('봉일천')) return '봉일천';
+    if (x.includes('능곡')) return '능곡';
+    if (x.includes('화정')) return '화정';
+    if (x.includes('고양')) return '고양';
+    if (x.includes('합정')) return '합정';
+    if (x.includes('지축')) return '지축';
+    return String(v || '').trim();
+  };
+  const isActive = e => e && e.status === '재직' && e.store_name !== '관리자';
+  const findEmp = name => (employees || []).find(e => normName(e.name) === normName(name));
+
+  const storeBase = normStore(customer.store_name || customer.raw_store_name);
+  const storeRow = (stores || []).find(s => normStore(s.name) === storeBase);
+  let assignStore = storeRow?.status === '폐점' && storeRow?.successor_store ? normStore(storeRow.successor_store) : storeBase;
+  if (assignStore === '합정') assignStore = '능곡';
+  if (assignStore === '고양') assignStore = '화정';
+  if (assignStore === '지축') assignStore = '금촌';
+
+  const prev = (histories || [])
+    .filter(h => String(h.join_no) === String(customer.join_no))
+    .sort((a,b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))[0];
+  const prevEmp = findEmp(prev?.assigned_employee);
+  if (isActive(prevEmp)) return { assigned_employee: prevEmp.name, assigned_store: prevEmp.store_name || assignStore, reason: '이전 배정자 유지' };
+
+  const latestEmp = findEmp(customer.seller_name);
+  if (isActive(latestEmp)) return { assigned_employee: latestEmp.name, assigned_store: latestEmp.store_name || assignStore, reason: '최신 개통 담당자 재직' };
+
+  const historyCustomers = (customers || [])
+    .filter(c => String(c.join_no) === String(customer.join_no))
+    .sort((a,b) => String(b.open_date).localeCompare(String(a.open_date)));
+  for (const past of historyCustomers) {
+    const emp = findEmp(past.seller_name);
+    if (isActive(emp)) return { assigned_employee: emp.name, assigned_store: emp.store_name || assignStore, reason: '과거 재직 담당자 승계' };
+  }
+
+  const staff = (employees || [])
+    .filter(e => isActive(e) && e.role !== '관리자' && normStore(e.store_name) === assignStore)
+    .sort((a,b) => String(a.name).localeCompare(String(b.name),'ko'));
+  if (staff.length) {
+    const idx = counter[assignStore] || 0;
+    const picked = staff[idx % staff.length];
+    counter[assignStore] = idx + 1;
+    return { assigned_employee: picked.name, assigned_store: assignStore, reason: '매장 재직자 순환 배정' };
+  }
+  return { assigned_employee: '배정불가', assigned_store: assignStore, reason: '재직자 없음' };
+}
+
 function TargetGenerator() {
   const todayISO = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState(todayISO);
@@ -1184,46 +1254,8 @@ function TargetGenerator() {
     return picked;
   }
 
-  function decideAssignment(customer, employees, stores, historyMap, staffByStore, counter) {
-    const sellerKey = normalizeName(customer.seller_name);
-    const activeSeller = employees.find(e => normalizeName(e.name) === sellerKey && e.status === '재직');
-
-    if (activeSeller) {
-      return {
-        assigned_employee: activeSeller.name,
-        assigned_store: activeSeller.store_name,
-        reason: `최신 개통 담당자 ${activeSeller.name} 재직중으로 원담당자 배정`
-      };
-    }
-
-    const history = historyMap[customer.join_no];
-    if (history) {
-      const histActive = employees.find(e => normalizeName(e.name) === normalizeName(history.assigned_employee) && e.status === '재직');
-      if (histActive) {
-        return {
-          assigned_employee: histActive.name,
-          assigned_store: histActive.store_name,
-          reason: `기존 배정이력 유지: ${histActive.name}`
-        };
-      }
-    }
-
-    const manageStore = getSuccessorStore(customer.store_name, stores);
-    const picked = pickRoundRobin(manageStore, staffByStore, counter);
-
-    if (picked) {
-      return {
-        assigned_employee: picked.name,
-        assigned_store: picked.store_name,
-        reason: `원담당자 ${customer.seller_name || '-'} 미재직 / ${manageStore} 재직자 자동배정`
-      };
-    }
-
-    return {
-      assigned_employee: '',
-      assigned_store: manageStore,
-      reason: `${manageStore} 재직자 없음으로 배정불가`
-    };
+  function decideAssignment(customer, employees, stores, historyMap, staffByStore, counter, allCustomers = [], histories = []) {
+    return resolveAssigneeV8Compact(customer, allCustomers.length ? allCustomers : [customer], employees, stores, histories, counter || {});
   }
 
   async function generateTargets() {
@@ -1274,7 +1306,7 @@ function TargetGenerator() {
             dPlusJoinNosThisMonth.add(c.join_no);
           }
           if (plusDate === targetDate) {
-            const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
+            const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {}, customers, histories);
             rows.push({
               join_no: c.join_no,
               customer_id: c.id,
@@ -1296,7 +1328,7 @@ function TargetGenerator() {
         if (dayOfMonth(c.open_date) !== targetDay) return;
         if (dPlusJoinNosThisMonth.has(c.join_no)) return;
 
-        const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, counter);
+        const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, counter, customers, histories);
         rows.push({
           join_no: c.join_no,
           customer_id: c.id,
