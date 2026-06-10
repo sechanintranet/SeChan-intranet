@@ -971,7 +971,6 @@ function RawUpload() {
 
       const latestRows = latestOnly(rawRows)
         .sort((a, b) => String(b.open_date).localeCompare(String(a.open_date)));
-      }
 
       setSummary({
         sheets: sheets.join(', '),
@@ -1144,42 +1143,54 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
     if (x.includes('지축')) return '지축';
     return String(v || '').trim();
   };
+
   const isActive = e => e && e.status === '재직' && e.store_name !== '관리자';
   const findEmp = name => (employees || []).find(e => normName(e.name) === normName(name));
 
-  const storeBase = normStore(customer.store_name || customer.raw_store_name);
-  const storeRow = (stores || []).find(s => normStore(s.name) === storeBase);
-  let assignStore = storeRow?.status === '폐점' && storeRow?.successor_store ? normStore(storeRow.successor_store) : storeBase;
+  const baseStore = normStore(customer.store_name || customer.raw_store_name);
+  const storeRow = (stores || []).find(s => normStore(s.name) === baseStore);
+  let assignStore = storeRow?.status === '폐점' && storeRow?.successor_store ? normStore(storeRow.successor_store) : baseStore;
+
   if (assignStore === '합정') assignStore = '능곡';
   if (assignStore === '고양') assignStore = '화정';
   if (assignStore === '지축') assignStore = '금촌';
 
   const prev = (histories || [])
     .filter(h => String(h.join_no) === String(customer.join_no))
-    .sort((a,b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))[0];
+    .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))[0];
+
   const prevEmp = findEmp(prev?.assigned_employee);
-  if (isActive(prevEmp)) return { assigned_employee: prevEmp.name, assigned_store: prevEmp.store_name || assignStore, reason: '이전 배정자 유지' };
+  if (isActive(prevEmp)) {
+    return { assigned_employee: prevEmp.name, assigned_store: prevEmp.store_name || assignStore, reason: '이전 배정자 유지' };
+  }
 
   const latestEmp = findEmp(customer.seller_name);
-  if (isActive(latestEmp)) return { assigned_employee: latestEmp.name, assigned_store: latestEmp.store_name || assignStore, reason: '최신 개통 담당자 재직' };
+  if (isActive(latestEmp)) {
+    return { assigned_employee: latestEmp.name, assigned_store: latestEmp.store_name || assignStore, reason: '최신 개통 담당자 재직' };
+  }
 
-  const historyCustomers = (customers || [])
+  const customerHistory = (customers || [])
     .filter(c => String(c.join_no) === String(customer.join_no))
-    .sort((a,b) => String(b.open_date).localeCompare(String(a.open_date)));
-  for (const past of historyCustomers) {
-    const emp = findEmp(past.seller_name);
-    if (isActive(emp)) return { assigned_employee: emp.name, assigned_store: emp.store_name || assignStore, reason: '과거 재직 담당자 승계' };
+    .sort((a, b) => String(b.open_date || '').localeCompare(String(a.open_date || '')));
+
+  for (const past of customerHistory) {
+    const pastEmp = findEmp(past.seller_name);
+    if (isActive(pastEmp)) {
+      return { assigned_employee: pastEmp.name, assigned_store: pastEmp.store_name || assignStore, reason: '과거 재직 담당자 승계' };
+    }
   }
 
   const staff = (employees || [])
     .filter(e => isActive(e) && e.role !== '관리자' && normStore(e.store_name) === assignStore)
-    .sort((a,b) => String(a.name).localeCompare(String(b.name),'ko'));
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
+
   if (staff.length) {
     const idx = counter[assignStore] || 0;
     const picked = staff[idx % staff.length];
     counter[assignStore] = idx + 1;
     return { assigned_employee: picked.name, assigned_store: assignStore, reason: '매장 재직자 순환 배정' };
   }
+
   return { assigned_employee: '배정불가', assigned_store: assignStore, reason: '재직자 없음' };
 }
 
@@ -1244,7 +1255,14 @@ function TargetGenerator() {
   }
 
   function decideAssignment(customer, employees, stores, historyMap, staffByStore, counter, allCustomers = [], histories = []) {
-    return resolveAssigneeV8Compact(customer, allCustomers.length ? allCustomers : [customer], employees, stores, histories, counter || {});
+    return resolveAssigneeV8Compact(
+      customer,
+      allCustomers.length ? allCustomers : [customer],
+      employees,
+      stores,
+      histories,
+      counter || {}
+    );
   }
 
   async function generateTargets() {
@@ -1260,9 +1278,17 @@ function TargetGenerator() {
         fetchAllRows('assignment_history', '*', 'updated_at')
       ]);
 
-      const counter = {};
-      const created = [];
-      const generatedKeys = new Set();
+      const activeEmployees = (employees || []).filter(e => e.status === '재직' && e.store_name !== '관리자');
+      const staffByStore = {};
+      activeEmployees.forEach(e => {
+        const st = normalizeStore(e.store_name);
+        if (!staffByStore[st]) staffByStore[st] = [];
+        staffByStore[st].push(e);
+      });
+      Object.keys(staffByStore).forEach(k => staffByStore[k].sort((a,b)=>String(a.name).localeCompare(String(b.name), 'ko')));
+
+      const historyMap = {};
+      (histories || []).forEach(h => historyMap[h.join_no] = h);
 
       const plusMap = [
         { days: 1, type: 'D_PLUS_1' },
@@ -1272,71 +1298,61 @@ function TargetGenerator() {
         { days: 185, type: 'D_PLUS_185' }
       ];
 
-      const targetMonthText = targetDate.slice(0, 7);
-      const targetDay = Number(targetDate.slice(8, 10));
+      const targetMonthText = targetMonth(targetDate);
+      const targetDay = dayOfMonth(targetDate);
 
-      const sortedCustomers = [...customers].sort((a, b) => {
-        const d = String(b.open_date || '').localeCompare(String(a.open_date || ''));
-        if (d !== 0) return d;
-        return String(b.raw_row || '').localeCompare(String(a.raw_row || ''));
+      const rows = [];
+      const dPlusJoinNosThisMonth = new Set();
+
+      (customers || []).forEach(c => {
+        if (!c.open_date || !c.join_no) return;
+
+        plusMap.forEach(p => {
+          const plusDate = addDays(c.open_date, p.days);
+          if (targetMonth(plusDate) === targetMonthText) {
+            dPlusJoinNosThisMonth.add(c.join_no);
+          }
+          if (plusDate === targetDate) {
+            const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
+            rows.push({
+              join_no: c.join_no,
+              customer_id: c.id,
+              target_date: targetDate,
+              target_month: targetMonthText,
+              call_type: p.type,
+              assigned_store: a.assigned_store,
+              assigned_employee: a.assigned_employee,
+              is_skipped: false,
+              skip_reason: a.reason
+            });
+          }
+        });
       });
 
-      const latestByJoinNo = {};
-      sortedCustomers.forEach(c => {
-        if (!latestByJoinNo[c.join_no]) latestByJoinNo[c.join_no] = c;
-      });
+      const counter = {};
+      (customers || []).forEach(c => {
+        if (!c.open_date || !c.join_no) return;
+        if (dayOfMonth(c.open_date) !== targetDay) return;
+        if (dPlusJoinNosThisMonth.has(c.join_no)) return;
 
-      function addTarget(c, callType, basisDate) {
-        const key = `${c.join_no}:${callType}:${targetDate}`;
-        if (generatedKeys.has(key)) return;
-        generatedKeys.add(key);
-
-        const assigned = resolveAssigneeV8Compact(c, customers, employees, stores, histories, counter);
-
-        created.push({
-          customer_id: c.id,
+        const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, counter);
+        rows.push({
           join_no: c.join_no,
+          customer_id: c.id,
           target_date: targetDate,
-          basis_open_date: basisDate || c.open_date,
-          call_type: callType,
-          assigned_employee: assigned.assigned_employee,
-          assigned_store: assigned.assigned_store,
-          assign_reason: assigned.reason,
-          is_skipped: false
-        });
-      }
-
-      Object.values(latestByJoinNo).forEach(c => {
-        plusMap.forEach(rule => {
-          if (addDays(c.open_date, rule.days) === targetDate) {
-            addTarget(c, rule.type, c.open_date);
-          }
+          target_month: targetMonthText,
+          call_type: 'MONTHLY_DAY',
+          assigned_store: a.assigned_store,
+          assigned_employee: a.assigned_employee,
+          is_skipped: false,
+          skip_reason: a.reason
         });
       });
 
-      Object.values(latestByJoinNo).forEach(c => {
-        if (dayOfMonth(c.open_date) === targetDay) {
-          const hasPlusThisMonth = plusMap.some(rule => targetMonth(addDays(c.open_date, rule.days)) === targetMonthText);
-          if (!hasPlusThisMonth) {
-            addTarget(c, 'MONTHLY_SAME_DAY', c.open_date);
-          }
-        }
-      });
-
-      if (!created.length) {
-        setSummary({ total: 0, created: 0, skipped: 0 });
-        setPreview([]);
-        alert('생성할 해피콜 대상이 없습니다.');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('happycall_targets')
-        .upsert(created, { onConflict: 'join_no,target_date,call_type', ignoreDuplicates: false });
-
-      if (error) throw error;
-
-      for (const t of created) {
+      const saveRows = rows.filter(r => r.assigned_employee);
+      setPreview(rows.slice(0, 150));
+            // V8 assignment history sync
+      for (const t of targets) {
         if (t.assigned_employee && t.assigned_employee !== '배정불가') {
           await supabase.from('assignment_history').upsert({
             join_no: t.join_no,
@@ -1348,15 +1364,52 @@ function TargetGenerator() {
       }
 
       setSummary({
-        total: created.length,
-        created: created.length,
-        skipped: 0
+        customerCount: customers?.length || 0,
+        generated: rows.length,
+        savable: saveRows.length,
+        unassigned: rows.length - saveRows.length,
+        rows,
+        saveRows
       });
-      setPreview(created.slice(0, 100));
+    } catch(e) {
+      alert('해피콜 생성 중 오류: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      alert(`생성 완료: ${created.length}건`);
-    } catch (e) {
-      alert('해피콜 생성 오류: ' + e.message);
+  async function saveTargets() {
+    if (!summary?.saveRows?.length) return alert('저장할 대상이 없습니다.');
+    if (!confirm(`${targetDate} 해피콜 대상 ${summary.saveRows.length}건을 저장할까요?\n기존 같은 날짜 대상은 삭제 후 다시 저장됩니다.`)) return;
+
+    setBusy(true);
+    try {
+      const { error: delErr } = await supabase.from('happycall_targets').delete().eq('target_date', targetDate);
+      if (delErr) throw delErr;
+
+      for (let i = 0; i < summary.saveRows.length; i += 500) {
+        const chunk = summary.saveRows.slice(i, i + 500);
+        const { error } = await supabase.from('happycall_targets').insert(chunk);
+        if (error) throw error;
+      }
+
+      const historyRows = summary.saveRows.map(r => ({
+        join_no: r.join_no,
+        assigned_store: r.assigned_store,
+        assigned_employee: r.assigned_employee,
+        assign_reason: r.skip_reason,
+        updated_at: new Date().toISOString()
+      }));
+
+      for (let i = 0; i < historyRows.length; i += 500) {
+        const chunk = historyRows.slice(i, i + 500);
+        const { error } = await supabase.from('assignment_history').upsert(chunk, { onConflict: 'join_no' });
+        if (error) throw error;
+      }
+
+      alert(`저장 완료: ${summary.saveRows.length}건`);
+    } catch(e) {
+      alert('DB 저장 오류: ' + e.message);
     } finally {
       setBusy(false);
     }
