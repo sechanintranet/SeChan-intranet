@@ -301,11 +301,28 @@ function Dashboard({ user }) {
 
   const latestLogByTarget = useMemo(() => {
     const map = {};
-    logs.forEach(l => { if (!map[l.target_id]) map[l.target_id] = l; });
+    logs.forEach(l => {
+      const prev = map[l.target_id];
+      if (!prev) {
+        map[l.target_id] = l;
+        return;
+      }
+      if (l.review_status === '반려' && prev.review_status !== '반려') {
+        map[l.target_id] = l;
+        return;
+      }
+      if (String(l.checked_at || '') > String(prev.checked_at || '')) {
+        map[l.target_id] = l;
+      }
+    });
     return map;
   }, [logs]);
 
-  const stats = useMemo(() => calculateCallStats(targets, latestLogByTarget), [targets, latestLogByTarget]);
+  const stats = useMemo(() => {
+    const base = calculateCallStats(targets, latestLogByTarget);
+    const rejected = targets.filter(t => latestLogByTarget[t.id]?.review_status === '반려').length;
+    return { ...base, rejected, pending: base.pending + rejected };
+  }, [targets, latestLogByTarget]);
 
   return (
     <div>
@@ -363,10 +380,11 @@ function CallList({ user, mode, readOnly = false }) {
 
   const filteredTargets = useMemo(() => {
     let list = [...targets];
-    if (filter === '경과미완료') list = list.filter(t => !latestLogByTarget[t.id] && diffDays(t.target_date) > 0);
+    if (filter === '반려') list = list.filter(t => latestLogByTarget[t.id]?.review_status === '반려');
+    else if (filter === '경과미완료') list = list.filter(t => !latestLogByTarget[t.id] && diffDays(t.target_date) > 0);
     else if (filter === '오늘신규') list = list.filter(t => t.target_date === todayLocalISO());
-    else if (filter === '미완료전체') list = list.filter(t => !latestLogByTarget[t.id]);
-    else if (filter === '완료') list = list.filter(t => latestLogByTarget[t.id]);
+    else if (filter === '미완료전체') list = list.filter(t => !latestLogByTarget[t.id] || latestLogByTarget[t.id]?.review_status === '반려');
+    else if (filter === '완료') list = list.filter(t => latestLogByTarget[t.id] && latestLogByTarget[t.id]?.review_status !== '반려');
     return list.sort((a,b)=>sortTargetsByPriority(a,b,latestLogByTarget));
   }, [targets, latestLogByTarget, filter]);
 
@@ -385,10 +403,11 @@ function CallList({ user, mode, readOnly = false }) {
         <Card title="오늘 신규" value={stats.todayTotal} />
         <Card title="오늘 완료" value={stats.todayDone} />
         <Card title="전체 미완료" value={stats.pending} />
-        <Card title="VOC" value={stats.voc} />
+        <Card title="반려" value={stats.rejected} />
       </div>
       <div className="filterBar">
         <button className={filter==='미완료전체'?'active':''} onClick={()=>setFilter('미완료전체')}>미완료 전체 {stats.pending}</button>
+        <button className={filter==='반려'?'active rejected':''} onClick={()=>setFilter('반려')}>반려 {stats.rejected}</button>
         <button className={filter==='경과미완료'?'active':''} onClick={()=>setFilter('경과미완료')}>경과 미완료 {stats.overdue}</button>
         <button className={filter==='오늘신규'?'active':''} onClick={()=>setFilter('오늘신규')}>오늘 신규 {stats.todayTotal}</button>
         <button className={filter==='완료'?'active':''} onClick={()=>setFilter('완료')}>완료 {stats.done}</button>
@@ -403,8 +422,9 @@ function CallList({ user, mode, readOnly = false }) {
                 <b>{t.join_no}</b>
                 <p>{t.assigned_store} · {t.assigned_employee} · {callTypeLabel(t.call_type)}</p>
                 <p className="muted">대상일 {t.target_date} / {t.skip_reason || t.assign_reason || ''}</p>
+                {log?.review_status === '반려' && <p className="rejectReason">반려사유: {log.review_memo || '반려 사유 없음'}</p>}
               </div>
-              <StatusBadge target={t} log={log} />
+              {log?.review_status === '반려' ? <span className="badge rejected">반려</span> : <StatusBadge target={t} log={log} />}
             </div>
           );
         })}
@@ -467,6 +487,12 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
       const { error } = await supabase.from('happycall_logs').insert(payload);
       if (error) throw error;
 
+      if (rejectedInfo?.id) {
+        await supabase.from('happycall_logs').update({
+          review_status: '재처리완료'
+        }).eq('id', rejectedInfo.id);
+      }
+
       if (detail === '불만사항있음') {
         await supabase.from('voc_logs').insert({
           target_id: target.id,
@@ -505,6 +531,14 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
             {history.length ? history.map(h => <div key={h.id}><b>{h.open_date}</b> · {h.store_name} · {h.seller_name}</div>) : <p className="muted">개통 이력이 없습니다.</p>}
           </div>
         </section>
+        {rejectedInfo && (
+          <section className="rejectBox">
+            <h3>검수 반려됨</h3>
+            <p>{rejectedInfo.review_memo || '반려 사유 없음'}</p>
+            <p className="muted">내용을 보완해서 다시 저장하면 검수대기로 재등록됩니다.</p>
+          </section>
+        )}
+
         <section>
           <h3>통화 결과</h3>
           {readOnly ? (

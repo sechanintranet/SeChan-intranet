@@ -22,3 +22,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
 .reviewActions{display:flex;gap:8px;margin-top:12px}
 .dangerBtn{background:#dc2626}
+
+.badge.rejected{background:#fee2e2;color:#991b1b}
+.filterBar button.rejected{background:#dc2626;color:#fff}
+.rejectReason{margin-top:6px;color:#991b1b;font-weight:800}
+.rejectBox{background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:12px}
