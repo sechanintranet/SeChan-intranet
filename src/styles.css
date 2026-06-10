@@ -239,3 +239,74 @@ button:disabled{opacity:.55;cursor:not-allowed}
     width:100%;
   }
 }
+
+/* V11.2 clean employee UI */
+.compactNav{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:flex-start;
+  overflow:visible;
+}
+.compactGroup{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.compactHead{
+  font-weight:700;
+}
+.compactItems{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  padding:8px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#f9fafb;
+}
+.employeeTableWrap{
+  overflow-x:auto;
+}
+.compactEmployeeTable th,
+.compactEmployeeTable td{
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.compactEmployeeTable select,
+.compactEmployeeTable input{
+  height:34px;
+}
+.employeeNameCell{
+  font-weight:700;
+  min-width:54px;
+}
+.employeeAddGrid{
+  grid-template-columns:repeat(6,minmax(110px,1fr));
+}
+.employeeDetailModal{
+  max-width:900px;
+}
+.employeeDetailModal label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-weight:700;
+}
+@media (max-width:768px){
+  .compactNav{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .compactGroup,
+  .compactHead,
+  .compactItems{
+    width:100%;
+  }
+  .compactItems{
+    flex-direction:column;
+  }
+  .employeeAddGrid{
+    grid-template-columns:1fr;
+  }
+}

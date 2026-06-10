@@ -203,19 +203,20 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         <div className="headerActions"><button onClick={() => setShowPassword(true)}>비밀번호 변경</button><button onClick={onLogout}>로그아웃</button></div>
       </header>
 
-      <nav className="topNav accordionNav">
+      <nav className="topNav compactNav">
         {(isAdmin || isChecker || isManager) && <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>대시보드</button>}
         <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
+        {isAdmin && <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>}
 
         {isManager && (
-          <div className="accordionGroup">
-            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'store' ? '' : 'store')}>
-              {openMenu === 'store' ? '▼' : '▶'} 매장관리
+          <div className="compactGroup">
+            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'store' ? '' : 'store')}>
+              매장관리 {openMenu === 'store' ? '▲' : '▼'}
             </button>
             {openMenu === 'store' && (
-              <div className="accordionItems">
-                <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 해피콜 현황</button>
-                <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 리스트</button>
+              <div className="compactItems">
+                <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 현황</button>
+                <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 리스트</button>
                 <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>
               </div>
             )}
@@ -223,13 +224,12 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         )}
 
         {isAdmin && (
-          <div className="accordionGroup">
-            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'admin' ? '' : 'admin')}>
-              {openMenu === 'admin' ? '▼' : '▶'} 관리
+          <div className="compactGroup">
+            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'ops' ? '' : 'ops')}>
+              운영관리 {openMenu === 'ops' ? '▲' : '▼'}
             </button>
-            {openMenu === 'admin' && (
-              <div className="accordionItems">
-                <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
+            {openMenu === 'ops' && (
+              <div className="compactItems">
                 <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
                 <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>
                 <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>
@@ -239,12 +239,12 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         )}
 
         {(isAdmin || isChecker) && (
-          <div className="accordionGroup">
-            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'review' ? '' : 'review')}>
-              {openMenu === 'review' ? '▼' : '▶'} 검수/현황
+          <div className="compactGroup">
+            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'review' ? '' : 'review')}>
+              검수/현황 {openMenu === 'review' ? '▲' : '▼'}
             </button>
             {openMenu === 'review' && (
-              <div className="accordionItems">
+              <div className="compactItems">
                 <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>
                 <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>
                 <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>직원별 현황</button>
@@ -254,12 +254,12 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         )}
 
         {isAdmin && (
-          <div className="accordionGroup">
-            <button type="button" className="accordionHead" onClick={()=>setOpenMenu(openMenu === 'logs' ? '' : 'logs')}>
-              {openMenu === 'logs' ? '▼' : '▶'} 기록
+          <div className="compactGroup">
+            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'logs' ? '' : 'logs')}>
+              기록 {openMenu === 'logs' ? '▲' : '▼'}
             </button>
             {openMenu === 'logs' && (
-              <div className="accordionItems">
+              <div className="compactItems">
                 <button className={tab==='audit'?'active':''} onClick={()=>setTab('audit')}>감사로그</button>
               </div>
             )}
@@ -761,7 +761,7 @@ function Employees({ user }) {
   const [form, setForm] = useState({ name:'', store_name:'금촌', status:'재직', password:'1234', role:'직원', hire_date:'', resign_date:'' });
   const [viewStatus, setViewStatus] = useState('재직');
   const [drafts, setDrafts] = useState({});
-  const [historyTarget, setHistoryTarget] = useState(null);
+  const [detailTarget, setDetailTarget] = useState(null);
 
   useEffect(() => { load(); }, []);
 
@@ -784,8 +784,6 @@ function Employees({ user }) {
         store_name: r.store_name || '',
         status: r.status || '재직',
         role: r.role || '직원',
-        hire_date: r.hire_date || '',
-        resign_date: r.resign_date || '',
         password: ''
       };
     });
@@ -827,16 +825,11 @@ function Employees({ user }) {
     const patch = {
       store_name: d.store_name || employee.store_name || '',
       status: d.status || employee.status || '재직',
-      role: d.role || employee.role || '직원',
-      hire_date: d.hire_date || null,
-      resign_date: (d.status || employee.status) === '퇴사' ? (d.resign_date || employee.resign_date || todayLocalISO()) : null
+      role: d.role || employee.role || '직원'
     };
 
     if (d.password) patch.password = d.password;
-
-    if (patch.status === '퇴사' && !patch.resign_date) {
-      return alert('퇴사자는 퇴사일을 입력해주세요.');
-    }
+    if (patch.status === '퇴사' && !employee.resign_date) patch.resign_date = todayLocalISO();
 
     if (!confirm(`${employee.name} 직원 정보를 최종 저장할까요?`)) return;
 
@@ -874,7 +867,7 @@ function Employees({ user }) {
         <button className={viewStatus==='퇴사'?'active':''} onClick={()=>setViewStatus('퇴사')}>퇴사자 {retiredCount}</button>
       </div>
 
-      <div className="formGrid">
+      <div className="formGrid employeeAddGrid">
         <input placeholder="직원명" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} />
         {storeSelect(form.store_name, v => setForm({...form,store_name:v}))}
         <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
@@ -888,74 +881,110 @@ function Employees({ user }) {
           <option>검수자</option>
           <option>관리자</option>
         </select>
-        <input type="date" value={form.hire_date || ''} onChange={e=>setForm({...form,hire_date:e.target.value})} />
-        <input type="date" value={form.resign_date || ''} onChange={e=>setForm({...form,resign_date:e.target.value})} />
         <input placeholder="초기 비밀번호" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
         <button className="primary" onClick={add}>직원 추가</button>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>이름</th>
-            <th>매장</th>
-            <th>상태</th>
-            <th>권한</th>
-            <th>입사일</th>
-            <th>퇴사일</th>
-            <th>비밀번호 관리</th>
-            <th>근무이력</th>
-            <th>최종저장</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredRows.map(r => {
-            const d = drafts[r.id] || {};
-            const isRetired = (d.status || r.status) === '퇴사';
-            return (
-              <tr key={r.id}>
-                <td>{r.name}</td>
-                <td>{storeSelect(d.store_name ?? r.store_name, v => setDraft(r.id,{store_name:v}))}</td>
-                <td>
-                  <select value={d.status ?? r.status ?? '재직'} onChange={e=>setDraft(r.id,{status:e.target.value, resign_date:e.target.value === '퇴사' ? (d.resign_date || todayLocalISO()) : ''})}>
-                    <option>재직</option>
-                    <option>퇴사</option>
-                    <option>리스트 제외</option>
-                  </select>
-                </td>
-                <td>
-                  <select value={d.role ?? r.role ?? '직원'} onChange={e=>setDraft(r.id,{role:e.target.value})}>
-                    <option>직원</option>
-                    <option>점장</option>
-                    <option>검수자</option>
-                    <option>관리자</option>
-                  </select>
-                </td>
-                <td><input type="date" value={d.hire_date ?? r.hire_date ?? ''} onChange={e=>setDraft(r.id,{hire_date:e.target.value})} /></td>
-                <td><input type="date" value={d.resign_date ?? r.resign_date ?? ''} onChange={e=>setDraft(r.id,{resign_date:e.target.value})} disabled={!isRetired} /></td>
-                <td>
-                  <div className="passwordEdit">
-                    <input value={d.password ?? ''} onChange={e=>setDraft(r.id,{password:e.target.value})} placeholder="새 비밀번호" disabled={r.status === '퇴사'} />
-                    <button onClick={()=>setDraft(r.id,{password:'1234'})} disabled={r.status === '퇴사'}>1234 입력</button>
-                  </div>
-                  <p className="muted smallText">현재값은 보안상 표시하지 않음</p>
-                </td>
-                <td><button onClick={()=>setHistoryTarget(r)}>근무이력</button></td>
-                <td><button className="primary" onClick={()=>saveEmployee(r)}>최종저장</button></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="sectionCard employeeTableWrap">
+        <table className="employeeTable compactEmployeeTable">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>매장</th>
+              <th>상태</th>
+              <th>권한</th>
+              <th>비밀번호 관리</th>
+              <th>상세</th>
+              <th>최종저장</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.map(r => {
+              const d = drafts[r.id] || {};
+              return (
+                <tr key={r.id}>
+                  <td className="employeeNameCell">{r.name}</td>
+                  <td>{storeSelect(d.store_name ?? r.store_name, v => setDraft(r.id,{store_name:v}))}</td>
+                  <td>
+                    <select value={d.status ?? r.status ?? '재직'} onChange={e=>setDraft(r.id,{status:e.target.value})}>
+                      <option>재직</option>
+                      <option>퇴사</option>
+                      <option>리스트 제외</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select value={d.role ?? r.role ?? '직원'} onChange={e=>setDraft(r.id,{role:e.target.value})}>
+                      <option>직원</option>
+                      <option>점장</option>
+                      <option>검수자</option>
+                      <option>관리자</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div className="passwordEdit">
+                      <input value={d.password ?? ''} onChange={e=>setDraft(r.id,{password:e.target.value})} placeholder="새 비밀번호" disabled={r.status === '퇴사'} />
+                      <button onClick={()=>setDraft(r.id,{password:'1234'})} disabled={r.status === '퇴사'}>1234 입력</button>
+                    </div>
+                    <p className="muted smallText">현재값은 보안상 표시하지 않음</p>
+                  </td>
+                  <td><button onClick={()=>setDetailTarget(r)}>상세</button></td>
+                  <td><button className="primary" onClick={()=>saveEmployee(r)}>최종저장</button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      <p className="muted">퇴사자는 로그인할 수 없습니다. 퇴사자 정보는 이력 확인용으로만 관리합니다.</p>
+      <p className="muted">입사일, 퇴사일, 근무이력은 상세 버튼에서 관리합니다. 퇴사자는 로그인할 수 없습니다.</p>
       {storeOptions.length <= 1 && <p className="error">운영 매장 목록이 없습니다. 먼저 매장관리에서 매장을 등록해주세요.</p>}
-      {historyTarget && <WorkHistoryModal employee={historyTarget} stores={storeOptions} user={user} onClose={()=>setHistoryTarget(null)} />}
+      {detailTarget && <EmployeeDetailModal employee={detailTarget} stores={storeOptions} user={user} onClose={()=>setDetailTarget(null)} onUpdated={load} />}
     </div>
   );
 }
 
-function WorkHistoryModal({ employee, stores, user, onClose }) {
+function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
+  const [profile, setProfile] = useState({
+    hire_date: employee.hire_date || '',
+    resign_date: employee.resign_date || ''
+  });
+
+  async function saveProfile() {
+    const patch = {
+      hire_date: profile.hire_date || null,
+      resign_date: profile.resign_date || null
+    };
+
+    const { error } = await supabase.from('employees').update(patch).eq('id', employee.id);
+    if (error) return alert(error.message);
+
+    await writeAuditLog('직원상세저장', 'employee', employee.id, user, `대상: ${employee.name} / 입사일: ${patch.hire_date || '-'} / 퇴사일: ${patch.resign_date || '-'}`);
+    alert('상세 정보가 저장되었습니다.');
+    onUpdated?.();
+  }
+
+  return (
+    <div className="modalBg">
+      <div className="modal employeeDetailModal">
+        <div className="modalHead"><h2>{employee.name} 상세관리</h2><button onClick={onClose}>닫기</button></div>
+
+        <section>
+          <h3>입사/퇴사 정보</h3>
+          <div className="formGrid compact">
+            <label>입사일<input type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
+            <label>퇴사일<input type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
+            <button className="primary" onClick={saveProfile}>상세 저장</button>
+          </div>
+          <p className="muted">퇴사 상태는 직원관리 메인에서 상태를 퇴사로 바꾼 뒤 최종저장하세요.</p>
+        </section>
+
+        <WorkHistoryInner employee={employee} stores={stores} user={user} />
+      </div>
+    </div>
+  );
+}
+
+function WorkHistoryInner({ employee, stores, user }) {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState({ store_name: employee.store_name || '', role: employee.role || '직원', start_date: '', end_date: '' });
   const [busy, setBusy] = useState(false);
@@ -1013,49 +1042,40 @@ function WorkHistoryModal({ employee, stores, user, onClose }) {
   }
 
   return (
-    <div className="modalBg">
-      <div className="modal">
-        <div className="modalHead"><h2>{employee.name} 근무이력</h2><button onClick={onClose}>닫기</button></div>
-
-        <section>
-          <h3>이력 추가</h3>
-          <div className="formGrid compact">
-            <select value={form.store_name} onChange={e=>setForm({...form,store_name:e.target.value})}>
-              <option value="">매장 선택</option>
-              {stores.filter(s => s.name !== '관리자').map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
-            </select>
-            <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
-              <option>직원</option>
-              <option>점장</option>
-              <option>검수자</option>
-              <option>관리자</option>
-            </select>
-            <input type="date" value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} />
-            <input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})} />
-            <button className="primary" onClick={addHistory} disabled={busy}>추가</button>
-          </div>
-          <p className="muted">종료일을 비워두면 현재 근무중으로 표시됩니다.</p>
-        </section>
-
-        <section>
-          <h3>근무이력 목록</h3>
-          <table>
-            <thead><tr><th>매장</th><th>직책</th><th>기간</th><th>삭제</th></tr></thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.id}>
-                  <td>{r.store_name}</td>
-                  <td>{r.role}</td>
-                  <td>{r.start_date} ~ {r.end_date || '현재'}</td>
-                  <td><button className="dangerBtn" onClick={()=>deleteHistory(r)}>삭제</button></td>
-                </tr>
-              ))}
-              {!rows.length && <tr><td colSpan="4" className="muted">등록된 근무이력이 없습니다.</td></tr>}
-            </tbody>
-          </table>
-        </section>
+    <section>
+      <h3>근무이력</h3>
+      <div className="formGrid compact">
+        <select value={form.store_name} onChange={e=>setForm({...form,store_name:e.target.value})}>
+          <option value="">매장 선택</option>
+          {stores.filter(s => s.name !== '관리자').map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
+        </select>
+        <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
+          <option>직원</option>
+          <option>점장</option>
+          <option>검수자</option>
+          <option>관리자</option>
+        </select>
+        <input type="date" value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} />
+        <input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})} />
+        <button className="primary" onClick={addHistory} disabled={busy}>이력 추가</button>
       </div>
-    </div>
+      <p className="muted">종료일을 비워두면 현재 근무중으로 표시됩니다.</p>
+
+      <table>
+        <thead><tr><th>매장</th><th>직책</th><th>기간</th><th>삭제</th></tr></thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id}>
+              <td>{r.store_name}</td>
+              <td>{r.role}</td>
+              <td>{r.start_date} ~ {r.end_date || '현재'}</td>
+              <td><button className="dangerBtn" onClick={()=>deleteHistory(r)}>삭제</button></td>
+            </tr>
+          ))}
+          {!rows.length && <tr><td colSpan="4" className="muted">등록된 근무이력이 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
