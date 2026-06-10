@@ -1352,7 +1352,7 @@ function TargetGenerator() {
       const saveRows = rows.filter(r => r.assigned_employee);
       setPreview(rows.slice(0, 150));
             // V8 assignment history sync
-      for (const t of targets) {
+      for (const t of rows) {
         if (t.assigned_employee && t.assigned_employee !== '배정불가') {
           await supabase.from('assignment_history').upsert({
             join_no: t.join_no,
