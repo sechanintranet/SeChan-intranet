@@ -971,17 +971,6 @@ function RawUpload() {
 
       const latestRows = latestOnly(rawRows)
         .sort((a, b) => String(b.open_date).localeCompare(String(a.open_date)));
-
-            // V8 assignment history sync
-      for (const t of targets) {
-        if (t.assigned_employee && t.assigned_employee !== '배정불가') {
-          await supabase.from('assignment_history').upsert({
-            join_no: t.join_no,
-            assigned_employee: t.assigned_employee,
-            assigned_store: t.assigned_store,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'join_no' });
-        }
       }
 
       setSummary({
@@ -1344,6 +1333,18 @@ function TargetGenerator() {
 
       const saveRows = rows.filter(r => r.assigned_employee);
       setPreview(rows.slice(0, 150));
+            // V8 assignment history sync
+      for (const t of targets) {
+        if (t.assigned_employee && t.assigned_employee !== '배정불가') {
+          await supabase.from('assignment_history').upsert({
+            join_no: t.join_no,
+            assigned_employee: t.assigned_employee,
+            assigned_store: t.assigned_store,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'join_no' });
+        }
+      }
+
       setSummary({
         customerCount: customers?.length || 0,
         generated: rows.length,
