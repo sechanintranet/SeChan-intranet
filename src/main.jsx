@@ -204,6 +204,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
       <nav>
         {(isAdmin || isChecker || isManager) && <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>대시보드</button>}
         <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
+        <button className={tab==='guide'?'active':''} onClick={()=>setTab('guide')}>사용방법</button>
         {isManager && <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 해피콜 현황</button>}
         {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 해피콜 현황</button>}
         {isManager && <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>}
@@ -220,6 +221,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
       <main>
         {tab === 'dashboard' && <Dashboard user={user} />}
         {tab === 'mycalls' && <CallList user={user} mode="mine" />}
+        {tab === 'guide' && <UsageGuide user={user} />}
         {tab === 'manager' && <ManagerStoreDashboardV6 user={user} />}
         {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
         {tab === 'storePerformance' && <EmployeePerformanceDashboard user={user} mode="store" />}
@@ -239,6 +241,13 @@ function MainApp({ user, onLogout, onUserUpdate }) {
 
 
 
+
+
+function formatAuditPatch(patch) {
+  if (!patch) return '';
+  const labels = { name:'이름', store_name:'매장', status:'상태', password:'비밀번호', role:'권한', successor_store:'승계매장' };
+  return Object.entries(patch).map(([k, v]) => `${labels[k] || k}: ${k === 'password' ? '변경됨' : v}`).join(' / ');
+}
 
 async function writeAuditLog(action, targetType, targetId, actor, detail = '') {
   try {
@@ -301,6 +310,62 @@ function StatusBadge({ target, log }) {
   if (overdueDays === 0) return <span className="badge today">오늘 신규</span>;
   return <span className="badge">예정</span>;
 }
+
+
+function UsageGuide({ user }) {
+  const role = user?.role || '직원';
+
+  return (
+    <div>
+      <h2>사용방법</h2>
+      <div className="guideGrid">
+        <section className="sectionCard">
+          <h3>직원</h3>
+          <ol>
+            <li>내 해피콜 탭에서 본인에게 배정된 고객을 확인합니다.</li>
+            <li>고객을 눌러 개통 이력과 연락 스크립트를 확인합니다.</li>
+            <li>통화 결과와 상세 결과를 직접 선택한 뒤 저장합니다.</li>
+            <li>검수 반려 건은 반려 사유를 확인하고 다시 저장합니다.</li>
+          </ol>
+        </section>
+
+        <section className="sectionCard">
+          <h3>검수자</h3>
+          <ol>
+            <li>검수 탭에서 검수대기 건을 확인합니다.</li>
+            <li>직원 입력 결과와 메모를 확인합니다.</li>
+            <li>이상이 없으면 검수 승인, 보완이 필요하면 반려 처리합니다.</li>
+            <li>반려 시 직원이 이해할 수 있게 반려 사유를 작성합니다.</li>
+          </ol>
+        </section>
+
+        <section className="sectionCard">
+          <h3>점장</h3>
+          <ol>
+            <li>매장 해피콜 현황에서 당일 진행률과 경과 미완료를 확인합니다.</li>
+            <li>직원별 현황에서 직원별 완료율, 미완료, 반려 건수를 확인합니다.</li>
+            <li>점장 화면에서는 확인만 가능하며 직원 결과 수정은 불가합니다.</li>
+          </ol>
+        </section>
+
+        <section className="sectionCard">
+          <h3>관리자</h3>
+          <ol>
+            <li>RAW 업로드에서 엑셀을 분석하고 customers DB에 저장합니다.</li>
+            <li>해피콜 생성에서 대상일 기준 대상자를 계산하고 저장합니다.</li>
+            <li>직원관리와 매장관리에서 재직/퇴사/권한/매장 승계를 관리합니다.</li>
+            <li>감사로그에서 주요 작업 이력을 확인합니다.</li>
+          </ol>
+        </section>
+      </div>
+      <div className="sectionCard">
+        <h3>현재 로그인 권한</h3>
+        <p><b>{user.name}</b> / {user.store_name} / {role}</p>
+      </div>
+    </div>
+  );
+}
+
 
 function Dashboard({ user }) {
   const [targets, setTargets] = useState([]);
@@ -469,7 +534,7 @@ function callTypeLabel(type) {
 
 function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [result, setResult] = useState('통화완료');
-  const [detail, setDetail] = useState('불만사항없음');
+  const [detail, setDetail] = useState('');
   const [memo, setMemo] = useState('');
   const [history, setHistory] = useState([]);
 
@@ -489,10 +554,15 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
 
   function onResultChange(v) {
     setResult(v);
-    setDetail(CALL_RESULTS[v][0]);
+    setDetail('');
   }
 
   async function save() {
+    if (!detail) {
+      alert('상세 결과를 선택해주세요.');
+      return;
+    }
+
     if (detail === '불만사항있음' && !memo.trim()) {
       alert('불만 사항 있음은 메모가 필요합니다.');
       return;
@@ -573,7 +643,10 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
           ) : (
             <>
               <select value={result} onChange={e => onResultChange(e.target.value)}>{Object.keys(CALL_RESULTS).map(v => <option key={v}>{v}</option>)}</select>
-              <select value={detail} onChange={e => setDetail(e.target.value)}>{CALL_RESULTS[result].map(v => <option key={v}>{v}</option>)}</select>
+              <select value={detail} onChange={e => setDetail(e.target.value)}>
+                <option value="">상세 결과 선택</option>
+                {CALL_RESULTS[result].map(v => <option key={v}>{v}</option>)}
+              </select>
               <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="메모 입력" />
               <button className="primary" onClick={save}>저장</button>
             </>
@@ -631,7 +704,7 @@ function Employees({ user }) {
   async function update(id, patch) {
     const { error } = await supabase.from('employees').update(patch).eq('id', id);
     if (error) alert(error.message);
-    else await writeAuditLog('직원수정', 'employee', id, user, JSON.stringify(patch));
+    else await writeAuditLog('직원수정', 'employee', id, user, formatAuditPatch(patch));
     load();
   }
 
@@ -1267,7 +1340,7 @@ function Stores({ user }) {
     setForm({ name:'', status:'운영중', successor_store:'' });
     load();
   }
-  async function update(id, patch) { const { error } = await supabase.from('stores').update(patch).eq('id', id); if (error) alert(error.message); else await writeAuditLog('매장수정', 'store', id, user, JSON.stringify(patch)); load(); }
+  async function update(id, patch) { const { error } = await supabase.from('stores').update(patch).eq('id', id); if (error) alert(error.message); else await writeAuditLog('매장수정', 'store', id, user, formatAuditPatch(patch)); load(); }
   return (
     <div>
       <h2>매장관리</h2>

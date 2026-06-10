@@ -27,3 +27,66 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .filterBar button.rejected{background:#dc2626;color:#fff}
 .rejectReason{margin-top:6px;color:#991b1b;font-weight:800}
 .rejectBox{background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:12px}
+
+/* V9.9 UX improvements */
+.modalHead{
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.modal section select + select{
+  margin-top: 12px;
+}
+.modal section select,
+.modal section textarea{
+  margin-bottom: 10px;
+}
+.guideGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.guideGrid ol{
+  margin:8px 0 0 18px;
+  padding:0;
+}
+.guideGrid li{
+  margin-bottom:8px;
+}
+@media (max-width: 768px){
+  nav{
+    gap:5px;
+    overflow-x:auto;
+    flex-wrap:nowrap;
+    -webkit-overflow-scrolling:touch;
+  }
+  nav button{
+    font-size:clamp(10px, 2.8vw, 13px);
+    padding:7px 8px;
+    white-space:nowrap;
+    flex:0 0 auto;
+  }
+  header h1{
+    font-size:18px;
+  }
+  header p{
+    font-size:12px;
+  }
+  .guideGrid{
+    grid-template-columns:1fr;
+  }
+  .modal{
+    width:96vw;
+    max-height:92vh;
+  }
+}
+@media (max-width: 390px){
+  nav button{
+    font-size:10px;
+    padding:6px 7px;
+  }
+}
