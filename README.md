@@ -1,15 +1,9 @@
-# 세찬 해피콜 관리시스템 V8.3
+# 세찬 해피콜 관리시스템 V8.4
 
-## V8.3 빌드 안정화
-- V8.2 npm install 오류 제거
-- package-lock.json 제거
-- .npmrc 제거
-- 기존 working 구조의 package.json으로 복구
-- V8.1 RAW 분석 오류 수정 유지
+## V8.4 빌드 오류 수정
+- src/main.jsx 974~985 근처 Missing catch/finally 오류 수정
+- 해피콜 생성 함수 generateTargets 재정리
+- assignment_history 갱신 위치 정상화
+- RAW 업로드 분석 오류 방지
 - V8 배정 로직 유지
-- V7.2 반려 상세 오류 수정 유지
-- 검수 / 미완료 이월 기능 유지
-
-## 주의
-- 이번 버전은 빌드 성공 우선 버전입니다.
-- 배포 시간 최적화보다 오류 없는 배포를 우선했습니다.
+- V7 검수/반려 기능 유지
