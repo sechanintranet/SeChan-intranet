@@ -1786,6 +1786,122 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
   return { assigned_employee: '배정불가', assigned_store: assignStore, reason: '재직자 없음' };
 }
 
+
+function normalizeStoreNameForAssignment(v) {
+  const x = String(v || '').replace(/\s+/g, '').trim();
+  if (x.includes('금촌')) return '금촌';
+  if (x.includes('야당')) return '야당';
+  if (x.includes('봉일천')) return '봉일천';
+  if (x.includes('능곡')) return '능곡';
+  if (x.includes('화정')) return '화정';
+  if (x.includes('고양')) return '고양';
+  if (x.includes('합정')) return '합정';
+  if (x.includes('지축')) return '지축';
+  return String(v || '').trim();
+}
+
+function isD95D185Type(callType) {
+  return callType === 'D_PLUS_95' || callType === 'D_PLUS_185';
+}
+
+function isActiveEmployee(emp) {
+  return emp && emp.status === '재직';
+}
+
+function normalizeDateOnly(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
+function isWithinHistoryDate(historyRow, baseDate) {
+  const d = normalizeDateOnly(baseDate);
+  const start = normalizeDateOnly(historyRow.start_date);
+  const end = normalizeDateOnly(historyRow.end_date);
+  if (!d || !start) return false;
+  return start <= d && (!end || end >= d);
+}
+
+function findCustomerSellerName(customer) {
+  return customer.employee_name || customer.staff_name || customer.seller_name || customer.manager_name || customer.employee || customer.staff || customer.rep_name || customer['담당자'] || '';
+}
+
+function findCustomerStoreName(customer) {
+  return normalizeStoreNameForAssignment(customer.store_name || customer.store || customer.shop_name || customer['매장명'] || '');
+}
+
+function findCurrentStoreManager(employees, storeName) {
+  const normalizedStore = normalizeStoreNameForAssignment(storeName);
+  return (employees || []).find(e =>
+    e.status === '재직' &&
+    e.role === '점장' &&
+    normalizeStoreNameForAssignment(e.store_name) === normalizedStore
+  );
+}
+
+function findHistoricalManager({ histories, employees, storeName, joinDate }) {
+  const normalizedStore = normalizeStoreNameForAssignment(storeName);
+  const managerHistories = (histories || [])
+    .filter(h =>
+      normalizeStoreNameForAssignment(h.store_name) === normalizedStore &&
+      h.role === '점장' &&
+      isWithinHistoryDate(h, joinDate)
+    )
+    .sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
+
+  for (const h of managerHistories) {
+    const emp = (employees || []).find(e => e.id === h.employee_id || e.name === h.employee_name);
+    if (isActiveEmployee(emp)) return { employee: emp, history: h };
+  }
+
+  return { employee: null, history: managerHistories[0] || null };
+}
+
+function resolveD95D185Assignee({ customer, employees, employeeHistories }) {
+  const sellerName = findCustomerSellerName(customer);
+  const storeName = findCustomerStoreName(customer);
+  const joinDate = customer.open_date || customer.join_date || customer.contract_date || customer.date || customer['개통일자'] || customer['가입일자'] || '';
+
+  const seller = (employees || []).find(e => e.name === sellerName);
+  if (isActiveEmployee(seller)) {
+    return {
+      assigned_store: normalizeStoreNameForAssignment(seller.store_name || storeName),
+      assigned_employee: seller.name,
+      reason: 'D+95/D+185 재직 판매자 본인 배정'
+    };
+  }
+
+  const historical = findHistoricalManager({
+    histories: employeeHistories,
+    employees,
+    storeName,
+    joinDate
+  });
+
+  if (historical.employee) {
+    return {
+      assigned_store: normalizeStoreNameForAssignment(historical.employee.store_name || storeName),
+      assigned_employee: historical.employee.name,
+      reason: 'D+95/D+185 퇴사자건 / 개통일 당시 점장 배정'
+    };
+  }
+
+  const currentManager = findCurrentStoreManager(employees, storeName);
+  if (currentManager) {
+    return {
+      assigned_store: normalizeStoreNameForAssignment(currentManager.store_name || storeName),
+      assigned_employee: currentManager.name,
+      reason: 'D+95/D+185 퇴사자건 / 현재 매장 점장 배정'
+    };
+  }
+
+  return {
+    assigned_store: storeName,
+    assigned_employee: '',
+    reason: 'D+95/D+185 퇴사자건 / 배정 가능한 점장 없음'
+  };
+}
+
+
 function TargetGenerator({ user }) {
   const todayISO = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState(todayISO);
@@ -1863,11 +1979,12 @@ function TargetGenerator({ user }) {
     setPreview([]);
 
     try {
-      const [customers, employees, stores, histories] = await Promise.all([
+      const [customers, employees, stores, histories, employeeHistories] = await Promise.all([
         fetchAllRows('customers', '*', 'open_date'),
         fetchAllRows('employees', '*', 'name'),
         fetchAllRows('stores', '*', 'name'),
-        fetchAllRows('assignment_history', '*', 'updated_at')
+        fetchAllRows('assignment_history', '*', 'updated_at'),
+        fetchAllRows('employee_store_history', '*', 'start_date')
       ]);
 
       const activeEmployees = (employees || []).filter(e => e.status === '재직' && e.store_name !== '관리자');
@@ -1905,7 +2022,9 @@ function TargetGenerator({ user }) {
             dPlusJoinNosThisMonth.add(c.join_no);
           }
           if (plusDate === targetDate) {
-            const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
+            const a = isD95D185Type(p.type)
+              ? resolveD95D185Assignee({ customer: c, employees: employees || [], employeeHistories: employeeHistories || [] })
+              : decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
             rows.push({
               join_no: c.join_no,
               customer_id: c.id,
@@ -2036,6 +2155,7 @@ function TargetGenerator({ user }) {
       <LastAuditNotice action="해피콜대상저장" label="마지막 해피콜 대상 저장" />
       <div className="uploadBox">
         <p className="muted">대상일 기준으로 D+1, D+7, D+13, D+95, D+185와 월간 정기 해피콜을 생성합니다.</p>
+        <p className="muted">D+95/D+185는 판매자 재직 시 본인 배정, 판매자 퇴사 시 근무이력 기준 당시 점장 또는 현재 매장 점장에게 배정됩니다.</p>
         <p className="muted">당월 D+ 해피콜이 있는 고객은 해당 월의 월간 정기 해피콜에서 제외됩니다.</p>
 
         <div className="formGrid compact">
