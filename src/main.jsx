@@ -36,12 +36,12 @@ async function fetchAllRows(tableName, selectText = '*', orderColumn = null) {
 const CALL_RESULTS = {
   '통화완료': ['불만사항없음', '불만사항있음'],
   '부재중': ['카카오톡발송', '문자발송'],
-  '통화 불가': ['2nd디바이스', '타점 변경', '통신사 이동', '해지', '마케팅 미동의']
+  '통화 불가': ['2nd디바이스', '타점 변경', '통신사 이동', '해지', '마케팅 미동의', '고객사정']
 };
 
 function isUnavailableCall(result, detail) {
   return result === '통화 불가' || result === '통화거부' || detail === '통화거부' ||
-    ['2nd디바이스', '타점 변경', '통신사 이동', '해지', '마케팅 미동의'].includes(detail);
+    ['2nd디바이스', '타점 변경', '통신사 이동', '해지', '마케팅 미동의', '고객사정'].includes(detail);
 }
 
 class ErrorBoundary extends Component {
@@ -836,6 +836,11 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
 
     if (detail === '불만사항있음' && !memo.trim()) {
       alert('불만 사항 있음은 메모가 필요합니다.');
+      return;
+    }
+
+    if (detail === '고객사정' && !memo.trim()) {
+      alert('고객사정 선택 시 메모를 입력해야 합니다.');
       return;
     }
 
