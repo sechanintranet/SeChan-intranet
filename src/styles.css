@@ -1025,3 +1025,119 @@ select{
 .roleGuideGrid li{
   line-height:1.45 !important;
 }
+
+/* V13.2 mobile scroll + badge center fix */
+
+/* 박스 안 표만 가로 스크롤되게 처리 */
+.sectionCard,
+.uploadBox,
+.employeeTableWrap,
+.callListBox,
+.tableCard,
+.card,
+.statsCard{
+  max-width:100%;
+}
+
+.sectionCard table,
+.uploadBox table,
+.employeeTableWrap table{
+  width:max-content;
+  min-width:100%;
+}
+
+/* 상태 배지/칩/버튼 글씨 정중앙 정렬 */
+.badge,
+.statusBadge,
+.status-badge,
+.overdueBadge,
+.overdue-badge,
+.reviewBadge,
+.review-badge,
+.chip,
+.filterBar button,
+.summaryGrid .card,
+.stats .card{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  line-height:1.15 !important;
+  white-space:nowrap !important;
+  box-sizing:border-box !important;
+}
+
+/* 노란 경과 배지 전용 보정 */
+.badge.warning,
+.statusBadge.warning,
+.overdueBadge,
+.overdue-badge,
+[class*="overdue"],
+[class*="Overdue"]{
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  padding-left:12px !important;
+  padding-right:12px !important;
+}
+
+/* 모바일: 각 박스 내부에서만 횡스크롤 */
+@media (max-width:768px){
+  .sectionCard,
+  .uploadBox,
+  .employeeTableWrap{
+    overflow-x:auto !important;
+    overflow-y:visible !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+
+  .sectionCard table,
+  .uploadBox table,
+  .employeeTableWrap table{
+    min-width:680px !important;
+    width:max-content !important;
+  }
+
+  /* 직원별 진행률처럼 컬럼 많은 표는 넓게 확보 */
+  .sectionCard table th,
+  .sectionCard table td,
+  .uploadBox table th,
+  .uploadBox table td{
+    white-space:nowrap !important;
+    vertical-align:middle !important;
+  }
+
+  /* 필터 버튼은 박스 안에서 가로 스크롤 */
+  .filterBar{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:8px !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    -webkit-overflow-scrolling:touch !important;
+    padding-bottom:4px !important;
+  }
+
+  .filterBar button{
+    flex:0 0 auto !important;
+    height:42px !important;
+    min-height:42px !important;
+    padding:0 14px !important;
+    white-space:nowrap !important;
+  }
+
+  /* 모바일 카드 상태 배지 중앙 정렬 강화 */
+  .badge,
+  .statusBadge,
+  .status-badge,
+  .overdueBadge,
+  .overdue-badge,
+  [class*="badge"],
+  [class*="Badge"]{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    line-height:1.15 !important;
+  }
+}
