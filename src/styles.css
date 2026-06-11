@@ -555,3 +555,181 @@ button:disabled{opacity:.55;cursor:not-allowed}
     grid-template-columns:1fr !important;
   }
 }
+
+/* V11.5 modal UI balance fix */
+.employeeDetailModal{
+  width:min(1280px, 96vw) !important;
+  max-width:1280px !important;
+  padding:20px !important;
+}
+.employeeDetailModal h2{
+  font-size:20px !important;
+  line-height:1.2 !important;
+}
+.employeeDetailModal h3{
+  font-size:15px !important;
+  line-height:1.2 !important;
+}
+.employeeDetailModal section{
+  margin-top:18px !important;
+}
+.employeeDetailModal .formGrid.compact{
+  display:grid !important;
+  grid-template-columns:220px 220px 260px !important;
+  gap:12px !important;
+  align-items:end !important;
+}
+.employeeDetailModal label{
+  font-size:12px !important;
+  line-height:1.2 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:7px !important;
+  min-width:0 !important;
+}
+.employeeDetailModal input,
+.employeeDetailModal select,
+.employeeDetailModal button{
+  height:40px !important;
+  min-height:40px !important;
+  font-size:12px !important;
+  line-height:40px !important;
+  box-sizing:border-box !important;
+  white-space:nowrap !important;
+}
+.employeeDetailModal button{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  line-height:1 !important;
+  padding:0 16px !important;
+  font-weight:700 !important;
+}
+.dateInputWide{
+  width:220px !important;
+  min-width:220px !important;
+}
+.detailSaveBtn{
+  width:260px !important;
+  min-width:260px !important;
+}
+.historyForm{
+  display:grid !important;
+  grid-template-columns:260px 190px 390px 180px !important;
+  gap:12px !important;
+  align-items:center !important;
+  width:100% !important;
+}
+.historyForm select,
+.historyForm input,
+.historyForm button{
+  height:40px !important;
+  min-height:40px !important;
+  font-size:12px !important;
+  line-height:40px !important;
+  box-sizing:border-box !important;
+  white-space:nowrap !important;
+}
+.historyStoreSelect{
+  width:260px !important;
+  min-width:260px !important;
+}
+.historyRoleSelect{
+  width:190px !important;
+  min-width:190px !important;
+}
+.dateRangeBox{
+  display:grid !important;
+  grid-template-columns:180px 26px 180px !important;
+  gap:8px !important;
+  align-items:center !important;
+  width:390px !important;
+  min-width:390px !important;
+}
+.historyDateInput{
+  width:180px !important;
+  min-width:180px !important;
+}
+.dateRangeBox span{
+  width:26px !important;
+  min-width:26px !important;
+  height:40px !important;
+  line-height:40px !important;
+  text-align:center !important;
+  font-size:16px !important;
+  font-weight:800 !important;
+}
+.historyAddBtn{
+  width:180px !important;
+  min-width:180px !important;
+}
+.employeeDetailModal table th,
+.employeeDetailModal table td{
+  font-size:12px !important;
+  line-height:1.25 !important;
+  white-space:nowrap !important;
+  vertical-align:middle !important;
+}
+.modalHead{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+}
+.modalHead button{
+  height:40px !important;
+  min-height:40px !important;
+  min-width:72px !important;
+  line-height:1 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+@media (max-width:1000px){
+  .employeeDetailModal .formGrid.compact,
+  .historyForm{
+    grid-template-columns:1fr !important;
+  }
+  .dateInputWide,
+  .detailSaveBtn,
+  .historyStoreSelect,
+  .historyRoleSelect,
+  .historyAddBtn{
+    width:100% !important;
+    min-width:0 !important;
+  }
+  .dateRangeBox{
+    width:100% !important;
+    min-width:0 !important;
+    grid-template-columns:minmax(140px, 1fr) 26px minmax(140px, 1fr) !important;
+  }
+  .historyDateInput{
+    width:100% !important;
+    min-width:0 !important;
+  }
+}
+
+/* V11.6 regression + UI safety */
+.sectionCard table th,
+.sectionCard table td{
+  white-space:nowrap !important;
+  vertical-align:middle !important;
+}
+button,
+input,
+select{
+  line-height:1.2 !important;
+}
+.compactEmployeeTable button,
+.compactEmployeeTable input,
+.compactEmployeeTable select,
+.employeeDetailModal button,
+.employeeDetailModal input,
+.employeeDetailModal select{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.employeeDetailModal input[type="date"]{
+  font-size:12px !important;
+}

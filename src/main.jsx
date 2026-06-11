@@ -885,7 +885,7 @@ function Employees({ user }) {
           <option>퇴사</option>
           <option>리스트 제외</option>
         </select>
-        <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
+        <select className="historyRoleSelect" value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
           <option>직원</option>
           <option>점장</option>
           <option>검수자</option>
@@ -980,9 +980,9 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
         <section>
           <h3>입사/퇴사 정보</h3>
           <div className="formGrid compact">
-            <label>입사일<input type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
-            <label>퇴사일<input type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
-            <button className="primary" onClick={saveProfile}>상세 저장</button>
+            <label>입사일<input className="dateInputWide" type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
+            <label>퇴사일<input className="dateInputWide" type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
+            <button className="primary detailSaveBtn" onClick={saveProfile}>상세 저장</button>
           </div>
           <p className="muted">퇴사 상태는 직원관리 메인에서 상태를 퇴사로 바꾼 뒤 최종저장하세요.</p>
         </section>
@@ -1054,7 +1054,7 @@ function WorkHistoryInner({ employee, stores, user }) {
     <section>
       <h3>근무이력</h3>
       <div className="historyForm">
-        <select value={form.store_name} onChange={e=>setForm({...form,store_name:e.target.value})}>
+        <select className="historyStoreSelect" value={form.store_name} onChange={e=>setForm({...form,store_name:e.target.value})}>
           <option value="">매장 선택</option>
           {stores.filter(s => s.name !== '관리자').map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
         </select>
@@ -1065,11 +1065,11 @@ function WorkHistoryInner({ employee, stores, user }) {
           <option>관리자</option>
         </select>
         <div className="dateRangeBox">
-          <input type="date" value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} />
+          <input className="historyDateInput" type="date" value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} />
           <span>~</span>
-          <input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})} />
+          <input className="historyDateInput" type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})} />
         </div>
-        <button className="primary" onClick={addHistory} disabled={busy}>이력 추가</button>
+        <button className="primary historyAddBtn" onClick={addHistory} disabled={busy}>이력 추가</button>
       </div>
       <p className="muted">종료일을 비워두면 현재 근무중으로 표시됩니다.</p>
 
@@ -1088,6 +1088,165 @@ function WorkHistoryInner({ employee, stores, user }) {
         </tbody>
       </table>
     </section>
+  );
+}
+
+
+function AuditLogsViewer() {
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    try {
+      const rows = await fetchAllRows('audit_logs', '*', 'created_at');
+      setLogs((rows || []).sort((a,b)=>String(b.created_at || '').localeCompare(String(a.created_at || ''))).slice(0, 300));
+    } catch (e) {
+      alert('감사로그 조회 오류: ' + e.message);
+    }
+  }
+
+  return (
+    <div>
+      <h2>감사로그</h2>
+      <div className="sectionCard">
+        <table>
+          <thead>
+            <tr><th>일시</th><th>작업자</th><th>작업</th><th>상세</th></tr>
+          </thead>
+          <tbody>
+            {logs.map(l => (
+              <tr key={l.id}>
+                <td>{String(l.created_at || '').slice(0, 19).replace('T', ' ')}</td>
+                <td>{l.actor_name}</td>
+                <td>{l.action}</td>
+                <td>{l.detail || `${l.target_type || ''} ${l.target_id || ''}`}</td>
+              </tr>
+            ))}
+            {!logs.length && <tr><td colSpan="4" className="muted">감사로그 기록이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EmployeePerformanceDashboard({ user, mode = 'all' }) {
+  const [targets, setTargets] = useState([]);
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => { load(); }, [mode]);
+
+  async function load() {
+    try {
+      const allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
+      const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
+
+      let visible = (allTargets || []).filter(t => !t.is_skipped);
+      if (mode === 'store') visible = visible.filter(t => t.assigned_store === user.store_name);
+
+      setTargets(visible);
+      setLogs(allLogs || []);
+    } catch (e) {
+      alert('직원별 현황 조회 오류: ' + e.message);
+    }
+  }
+
+  const latestLogByTarget = useMemo(() => {
+    const map = {};
+    logs.forEach(l => {
+      const prev = map[l.target_id];
+      if (!prev || String(l.checked_at || '') > String(prev.checked_at || '')) map[l.target_id] = l;
+    });
+    return map;
+  }, [logs]);
+
+  const rows = useMemo(() => {
+    const map = {};
+    targets.forEach(t => {
+      const name = t.assigned_employee || '미지정';
+      if (!map[name]) map[name] = {
+        name,
+        store: t.assigned_store || '',
+        total: 0,
+        done: 0,
+        pending: 0,
+        todayTotal: 0,
+        todayDone: 0,
+        overdue: 0,
+        rejected: 0,
+        reviewPending: 0,
+        reviewDone: 0,
+        voc: 0
+      };
+
+      const r = map[name];
+      const log = latestLogByTarget[t.id];
+      r.total += 1;
+
+      if (t.target_date === todayLocalISO()) {
+        r.todayTotal += 1;
+        if (log) r.todayDone += 1;
+      }
+
+      if (log) {
+        r.done += 1;
+        if ((log.review_status || '검수대기') === '검수대기') r.reviewPending += 1;
+        if (log.review_status === '검수완료') r.reviewDone += 1;
+        if (log.review_status === '반려') r.rejected += 1;
+        if (log.call_detail === '불만사항있음') r.voc += 1;
+      } else {
+        r.pending += 1;
+        if (diffDays(t.target_date) > 0) r.overdue += 1;
+      }
+    });
+
+    return Object.values(map).sort((a,b) => {
+      if (b.overdue !== a.overdue) return b.overdue - a.overdue;
+      if (b.pending !== a.pending) return b.pending - a.pending;
+      return String(a.name).localeCompare(String(b.name), 'ko');
+    });
+  }, [targets, latestLogByTarget]);
+
+  const total = rows.reduce((a,r)=>({
+    total: a.total + r.total,
+    done: a.done + r.done,
+    pending: a.pending + r.pending,
+    overdue: a.overdue + r.overdue,
+    rejected: a.rejected + r.rejected
+  }), { total:0, done:0, pending:0, overdue:0, rejected:0 });
+
+  return (
+    <div>
+      <h2>{mode === 'store' ? `${user.store_name} 직원별 해피콜 현황` : '직원별 해피콜 현황'}</h2>
+      <div className="stats">
+        <Card title="전체 대상" value={total.total} />
+        <Card title="전체 완료율" value={`${total.total ? Math.round(total.done / total.total * 1000) / 10 : 0}%`} />
+        <Card title="경과 미완료" value={total.overdue} />
+        <Card title="반려" value={total.rejected} />
+      </div>
+
+      <div className="sectionCard">
+        <table>
+          <thead>
+            <tr>
+              <th>담당자</th><th>매장</th><th>전체</th><th>완료</th><th>완료율</th><th>오늘 작업</th><th>오늘 완료율</th><th>미완료</th><th>경과</th><th>검수대기</th><th>검수완료</th><th>반려</th><th>VOC</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.name}>
+                <td>{r.name}</td><td>{r.store}</td><td>{r.total}</td><td>{r.done}</td>
+                <td>{r.total ? Math.round(r.done/r.total*1000)/10 : 0}%</td>
+                <td>{r.todayTotal}</td><td>{r.todayTotal ? Math.round(r.todayDone/r.todayTotal*1000)/10 : 0}%</td>
+                <td>{r.pending}</td><td>{r.overdue}</td><td>{r.reviewPending}</td><td>{r.reviewDone}</td><td>{r.rejected}</td><td>{r.voc}</td>
+              </tr>
+            ))}
+            {!rows.length && <tr><td colSpan="13" className="muted">표시할 현황이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
