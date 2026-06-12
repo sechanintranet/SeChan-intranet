@@ -1585,3 +1585,41 @@ input.requiredInput::placeholder{
     grid-template-columns:1fr;
   }
 }
+
+/* V17.8 bulk temp assignment + copy status */
+.blueActionBtn{
+  background:#2563eb !important;
+  color:#fff !important;
+  border:1px solid #1d4ed8 !important;
+  font-weight:800 !important;
+}
+.bulkTempModal{
+  width:min(980px, 96vw) !important;
+  max-width:980px !important;
+}
+.bulkTempToolbar{
+  display:grid;
+  grid-template-columns:110px 110px minmax(170px,1fr) 90px 90px 130px;
+  gap:8px;
+  align-items:center;
+}
+.bulkTempToolbar select,
+.bulkTempToolbar button,
+.copyStatusBtn{
+  height:40px;
+  min-height:40px;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+}
+.copyStatusBtn{
+  margin:0 0 12px;
+  padding:0 14px;
+}
+@media (max-width:768px){
+  .bulkTempToolbar{
+    grid-template-columns:1fr;
+  }
+}

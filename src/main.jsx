@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v17.7-20260612054249';
+const APP_BUILD_VERSION = 'v17.8-20260612070041';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -71,6 +71,18 @@ function shouldSkipByRefusedCustomer(customer, refusedMap, callType = '') {
   if (isNewOpeningAfterRefusal(customer.open_date, refused.refused_at)) return false;
   return true;
 }
+
+function dayOfWeekLocal(dateText) {
+  return new Date(`${dateText}T00:00:00`).getDay();
+}
+function isMondayLocal(dateText) { return dayOfWeekLocal(dateText) === 1; }
+function isSaturdayLocal(dateText) { return dayOfWeekLocal(dateText) === 6; }
+function addDaysText(dateText, days) {
+  const d = new Date(`${dateText}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 
 
 class ErrorBoundary extends Component {
@@ -823,6 +835,7 @@ function CallList({ user, mode, readOnly = false }) {
   const [logs, setLogs] = useState([]);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('미완료전체');
+  const [bulkTempOpen, setBulkTempOpen] = useState(false);
   const [storeFilter, setStoreFilter] = useState('전체');
   const [employeeFilter, setEmployeeFilter] = useState('전체');
 
@@ -898,6 +911,7 @@ function CallList({ user, mode, readOnly = false }) {
         <button className={filter==='오늘신규'?'active':''} onClick={()=>setFilter('오늘신규')}>오늘 신규 {stats.todayTotal}</button>
         <button className={filter==='완료'?'active':''} onClick={()=>setFilter('완료')}>완료 {stats.done}</button>
         <button className={filter==='전체'?'active':''} onClick={()=>setFilter('전체')}>전체 {stats.total}</button>
+        {mode === 'mine' && (user.role === '관리자' || user.role === '점장') && <button className="blueActionBtn" onClick={()=>setBulkTempOpen(true)}>임시 배정 하기</button>}
       </div>
       {mode === 'all' && (
         <div className="sectionCard allCallFilterBox">
@@ -927,6 +941,7 @@ function CallList({ user, mode, readOnly = false }) {
         })}
       </div>
       {selected && <CallModal target={selected} user={user} onClose={()=>setSelected(null)} onSaved={load} readOnly={readOnly} />}
+      {bulkTempOpen && <BulkTempAssignModal user={user} targets={targets} latestLogByTarget={latestLogByTarget} onClose={()=>setBulkTempOpen(false)} onSaved={load} />}
     </div>
   );
 }
@@ -940,6 +955,110 @@ function callTypeLabel(type) {
     D_PLUS_95: 'D+95',
     D_PLUS_185: 'D+185'
   })[type] || type;
+}
+
+
+function BulkTempAssignModal({ user, targets, latestLogByTarget, onClose, onSaved }) {
+  const [employees, setEmployees] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [assignee, setAssignee] = useState('');
+  const [typeFilter, setTypeFilter] = useState('전체');
+  const [stateFilter, setStateFilter] = useState('전체');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { loadEmployees(); }, []);
+
+  async function loadEmployees() {
+    const { data, error } = await supabase.from('employees').select('*').eq('status', '재직').order('name');
+    if (error) return alert('직원 목록 조회 오류: ' + error.message);
+    setEmployees(data || []);
+  }
+
+  const staffOptions = useMemo(() => (employees || [])
+    .filter(e => e.store_name === user.store_name && e.name !== user.name)
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name), 'ko')), [employees, user.store_name, user.name]);
+
+  const list = useMemo(() => {
+    return (targets || []).filter(t => {
+      if (t.assigned_store !== user.store_name) return false;
+      if (!isD95D185Type(t.call_type)) return false;
+      const log = latestLogByTarget[t.id];
+      const isDone = log && log.review_status !== '반려';
+      const isRejected = log?.review_status === '반려';
+      if (isDone) return false;
+      if (stateFilter === '미완료' && log) return false;
+      if (stateFilter === '반려' && !isRejected) return false;
+      if (typeFilter !== '전체' && callTypeLabel(t.call_type) !== typeFilter) return false;
+      return true;
+    }).sort((a,b)=>String(a.target_date || '').localeCompare(String(b.target_date || '')) || String(a.assigned_employee || '').localeCompare(String(b.assigned_employee || ''), 'ko'));
+  }, [targets, latestLogByTarget, user.store_name, typeFilter, stateFilter]);
+
+  function toggle(id) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  async function saveBulk() {
+    if (!assignee) return alert('임시 배정할 직원을 선택해주세요.');
+    if (!selectedIds.length) return alert('임시 배정할 대상을 선택해주세요.');
+    if (!confirm(`선택한 ${selectedIds.length}건을 이번 1회만 ${assignee}에게 임시 배정할까요?`)) return;
+    setBusy(true);
+    try {
+      const now = new Date().toISOString();
+      for (const id of selectedIds) {
+        const { error } = await supabase.from('happycall_targets').update({
+          temporary_assignee: assignee,
+          temporary_assignee_store: user.store_name,
+          temporary_assigned_by: user.name,
+          temporary_assigned_at: now,
+          temporary_assign_reason: 'D+95/D+185 일괄 임시 배정'
+        }).eq('id', id);
+        if (error) throw error;
+      }
+      await writeAuditLog('임시처리자일괄변경', 'happycall_targets', user.store_name, user, `D+95/D+185 ${selectedIds.length}건 → ${assignee}`);
+      alert(`임시 배정 완료: ${selectedIds.length}건`);
+      onSaved();
+      onClose();
+    } catch (e) {
+      askErrorReport({ user, currentTab: '내 해피콜', actionName: 'D+95/D+185 일괄 임시 배정', error: e });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modalBg">
+      <div className="modal bulkTempModal">
+        <div className="modalHead"><h2>D+95 / D+185 임시 배정</h2><button onClick={onClose}>닫기</button></div>
+        <section>
+          <div className="bulkTempToolbar">
+            <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option>전체</option><option>D+95</option><option>D+185</option></select>
+            <select value={stateFilter} onChange={e=>setStateFilter(e.target.value)}><option>전체</option><option>미완료</option><option>반려</option></select>
+            <select value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">임시 처리자 선택</option>{staffOptions.map(e => <option key={e.id || e.name} value={e.name}>{e.name}</option>)}</select>
+            <button onClick={()=>setSelectedIds(list.map(t => t.id))}>전체 선택</button>
+            <button onClick={()=>setSelectedIds([])}>선택 해제</button>
+            <button className="primary" disabled={busy} onClick={saveBulk}>임시 배정 저장</button>
+          </div>
+          <p className="muted">내 매장의 D+95/D+185 중 미완료 또는 반려 건만 표시됩니다. 대상일이 지난 미완료 건도 포함됩니다.</p>
+          <p className="muted">표시 {list.length}건 / 선택 {selectedIds.length}건</p>
+        </section>
+        <section>
+          <table>
+            <thead><tr><th>선택</th><th>가입번호</th><th>유형</th><th>대상일</th><th>원 담당자</th><th>현재 임시</th><th>상태</th></tr></thead>
+            <tbody>
+              {list.map(t => {
+                const log = latestLogByTarget[t.id];
+                return <tr key={t.id}>
+                  <td><input type="checkbox" checked={selectedIds.includes(t.id)} onChange={()=>toggle(t.id)} /></td>
+                  <td>{t.join_no}</td><td>{callTypeLabel(t.call_type)}</td><td>{t.target_date}</td><td>{t.assigned_employee}</td><td>{t.temporary_assignee || '-'}</td><td>{log?.review_status === '반려' ? '반려' : '미완료'}</td>
+                </tr>;
+              })}
+              {!list.length && <tr><td colSpan="7" className="muted">임시 배정 가능한 D+95/D+185 건이 없습니다.</td></tr>}
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+  );
 }
 
 function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
@@ -2182,11 +2301,8 @@ function EmployeePerformanceDashboard({ user, mode = 'all' }) {
       }
     });
 
-    return Object.values(map).sort((a,b) => {
-      if (b.overdue !== a.overdue) return b.overdue - a.overdue;
-      if (b.pending !== a.pending) return b.pending - a.pending;
-      return String(a.name).localeCompare(String(b.name), 'ko');
-    });
+    return Object.values(map).sort((a,b) => employeeSortKey(a).localeCompare(employeeSortKey(b), 'ko'));
+  
   }, [targets, latestLogByTarget]);
 
   const total = rows.reduce((a,r)=>({
@@ -2197,9 +2313,44 @@ function EmployeePerformanceDashboard({ user, mode = 'all' }) {
     rejected: a.rejected + r.rejected
   }), { total:0, done:0, pending:0, overdue:0, rejected:0 });
 
+
+  function employeeSortKey(row) {
+    const order = ['금촌', '야당', '봉일천', '화정', '능곡', '관리직'];
+    const store = normalizeLoginStoreName ? normalizeLoginStoreName(row.store, '') : row.store;
+    const idx = order.includes(store) ? order.indexOf(store) : 999;
+    return `${String(idx).padStart(3,'0')}|${row.store}|${row.name}`;
+  }
+
+  async function copyIncompleteRows() {
+    const list = rows.filter(r => r.total > 0 && Math.round(r.done / r.total * 1000) / 10 < 100);
+    if (!list.length) return alert('복사할 미완료자가 없습니다.');
+
+    const sumTotal = list.reduce((a,r)=>a+r.total,0);
+    const sumDone = list.reduce((a,r)=>a+r.done,0);
+    const rate = sumTotal ? Math.round(sumDone / sumTotal * 1000) / 10 : 0;
+
+    const text = [
+      '[해피콜 진행 현황]',
+      '',
+      ...list.map(r => `${r.name} | ${r.store} | 대상 ${r.total}건 | 완료 ${r.done}건 | ${r.total ? Math.round(r.done/r.total*1000)/10 : 0}%`),
+      '',
+      `총 대상 : ${sumTotal}건`,
+      `총 완료 : ${sumDone}건`,
+      `전체 완료율 : ${rate}%`
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('미완료자 현황이 복사되었습니다.');
+    } catch (e) {
+      alert('복사 실패: 브라우저 권한을 확인해주세요.');
+    }
+  }
+
   return (
     <div>
       <h2>{mode === 'store' ? `${user.store_name} 직원별 해피콜 현황` : '직원별 해피콜 현황'}</h2>
+      <button className="primary copyStatusBtn" onClick={copyIncompleteRows}>미완료자 복사</button>
       <div className="stats">
         <Card title="전체 대상" value={total.total} />
         <Card title="전체 완료율" value={`${total.total ? Math.round(total.done / total.total * 1000) / 10 : 0}%`} />
@@ -3051,10 +3202,11 @@ function TargetGenerator({ user }) {
         plusMap.forEach(p => {
           if (shouldSkipByRefusedCustomer(c, refusedMap, p.type)) return;
           const plusDate = addDays(c.open_date, p.days);
-          if (targetMonth(plusDate) === targetMonthText) {
+          const isSaturdayD1MondayCorrection = p.days === 1 && isMondayLocal(targetDate) && isSaturdayLocal(c.open_date) && addDays(c.open_date, 2) === targetDate;
+          if (targetMonth(plusDate) === targetMonthText || isSaturdayD1MondayCorrection) {
             dPlusJoinNosThisMonth.add(c.join_no);
           }
-          if (plusDate === targetDate) {
+          if (plusDate === targetDate || isSaturdayD1MondayCorrection) {
             const a = isD95D185Type(p.type)
               ? resolveD95D185Assignee({ customer: c, employees: employees || [], employeeHistories: employeeHistories || [] })
               : decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
@@ -3067,7 +3219,7 @@ function TargetGenerator({ user }) {
               assigned_store: a.assigned_store,
               assigned_employee: a.assigned_employee,
               is_skipped: false,
-              skip_reason: a.reason
+              skip_reason: isSaturdayD1MondayCorrection ? `토요일 개통 D+1 월요일 보정 / ${a.reason || ''}` : a.reason
             });
           }
         });
@@ -3191,6 +3343,7 @@ function TargetGenerator({ user }) {
         <p className="muted">대상일 기준으로 D+1, D+7, D+13, D+95, D+185와 월간 정기 해피콜을 생성합니다.</p>
         <p className="muted">D+95/D+185는 판매자 재직 시 본인 배정, 판매자 퇴사 시 근무이력 기준 당시 점장 또는 현재 매장 점장에게 배정됩니다.</p>
         <p className="muted">당월 D+ 해피콜이 있는 고객은 해당 월의 월간 정기 해피콜에서 제외됩니다.</p>
+        <p className="muted">일요일 자동 생성은 서버 스케줄러가 KST 오전 9시에 실행하며, 토요일 개통 D+1은 월요일 생성 시 자동 보정됩니다.</p>
         <p className="muted">통화 불가 고객은 이후 해피콜 생성 대상에서 제외됩니다.</p>
 
         <div className="formGrid compact">
