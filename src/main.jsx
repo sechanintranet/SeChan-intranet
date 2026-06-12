@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v17-20260612032140';
+const APP_BUILD_VERSION = 'v17-20260612032836';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1033,7 +1033,7 @@ async function save() {
           <div className="infoGrid">
             <p><b>가입번호</b><br />{target.join_no}</p>
             <p><b>대상일</b><br />{target.target_date}</p>
-            {log.legal_rep_join_no && <p><b>법정대리인 가입번호</b><br />{log.legal_rep_join_no}</p>}
+            {(latestLog?.legal_rep_join_no || target.legal_rep_join_no) && <p><b>법정대리인 가입번호</b><br />{latestLog?.legal_rep_join_no || target.legal_rep_join_no}</p>}
             <p><b>유형</b><br />{callTypeLabel(target.call_type)}</p>
             <p><b>담당자</b><br />{target.assigned_employee}</p>
           </div>
