@@ -1623,3 +1623,101 @@ input.requiredInput::placeholder{
     grid-template-columns:1fr;
   }
 }
+
+/* V17.9 UI alignment standardization */
+.bulkTempToolbar,
+.tempAssignBox,
+.allCallFilterBox,
+.suggestionFilterBox,
+.suggestionWriteBox{
+  align-items:center !important;
+}
+
+.bulkTempToolbar{
+  display:grid !important;
+  grid-template-columns:120px 120px minmax(220px, 1fr) 104px 104px 144px !important;
+  gap:10px !important;
+}
+
+.bulkTempToolbar select,
+.bulkTempToolbar button,
+.tempAssignBox select,
+.tempAssignBox button,
+.allCallFilterBox select,
+.allCallFilterBox button,
+.suggestionFilterBox select,
+.suggestionFilterBox input,
+.suggestionFilterBox button,
+.suggestionWriteBox select,
+.suggestionWriteBox input,
+.suggestionWriteBox button,
+.copyStatusBtn,
+.blueActionBtn{
+  height:44px !important;
+  min-height:44px !important;
+  line-height:44px !important;
+  padding:0 14px !important;
+  box-sizing:border-box !important;
+  border-radius:12px !important;
+  font-size:13px !important;
+  white-space:nowrap !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  vertical-align:middle !important;
+}
+
+.bulkTempToolbar select,
+.tempAssignBox select,
+.allCallFilterBox select,
+.suggestionFilterBox select,
+.suggestionWriteBox select,
+.suggestionFilterBox input,
+.suggestionWriteBox input{
+  display:block !important;
+  line-height:normal !important;
+}
+
+.bulkTempToolbar button,
+.tempAssignBox button,
+.allCallFilterBox button,
+.suggestionFilterBox button,
+.suggestionWriteBox button{
+  font-weight:800 !important;
+}
+
+.bulkTempModal table th,
+.bulkTempModal table td{
+  text-align:center;
+  vertical-align:middle;
+}
+
+.bulkTempModal table td:nth-child(2){
+  font-variant-numeric:tabular-nums;
+}
+
+.copyStatusBtn{
+  width:auto !important;
+  margin:0 0 12px !important;
+}
+
+@media (max-width:768px){
+  .bulkTempToolbar,
+  .tempAssignBox,
+  .allCallFilterBox,
+  .suggestionFilterBox,
+  .suggestionWriteBox{
+    grid-template-columns:1fr !important;
+  }
+
+  .bulkTempToolbar select,
+  .bulkTempToolbar button,
+  .tempAssignBox select,
+  .tempAssignBox button,
+  .allCallFilterBox select,
+  .allCallFilterBox button,
+  .copyStatusBtn,
+  .blueActionBtn{
+    width:100% !important;
+  }
+}

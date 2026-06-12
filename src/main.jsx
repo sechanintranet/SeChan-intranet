@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v17.8-20260612070041';
+const APP_BUILD_VERSION = 'v17.9-20260612071849';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2323,34 +2323,133 @@ function EmployeePerformanceDashboard({ user, mode = 'all' }) {
 
   async function copyIncompleteRows() {
     const list = rows.filter(r => r.total > 0 && Math.round(r.done / r.total * 1000) / 10 < 100);
-    if (!list.length) return alert('복사할 미완료자가 없습니다.');
+    if (!list.length) return alert('이미지로 복사할 미완료자가 없습니다.');
 
     const sumTotal = list.reduce((a,r)=>a+r.total,0);
     const sumDone = list.reduce((a,r)=>a+r.done,0);
     const rate = sumTotal ? Math.round(sumDone / sumTotal * 1000) / 10 : 0;
 
-    const text = [
-      '[해피콜 진행 현황]',
-      '',
-      ...list.map(r => `${r.name} | ${r.store} | 대상 ${r.total}건 | 완료 ${r.done}건 | ${r.total ? Math.round(r.done/r.total*1000)/10 : 0}%`),
-      '',
-      `총 대상 : ${sumTotal}건`,
-      `총 완료 : ${sumDone}건`,
-      `전체 완료율 : ${rate}%`
-    ].join('\n');
+    const scale = 2;
+    const rowH = 46;
+    const headerH = 112;
+    const footerH = 66;
+    const width = 860;
+    const height = headerH + 46 + (list.length * rowH) + footerH;
 
-    try {
-      await navigator.clipboard.writeText(text);
-      alert('미완료자 현황이 복사되었습니다.');
-    } catch (e) {
-      alert('복사 실패: 브라우저 권한을 확인해주세요.');
+    const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
     }
+
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = '#ffffff';
+    roundRect(18, 18, width - 36, height - 36, 18);
+    ctx.fill();
+
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText('해피콜 미완료 현황', 42, 58);
+
+    const now = new Date();
+    const nowText = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText(`${mode === 'store' ? user.store_name + ' ' : ''}${nowText} 기준`, 42, 84);
+
+    const tableX = 42;
+    const tableY = 112;
+    const cols = [
+      { label: '인원', x: tableX, w: 150 },
+      { label: '매장', x: tableX + 150, w: 130 },
+      { label: '대상건', x: tableX + 280, w: 130 },
+      { label: '완료건', x: tableX + 410, w: 130 },
+      { label: '완료율', x: tableX + 540, w: 180 },
+    ];
+
+    ctx.fillStyle = '#111827';
+    roundRect(tableX - 12, tableY - 28, width - 84, 42, 12);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    cols.forEach(c => ctx.fillText(c.label, c.x, tableY - 2));
+
+    ctx.font = '16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    list.forEach((r, idx) => {
+      const y = tableY + 34 + (idx * rowH);
+      if (idx % 2 === 0) {
+        ctx.fillStyle = '#f9fafb';
+        roundRect(tableX - 12, y - 26, width - 84, 38, 10);
+        ctx.fill();
+      }
+
+      const rRate = r.total ? Math.round(r.done / r.total * 1000) / 10 : 0;
+      ctx.fillStyle = '#111827';
+      ctx.fillText(r.name, cols[0].x, y);
+      ctx.fillText(r.store || '-', cols[1].x, y);
+      ctx.fillText(`${r.total}건`, cols[2].x, y);
+      ctx.fillText(`${r.done}건`, cols[3].x, y);
+
+      ctx.fillStyle = rRate >= 80 ? '#166534' : rRate >= 50 ? '#9a3412' : '#991b1b';
+      ctx.font = 'bold 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(`${rRate}%`, cols[4].x, y);
+      ctx.font = '16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    });
+
+    const footerY = tableY + 42 + (list.length * rowH) + 18;
+    ctx.fillStyle = '#eff6ff';
+    roundRect(42, footerY, width - 84, 44, 12);
+    ctx.fill();
+
+    ctx.fillStyle = '#1e3a8a';
+    ctx.font = 'bold 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText(`총 대상 ${sumTotal}건`, 62, footerY + 28);
+    ctx.fillText(`총 완료 ${sumDone}건`, 220, footerY + 28);
+    ctx.fillText(`전체 완료율 ${rate}%`, 378, footerY + 28);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return alert('이미지 생성에 실패했습니다.');
+
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          alert('미완료자 현황 이미지가 복사되었습니다.');
+          return;
+        }
+      } catch (e) {}
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `happycall_status_${todayLocalISO()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('브라우저에서 이미지 복사가 제한되어 PNG 파일로 저장했습니다.');
+    }, 'image/png');
   }
 
   return (
     <div>
       <h2>{mode === 'store' ? `${user.store_name} 직원별 해피콜 현황` : '직원별 해피콜 현황'}</h2>
-      <button className="primary copyStatusBtn" onClick={copyIncompleteRows}>미완료자 복사</button>
+      <button className="primary copyStatusBtn" onClick={copyIncompleteRows}>미완료자 이미지 복사</button>
       <div className="stats">
         <Card title="전체 대상" value={total.total} />
         <Card title="전체 완료율" value={`${total.total ? Math.round(total.done / total.total * 1000) / 10 : 0}%`} />
