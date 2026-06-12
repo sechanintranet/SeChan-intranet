@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v17-20260612033223';
+const APP_BUILD_VERSION = 'v17-20260612033919';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -225,13 +225,35 @@ function askErrorReport({ user, currentTab = '', actionName = '', joinNo = '', e
 }
 
 
-function UpdateNotice() {
+function UpdateNotice({ user }) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [nextVersion, setNextVersion] = useState('');
+  const [changes, setChanges] = useState([]);
 
   useEffect(() => {
     let alive = true;
     let timer;
+
+    function visibleRolesForUser(role) {
+      if (role === '관리자') return ['직원', '점장', '검수자', '관리자'];
+      if (role === '점장') return ['직원', '점장'];
+      if (role === '검수자') return ['직원', '검수자'];
+      return ['직원'];
+    }
+
+    function filterChangesByRole(rawChanges) {
+      const role = user?.role || '직원';
+      const allowed = visibleRolesForUser(role);
+      if (!Array.isArray(rawChanges)) return [];
+
+      return rawChanges
+        .map(item => {
+          if (typeof item === 'string') return item;
+          if (item && Array.isArray(item.roles) && item.roles.some(r => allowed.includes(r))) return item.text;
+          return null;
+        })
+        .filter(Boolean);
+    }
 
     async function checkVersion() {
       try {
@@ -247,8 +269,10 @@ function UpdateNotice() {
         if (!res.ok) return;
         const data = await res.json();
         if (!alive) return;
+
         if (data.version && data.version !== APP_BUILD_VERSION) {
           setNextVersion(data.version);
+          setChanges(filterChangesByRole(data.changes));
           setHasUpdate(true);
         }
       } catch (e) {}
@@ -259,10 +283,12 @@ function UpdateNotice() {
     }
 
     checkVersion();
-    timer = setInterval(checkVersion, 60 * 1000);
+    timer = setInterval(checkVersion, 30 * 1000);
     document.addEventListener('visibilitychange', handleVisible);
     window.addEventListener('focus', checkVersion);
     window.addEventListener('pageshow', checkVersion);
+    window.addEventListener('online', checkVersion);
+    window.addEventListener('touchstart', checkVersion, { passive: true, once: true });
 
     return () => {
       alive = false;
@@ -270,8 +296,10 @@ function UpdateNotice() {
       document.removeEventListener('visibilitychange', handleVisible);
       window.removeEventListener('focus', checkVersion);
       window.removeEventListener('pageshow', checkVersion);
+      window.removeEventListener('online', checkVersion);
+      window.removeEventListener('touchstart', checkVersion);
     };
-  }, []);
+  }, [user?.role]);
 
   async function forceRefresh() {
     try {
@@ -291,6 +319,16 @@ function UpdateNotice() {
       <div className="updateNoticeBox">
         <h2>업데이트 내용이 있습니다</h2>
         <p>새로운 버전이 배포되었습니다. 최신 기능과 오류 수정을 반영하려면 새로고침이 필요합니다.</p>
+
+        {changes.length > 0 && (
+          <div className="updateChangeBox">
+            <h3>수정 내용</h3>
+            <ul>
+              {changes.map((item, idx) => <li key={idx}>{item}</li>)}
+            </ul>
+          </div>
+        )}
+
         <p className="muted">현재 버전: {APP_BUILD_VERSION}<br />최신 버전: {nextVersion}</p>
         <button className="primary" onClick={forceRefresh}>강제 새로고침</button>
       </div>
@@ -343,7 +381,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
   return (
     <div className="app">
       <AutoLogoutGuard onLogout={onLogout} />
-      <UpdateNotice />
+      <UpdateNotice user={user} />
       <header>
         <div>
           <h1>세찬 해피콜 관리시스템</h1>
@@ -964,16 +1002,21 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
           ) : (
             <>
               <select className={`callResultSelect ${result === '통화 완료' || result === '통화완료' ? 'success' : result === '부재중' ? 'warning' : result === '통화 불가' ? 'danger' : ''}`} value={result} onChange={e => onResultChange(e.target.value)}>
-                {Object.keys(CALL_RESULTS).map(v => <option key={v}>{v}</option>)}
+                {Object.keys(CALL_RESULTS).map(v => <option key={v} className={v === '통화 완료' || v === '통화완료' ? 'optionSuccess' : v === '부재중' ? 'optionWarning' : v === '통화 불가' ? 'optionDanger' : ''}>{v}</option>)}
               </select>
+              <div className="callResultLegend">
+                <span className="success">통화 완료</span>
+                <span className="warning">부재중</span>
+                <span className="danger">통화 불가</span>
+              </div>
               <select value={detail} onChange={e => setDetail(e.target.value)}>
                 <option value="">상세 결과 선택</option>
                 {CALL_RESULTS[result].map(v => <option key={v}>{v}</option>)}
               </select>
               {detail === '미성년자' && (
-                <input value={legalRepJoinNo} onChange={e => setLegalRepJoinNo(e.target.value)} placeholder="법정대리인 가입번호 입력" />
+                <input value={legalRepJoinNo} onChange={e => setLegalRepJoinNo(e.target.value)} className={detail === '미성년자' ? 'requiredInput' : ''} placeholder="작성 필수 · 법정대리인 가입번호 입력" />
               )}
-              <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="메모 입력" />
+              <textarea className={detail === '불만사항있음' || detail === '고객사정' || detail === '사고 발생건' ? 'requiredInput' : ''} value={memo} onChange={e => setMemo(e.target.value)} placeholder={detail === '불만사항있음' || detail === '고객사정' || detail === '사고 발생건' ? '작성 필수 · 메모 입력' : '메모 입력'} />
               <button className="primary" onClick={save}>저장</button>
             </>
           )}

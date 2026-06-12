@@ -1386,3 +1386,74 @@ select{
   background:#fef2f2 !important;
   font-weight:800 !important;
 }
+
+/* V17 UI/mobile update role fix */
+.callResultSelect option.optionSuccess,
+.optionSuccess{
+  background:#dcfce7 !important;
+  color:#166534 !important;
+  font-weight:800 !important;
+}
+.callResultSelect option.optionWarning,
+.optionWarning{
+  background:#ffedd5 !important;
+  color:#9a3412 !important;
+  font-weight:800 !important;
+}
+.callResultSelect option.optionDanger,
+.optionDanger{
+  background:#fee2e2 !important;
+  color:#991b1b !important;
+  font-weight:800 !important;
+}
+.callResultLegend{
+  display:flex;
+  gap:6px;
+  margin:8px 0 6px;
+  flex-wrap:wrap;
+}
+.callResultLegend span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:26px;
+  padding:0 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+}
+.callResultLegend .success{
+  background:#dcfce7;
+  color:#166534;
+}
+.callResultLegend .warning{
+  background:#ffedd5;
+  color:#9a3412;
+}
+.callResultLegend .danger{
+  background:#fee2e2;
+  color:#991b1b;
+}
+.requiredInput,
+textarea.requiredInput,
+input.requiredInput{
+  border-color:#ef4444 !important;
+  background:#fff7f7 !important;
+}
+.requiredInput::placeholder,
+textarea.requiredInput::placeholder,
+input.requiredInput::placeholder{
+  color:#dc2626 !important;
+  opacity:1 !important;
+  font-weight:800 !important;
+}
+@media (max-width:768px){
+  .updateNoticeBox{
+    max-height:82vh;
+    overflow:auto;
+  }
+  .updateChangeBox{
+    max-height:240px;
+    overflow:auto;
+  }
+}
