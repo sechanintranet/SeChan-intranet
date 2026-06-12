@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v17-20260612033919';
+const APP_BUILD_VERSION = 'v17.2-20260612034930';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -112,6 +112,37 @@ function EnvMissing() {
   );
 }
 
+
+const LOGIN_STORE_ORDER = ['금촌', '야당', '봉일천', '화정', '능곡', '관리직'];
+
+function normalizeLoginStoreName(storeName, role) {
+  const s = String(storeName || '').trim();
+  if (role === '관리자' || role === '검수자' || s === '관리자' || s === '본사' || s === '관리직') return '관리직';
+  if (s.includes('금촌')) return '금촌';
+  if (s.includes('야당')) return '야당';
+  if (s.includes('봉일천')) return '봉일천';
+  if (s.includes('화정')) return '화정';
+  if (s.includes('능곡')) return '능곡';
+  return s || '관리직';
+}
+
+function sortEmployeesForLogin(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const as = normalizeLoginStoreName(a.store_name, a.role);
+    const bs = normalizeLoginStoreName(b.store_name, b.role);
+    const ai = LOGIN_STORE_ORDER.includes(as) ? LOGIN_STORE_ORDER.indexOf(as) : 999;
+    const bi = LOGIN_STORE_ORDER.includes(bs) ? LOGIN_STORE_ORDER.indexOf(bs) : 999;
+    if (ai !== bi) return ai - bi;
+
+    const roleRank = (r) => r === '점장' ? 0 : r === '관리자' ? 0 : r === '검수자' ? 1 : 2;
+    const ar = roleRank(a.role);
+    const br = roleRank(b.role);
+    if (ar !== br) return ar - br;
+
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+  });
+}
+
 function Login({ onLogin }) {
   const [employees, setEmployees] = useState([]);
   const [name, setName] = useState('');
@@ -123,7 +154,7 @@ function Login({ onLogin }) {
   async function loadEmployees() {
     const { data, error } = await supabase.from('employees').select('*').eq('status', '재직').order('name');
     if (error) setErr(error.message);
-    setEmployees(data || []);
+    setEmployees(sortEmployeesForLogin(data || []));
   }
 
   function login() {
@@ -454,12 +485,14 @@ function MainApp({ user, onLogout, onUserUpdate }) {
           </div>
         )}
 
-        <button className={tab==='guide'?'active':''} onClick={()=>setTab('guide')}>사용방법</button>
+        <button className={tab==='suggestions'?'active':''} onClick={()=>setTab('suggestions')}>건의/문의</button>
+              <button className={tab==='guide'?'active':''} onClick={()=>setTab('guide')}>사용방법</button>
       </nav>
 
       <main>
         {tab === 'dashboard' && <Dashboard user={user} />}
         {tab === 'mycalls' && <CallList user={user} mode="mine" />}
+        {tab === 'suggestions' && <SuggestionsPage user={user} />}
         {tab === 'guide' && <UsageGuide user={user} />}
         {tab === 'manager' && <ManagerStoreDashboardV6 user={user} />}
         {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
@@ -1522,6 +1555,162 @@ function maskSensitiveAuditDetail(detail) {
   return text;
 }
 
+
+
+function SuggestionsPage({ user }) {
+  const [rows, setRows] = useState([]);
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('기능추가');
+  const [content, setContent] = useState('');
+  const [statusFilter, setStatusFilter] = useState('전체');
+  const [keyword, setKeyword] = useState('');
+  const [commentDrafts, setCommentDrafts] = useState({});
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    try {
+      const data = await fetchAllRows('suggestions', '*', 'created_at');
+      let list = data || [];
+      if (user.role !== '관리자') {
+        list = list.filter(r => r.requester_name === user.name);
+      }
+      setRows(list.sort((a,b)=>String(b.created_at || '').localeCompare(String(a.created_at || ''))));
+    } catch (e) {
+      askErrorReport({ user, currentTab: '건의/문의', actionName: '건의 목록 조회', error: e });
+    }
+  }
+
+  async function submitSuggestion() {
+    if (!title.trim()) return alert('제목을 입력해주세요.');
+    if (!content.trim()) return alert('건의/문의 내용을 입력해주세요.');
+
+    try {
+      const { error } = await supabase.from('suggestions').insert({
+        requester_name: user.name,
+        requester_role: user.role,
+        requester_store: user.store_name,
+        category,
+        title: title.trim(),
+        content: content.trim(),
+        status: '접수'
+      });
+      if (error) throw error;
+
+      await writeAuditLog('건의문의등록', 'suggestions', user.name, user, `${category} / ${title}`);
+      setTitle('');
+      setContent('');
+      setCategory('기능추가');
+      alert('건의/문의가 등록되었습니다.');
+      load();
+    } catch (e) {
+      askErrorReport({ user, currentTab: '건의/문의', actionName: '건의 등록', error: e });
+    }
+  }
+
+  async function updateSuggestion(row, patch) {
+    try {
+      const { error } = await supabase.from('suggestions').update(patch).eq('id', row.id);
+      if (error) throw error;
+      await writeAuditLog('건의문의수정', 'suggestions', row.id, user, `${row.title} / ${JSON.stringify(patch)}`);
+      load();
+    } catch (e) {
+      askErrorReport({ user, currentTab: '건의/문의', actionName: '건의 상태/코멘트 수정', error: e });
+    }
+  }
+
+  const filtered = useMemo(() => {
+    const q = keyword.trim().toLowerCase();
+    return rows.filter(r => {
+      if (statusFilter !== '전체' && (r.status || '접수') !== statusFilter) return false;
+      if (!q) return true;
+      return `${r.requester_name || ''} ${r.requester_store || ''} ${r.category || ''} ${r.title || ''} ${r.content || ''} ${r.admin_comment || ''}`.toLowerCase().includes(q);
+    });
+  }, [rows, statusFilter, keyword]);
+
+  return (
+    <div>
+      <h2>건의/문의 사항</h2>
+
+      <div className="sectionCard suggestionWriteBox">
+        <select value={category} onChange={e=>setCategory(e.target.value)}>
+          <option>기능추가</option>
+          <option>수정요청</option>
+          <option>오류문의</option>
+          <option>기타</option>
+        </select>
+        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="제목 입력" />
+        <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="건의/문의 내용을 입력해주세요." />
+        <button className="primary" onClick={submitSuggestion}>건의/문의 등록</button>
+      </div>
+
+      <div className="sectionCard suggestionFilterBox">
+        <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
+          <option>전체</option>
+          <option>접수</option>
+          <option>확인중</option>
+          <option>반영완료</option>
+          <option>보류</option>
+        </select>
+        <input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder="검색" />
+        <button onClick={()=>{setStatusFilter('전체'); setKeyword('');}}>초기화</button>
+      </div>
+
+      <div className="sectionCard">
+        <table>
+          <thead>
+            <tr>
+              <th>일시</th>
+              {user.role === '관리자' && <th>작성자</th>}
+              <th>구분</th>
+              <th>제목/내용</th>
+              <th>상태</th>
+              <th>관리자 코멘트</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(r => (
+              <tr key={r.id}>
+                <td>{formatKST(r.created_at)}</td>
+                {user.role === '관리자' && <td>{r.requester_store} / {r.requester_name}</td>}
+                <td>{r.category}</td>
+                <td className="suggestionContentCell">
+                  <b>{r.title}</b>
+                  <p>{r.content}</p>
+                </td>
+                <td>
+                  {user.role === '관리자' ? (
+                    <select value={r.status || '접수'} onChange={e=>updateSuggestion(r, { status: e.target.value })}>
+                      <option>접수</option>
+                      <option>확인중</option>
+                      <option>반영완료</option>
+                      <option>보류</option>
+                    </select>
+                  ) : (r.status || '접수')}
+                </td>
+                <td className="suggestionCommentCell">
+                  {user.role === '관리자' ? (
+                    <div className="adminCommentBox">
+                      <textarea
+                        value={commentDrafts[r.id] ?? (r.admin_comment || '')}
+                        onChange={e=>setCommentDrafts({...commentDrafts, [r.id]: e.target.value})}
+                        placeholder="관리자 코멘트 입력"
+                      />
+                      <button onClick={()=>updateSuggestion(r, { admin_comment: commentDrafts[r.id] ?? (r.admin_comment || '') })}>코멘트 저장</button>
+                    </div>
+                  ) : (
+                    <p>{r.admin_comment || '아직 관리자 코멘트가 없습니다.'}</p>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {!filtered.length && <tr><td colSpan={user.role === '관리자' ? 6 : 5} className="muted">건의/문의 내역이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function ErrorReportsViewer({ user }) {
   const [rows, setRows] = useState([]);

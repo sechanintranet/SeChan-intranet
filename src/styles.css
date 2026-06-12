@@ -1457,3 +1457,58 @@ input.requiredInput::placeholder{
     overflow:auto;
   }
 }
+
+/* V17.2 suggestions + login sort */
+.suggestionWriteBox{
+  display:grid;
+  grid-template-columns:140px minmax(200px, 1fr) 120px;
+  gap:8px;
+  align-items:start;
+}
+.suggestionWriteBox textarea{
+  grid-column:1 / -1;
+  min-height:110px;
+}
+.suggestionWriteBox button{
+  grid-column:3;
+  height:40px;
+}
+.suggestionFilterBox{
+  display:grid;
+  grid-template-columns:140px minmax(200px, 1fr) 100px;
+  gap:8px;
+  align-items:center;
+}
+.suggestionContentCell{
+  min-width:260px;
+  white-space:normal !important;
+}
+.suggestionContentCell p,
+.suggestionCommentCell p{
+  margin:6px 0 0;
+  white-space:pre-wrap;
+}
+.adminCommentBox{
+  display:grid;
+  gap:6px;
+  min-width:220px;
+}
+.adminCommentBox textarea{
+  min-height:70px;
+  font-size:12px;
+}
+.adminCommentBox button{
+  height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+@media (max-width:768px){
+  .suggestionWriteBox,
+  .suggestionFilterBox{
+    grid-template-columns:1fr;
+  }
+  .suggestionWriteBox button{
+    grid-column:auto;
+  }
+}
