@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v18-20260612075459';
+const APP_BUILD_VERSION = 'v19-20260613033433';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3211,6 +3211,44 @@ function resolveD95D185Assignee({ customer, employees, employeeHistories }) {
 }
 
 
+
+function dedupeHappycallTargets(rows) {
+  const map = new Map();
+  const duplicates = [];
+  const priority = {
+    'D_PLUS_1': 1,
+    'D_PLUS_7': 2,
+    'D_PLUS_13': 3,
+    'D_PLUS_95': 4,
+    'D_PLUS_185': 5,
+    'MONTHLY_DAY': 9
+  };
+
+  (rows || []).forEach(row => {
+    const key = `${row.join_no}|${row.target_date}`;
+    const current = map.get(key);
+
+    if (!current) {
+      map.set(key, row);
+      return;
+    }
+
+    duplicates.push({ key, kept: current, removed: row });
+
+    const currentRank = priority[current.call_type] ?? 99;
+    const rowRank = priority[row.call_type] ?? 99;
+
+    if (rowRank < currentRank) {
+      map.set(key, row);
+    }
+  });
+
+  return {
+    rows: Array.from(map.values()),
+    duplicates
+  };
+}
+
 function TargetGenerator({ user }) {
   const todayISO = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState(todayISO);
@@ -3374,10 +3412,16 @@ function TargetGenerator({ user }) {
         });
       });
 
-      const saveRows = rows.filter(r => r.assigned_employee);
-      setPreview(rows.slice(0, 150));
+      const deduped = dedupeHappycallTargets(rows);
+      const finalRows = deduped.rows;
+      if (deduped.duplicates.length) {
+        console.warn('중복 해피콜 대상 제거', deduped.duplicates);
+      }
+
+      const saveRows = finalRows.filter(r => r.assigned_employee);
+      setPreview(finalRows.slice(0, 150));
             // V8 assignment history sync
-      for (const t of rows) {
+      for (const t of finalRows) {
         if (t.assigned_employee && t.assigned_employee !== '배정불가') {
           await supabase.from('assignment_history').upsert({
             join_no: t.join_no,
@@ -3390,10 +3434,11 @@ function TargetGenerator({ user }) {
 
       setSummary({
         customerCount: customers?.length || 0,
-        generated: rows.length,
+        generated: finalRows.length,
+        duplicatedRemoved: deduped.duplicates.length,
         savable: saveRows.length,
-        unassigned: rows.length - saveRows.length,
-        rows,
+        unassigned: finalRows.length - saveRows.length,
+        rows: finalRows,
         saveRows
       });
     } catch(e) {
@@ -3423,10 +3468,17 @@ function TargetGenerator({ user }) {
         (existingRows || []).map(r => `${r.join_no}|${r.target_date}|${r.call_type}`)
       );
 
-      const insertRows = summary.saveRows.filter(r => {
+      const dedupedSave = dedupeHappycallTargets(summary.saveRows);
+      const existingLooseKeys = new Set((existingRows || []).map(r => `${r.join_no}|${r.target_date}`));
+      const insertRows = dedupedSave.rows.filter(r => {
         const key = `${r.join_no}|${r.target_date}|${r.call_type}`;
-        return !existingKeys.has(key);
+        const looseKey = `${r.join_no}|${r.target_date}`;
+        return !existingKeys.has(key) && !existingLooseKeys.has(looseKey);
       });
+
+      if (dedupedSave.duplicates.length) {
+        await writeAuditLog('해피콜중복제거', 'happycall_targets', targetDate, user, `저장 직전 중복 ${dedupedSave.duplicates.length}건 제거`);
+      }
 
       let saved = 0;
 
@@ -3437,7 +3489,7 @@ function TargetGenerator({ user }) {
         saved += chunk.length;
       }
 
-      const historyRows = summary.saveRows.map(r => ({
+      const historyRows = dedupedSave.rows.map(r => ({
         join_no: r.join_no,
         assigned_store: r.assigned_store,
         assigned_employee: r.assigned_employee,
