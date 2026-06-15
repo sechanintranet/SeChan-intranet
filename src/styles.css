@@ -1887,3 +1887,79 @@ input.requiredInput::placeholder{
     grid-template-columns:1fr;
   }
 }
+
+/* V22 minor UI alignment fix */
+.resultMinorRow{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  flex-wrap:nowrap !important;
+}
+.callResultSelect.compact{
+  width:180px !important;
+  min-width:180px !important;
+  max-width:180px !important;
+  height:44px !important;
+  min-height:44px !important;
+  box-sizing:border-box !important;
+}
+.minorCheckLabel{
+  height:44px !important;
+  min-height:44px !important;
+  min-width:116px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  padding:0 12px !important;
+  box-sizing:border-box !important;
+  white-space:nowrap !important;
+  line-height:1 !important;
+  word-break:keep-all !important;
+}
+.minorCheckLabel input{
+  flex:0 0 auto !important;
+  margin:0 !important;
+}
+.minorInfoBox{
+  display:grid !important;
+  grid-template-columns:minmax(0, 1fr) 190px !important;
+  gap:10px !important;
+  align-items:end !important;
+  margin-top:10px !important;
+}
+.minorInputGroup{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:4px !important;
+  min-width:0 !important;
+}
+.minorFieldLabel{
+  font-size:12px !important;
+  font-weight:800 !important;
+  color:#dc2626 !important;
+  line-height:1.2 !important;
+  margin:0 !important;
+  white-space:nowrap !important;
+}
+.minorInputGroup input{
+  width:100% !important;
+  height:44px !important;
+  min-height:44px !important;
+  box-sizing:border-box !important;
+}
+@media (max-width:768px){
+  .resultMinorRow{
+    flex-wrap:wrap !important;
+  }
+  .callResultSelect.compact{
+    width:100% !important;
+    max-width:none !important;
+  }
+  .minorCheckLabel{
+    width:100% !important;
+  }
+  .minorInfoBox{
+    grid-template-columns:1fr !important;
+  }
+}

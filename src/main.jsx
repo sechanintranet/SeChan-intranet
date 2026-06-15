@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v21-20260615074415';
+const APP_BUILD_VERSION = 'v22-20260615080115';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1397,8 +1397,14 @@ async function save() {
               </select>
               {isMinorChecked && (
                 <div className="minorInfoBox">
-                  <input value={legalRepJoinNo} onChange={e => setLegalRepJoinNo(e.target.value.replace(/\D/g, ''))} className="requiredInput" placeholder="작성 필수 · 법정대리인 가입번호 10자리 또는 12자리" />
-                  <input type="date" value={minorBirthDate} onChange={e => setMinorBirthDate(e.target.value)} className="requiredInput" />
+                  <div className="minorInputGroup">
+                    <label className="minorFieldLabel">* 법정대리인 가입번호 입력</label>
+                    <input value={legalRepJoinNo} onChange={e => setLegalRepJoinNo(e.target.value.replace(/\D/g, ''))} className="requiredInput" placeholder="해당 칸에 작성 필수 · 법정대리인 가입번호 10자리 또는 12자리" />
+                  </div>
+                  <div className="minorInputGroup">
+                    <label className="minorFieldLabel">* 미성년자 생년월일 입력</label>
+                    <input type="date" value={minorBirthDate} onChange={e => setMinorBirthDate(e.target.value)} className="requiredInput" />
+                  </div>
                 </div>
               )}
               <textarea className={detail === '불만사항있음' || detail === '고객사정' || detail === '사고 발생건' ? 'requiredInput' : ''} value={memo} onChange={e => setMemo(e.target.value)} placeholder={detail === '불만사항있음' || detail === '고객사정' || detail === '사고 발생건' ? '작성 필수 · 메모 입력' : '메모 입력'} />
