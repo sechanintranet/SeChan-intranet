@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v19-20260613033433';
+const APP_BUILD_VERSION = 'v20-20260615063030';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -833,6 +833,7 @@ function Card({ title, value }) {
 function CallList({ user, mode, readOnly = false }) {
   const [targets, setTargets] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [customersByJoinNo, setCustomersByJoinNo] = useState({});
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('미완료전체');
   const [bulkTempOpen, setBulkTempOpen] = useState(false);
@@ -848,6 +849,8 @@ function CallList({ user, mode, readOnly = false }) {
       if (mode === 'mine') visible = visible.filter(t => t.assigned_employee === user.name || t.temporary_assignee === user.name);
       if (mode === 'store') visible = visible.filter(t => t.assigned_store === user.store_name);
       const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
+      const customers = await fetchAllRows('customers', '*', 'open_date');
+      setCustomersByJoinNo(Object.fromEntries((customers || []).map(c => [c.join_no, c])));
       setTargets(visible);
       setLogs(allLogs || []);
     } catch (e) {
@@ -930,7 +933,7 @@ function CallList({ user, mode, readOnly = false }) {
           return (
             <div className="callItem" key={t.id} onClick={()=>setSelected({ ...t, latestLog: latestLogByTarget[t.id] || null })}>
               <div>
-                <b>{t.join_no}</b>
+                <b>{formatCustomerJoinNo(t.join_no, customersByJoinNo, t.customer_name)}</b>
                 <p>{t.assigned_store} · {t.temporary_assignee ? `${t.assigned_employee} → 임시 ${t.temporary_assignee}` : t.assigned_employee} · {callTypeLabel(t.call_type)}</p>
                 <p className="muted">대상일 {t.target_date} / {t.skip_reason || t.assign_reason || ''}</p>
                 {log?.review_status === '반려' && <p className="rejectReason">반려사유: {log.review_memo || '반려 사유 없음'}</p>}
@@ -1067,6 +1070,9 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [memo, setMemo] = useState('');
   const [legalRepJoinNo, setLegalRepJoinNo] = useState('');
   const [history, setHistory] = useState([]);
+  const [editJoinNoOpen, setEditJoinNoOpen] = useState(false);
+  const [newJoinNo, setNewJoinNo] = useState(target.join_no || '');
+  const [joinNoReason, setJoinNoReason] = useState('');
 
   const rejectedInfo = useMemo(() => {
     return history.find(h => h.review_status === '반려');
@@ -1127,6 +1133,26 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
       askErrorReport({ user, currentTab: '해피콜 상세', actionName: '임시 처리자 변경', joinNo: target.join_no, error: e });
     } finally {
       setTempBusy(false);
+    }
+  }
+
+
+  async function saveJoinNoChange() {
+    if (user.role !== '관리자') return alert('관리자만 가입번호를 수정할 수 있습니다.');
+    if (!confirm(`가입번호를 ${target.join_no} → ${newJoinNo} 로 수정할까요? 관련 이력이 모두 변경됩니다.`)) return;
+
+    try {
+      await updateJoinNoEverywhere({
+        oldJoinNo: target.join_no,
+        newJoinNo,
+        reason: joinNoReason,
+        user
+      });
+      alert('가입번호가 수정되었습니다.');
+      onSaved();
+      onClose();
+    } catch (e) {
+      askErrorReport({ user, currentTab: '해피콜 상세', actionName: '가입번호 수정', joinNo: target.join_no, error: e });
     }
   }
 
@@ -1219,11 +1245,20 @@ async function save() {
   return (
     <div className="modalBg">
       <div className="modal">
-        <div className="modalHead"><h2>해피콜 상세</h2><button onClick={onClose}>닫기</button></div>
+        <div className="modalHead"><h2>해피콜 상세</h2><div className="modalHeadBtns">{user.role === "관리자" && <button onClick={()=>setEditJoinNoOpen(!editJoinNoOpen)}>가입번호 수정</button>}<button onClick={onClose}>닫기</button></div></div>
+        {editJoinNoOpen && user.role === '관리자' && (
+          <section className="joinNoEditBox">
+            <h3>가입번호 수정</h3>
+            <input value={newJoinNo} onChange={e=>setNewJoinNo(e.target.value)} placeholder="새 가입번호 입력" />
+            <textarea value={joinNoReason} onChange={e=>setJoinNoReason(e.target.value)} placeholder="수정사유 입력 필수" />
+            <button className="primary" onClick={saveJoinNoChange}>가입번호 수정 저장</button>
+            <p className="muted">customers / targets / logs / refused / assignment 이력이 함께 변경됩니다.</p>
+          </section>
+        )}
         <section>
           <h3>고객 기본정보</h3>
           <div className="infoGrid">
-            <p><b>가입번호</b><br />{target.join_no}</p>
+            <p><b>가입번호</b><br />{target.customer_name ? `${target.customer_name} (${target.join_no})` : target.join_no}</p>
             <p><b>대상일</b><br />{target.target_date}</p>
             {latestLog?.legal_rep_join_no && <p><b>법정대리인 가입번호</b><br />{latestLog?.legal_rep_join_no}</p>}
             <p><b>유형</b><br />{callTypeLabel(target.call_type)}</p>
@@ -1739,6 +1774,7 @@ function WorkHistoryInner({ employee, stores, user }) {
 
 function RefusedCustomersViewer() {
   const [rows, setRows] = useState([]);
+  const [customersByJoinNo, setCustomersByJoinNo] = useState({});
 
   useEffect(() => { load(); }, []);
 
@@ -1746,6 +1782,8 @@ function RefusedCustomersViewer() {
     try {
       const refusedRows = await fetchAllRows('refused_customers', '*', 'refused_at');
       const logs = await fetchAllRows('happycall_logs', '*', 'checked_at');
+      const customers = await fetchAllRows('customers', '*', 'open_date');
+      setCustomersByJoinNo(Object.fromEntries((customers || []).map(c => [c.join_no, c])));
 
       const latestByJoinNo = {};
       (logs || []).forEach(l => {
@@ -1791,7 +1829,7 @@ function RefusedCustomersViewer() {
           <tbody>
             {rows.map(r => (
               <tr key={r.id || r.join_no}>
-                <td>{r.join_no}</td>
+                <td>{formatCustomerJoinNo(r.join_no, customersByJoinNo, r.customer_name)}</td>
                 <td>{formatKST(r.refused_at)}</td>
                 <td>{r.refused_by || '-'}</td>
                 <td>{r.memo || '-'}</td>
@@ -2513,6 +2551,7 @@ function EmployeePerformanceDashboard({ user, mode = 'all' }) {
 function ReviewDashboard({ user }) {
   const [targets, setTargets] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [customersByJoinNo, setCustomersByJoinNo] = useState({});
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('검수대기');
   const [employeeFilter, setEmployeeFilter] = useState('전체');
@@ -2525,6 +2564,8 @@ function ReviewDashboard({ user }) {
     try {
       const allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
       const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
+      const customers = await fetchAllRows('customers', '*', 'open_date');
+      setCustomersByJoinNo(Object.fromEntries((customers || []).map(c => [c.join_no, c])));
 
       let visibleTargets = (allTargets || []).filter(t => !t.is_skipped);
       if (user.role === '검수자') {
@@ -2554,7 +2595,7 @@ function ReviewDashboard({ user }) {
     const latestByTarget = {};
     logs.forEach(log => {
       const prev = latestByTarget[log.target_id];
-      if (!prev || String(log.checked_at || '').localeCompare(String(prev.checked_at || '')) > 0) {
+      if (!prev || String(log.checked_at || '').localeCompare(String(prev.checked_at || '')) > 0 || (String(log.checked_at || '') === String(prev.checked_at || '') && Number(log.id || 0) > Number(prev.id || 0))) {
         latestByTarget[log.target_id] = log;
       }
     });
@@ -2575,7 +2616,7 @@ function ReviewDashboard({ user }) {
     if (employeeFilter !== '전체') rows = rows.filter(r => (r.target.assigned_employee === employeeFilter || r.target.temporary_assignee === employeeFilter));
     if (storeFilter !== '전체') rows = rows.filter(r => r.target.assigned_store === storeFilter);
     if (q) {
-      rows = rows.filter(r => `${r.target.join_no || ''} ${r.target.assigned_employee || ''} ${r.target.assigned_store || ''} ${r.log.call_result || ''} ${r.log.call_detail || ''} ${r.log.memo || ''}`.toLowerCase().includes(q));
+      rows = rows.filter(r => `${r.target.join_no || ''} ${getCustomerNameForJoinNo(r.target.join_no, customersByJoinNo)} ${r.target.assigned_employee || ''} ${r.target.assigned_store || ''} ${r.log.call_result || ''} ${r.log.call_detail || ''} ${r.log.memo || ''}`.toLowerCase().includes(q));
     }
 
     rows.sort((a, b) => String(b.log.checked_at || '').localeCompare(String(a.log.checked_at || '')));
@@ -2851,12 +2892,14 @@ function RawUpload({ user }) {
           const openDate = excelDateToISO(r[3]);       // D열
           const rawStore = String(r[7] || '').trim();  // H열
           const seller = String(r[9] || '').trim();    // J열
+          const customerName = String(r[19] || '').trim(); // T열
           const joinNo = String(r[26] || '').trim();   // AA열
 
           if (!openDate || !joinNo) return;
 
           rawRows.push({
             join_no: joinNo,
+            customer_name: customerName,
             open_date: openDate,
             store_name: normalizeStoreName(rawStore),
             raw_store_name: rawStore,
@@ -2899,6 +2942,7 @@ function RawUpload({ user }) {
     try {
       const cleanRows = summary.rows.map(r => ({
         join_no: r.join_no,
+        customer_name: r.customer_name,
         open_date: r.open_date,
         store_name: r.store_name,
         raw_store_name: r.raw_store_name,
@@ -2931,7 +2975,7 @@ function RawUpload({ user }) {
 
       <div className="uploadBox">
         <p className="muted">엑셀 파일 1개 안의 연도별 시트(2024, 2025, 2026...)를 자동으로 읽습니다.</p>
-        <p className="muted">기준 열: D=개통일자 / H=매장명 / J=담당자 / AA=가입번호</p>
+        <p className="muted">기준 열: D=개통일자 / H=매장명 / J=담당자 / T=고객명 / AA=가입번호</p>
 
         <input
           type="file"
@@ -2965,6 +3009,7 @@ function RawUpload({ user }) {
             <thead>
               <tr>
                 <th>가입번호</th>
+                <th>고객명</th>
                 <th>개통일</th>
                 <th>통합매장</th>
                 <th>RAW매장</th>
@@ -2977,6 +3022,7 @@ function RawUpload({ user }) {
               {preview.map((r, i) => (
                 <tr key={`${r.join_no}-${i}`}>
                   <td>{r.join_no}</td>
+                  <td>{r.customer_name || '-'}</td>
                   <td>{r.open_date}</td>
                   <td>{r.store_name}</td>
                   <td>{r.raw_store_name}</td>
@@ -3212,6 +3258,38 @@ function resolveD95D185Assignee({ customer, employees, employeeHistories }) {
 
 
 
+
+function getCustomerNameForJoinNo(joinNo, customersByJoinNo = {}) {
+  const c = customersByJoinNo?.[joinNo];
+  return c?.customer_name || c?.name || c?.customerName || '';
+}
+
+function formatCustomerJoinNo(joinNo, customersByJoinNo = {}, fallbackName = '') {
+  const name = fallbackName || getCustomerNameForJoinNo(joinNo, customersByJoinNo);
+  return name ? `${name} (${joinNo})` : String(joinNo || '-');
+}
+
+async function updateJoinNoEverywhere({ oldJoinNo, newJoinNo, reason, user }) {
+  const oldNo = String(oldJoinNo || '').trim();
+  const newNo = String(newJoinNo || '').trim();
+  if (!oldNo || !newNo) throw new Error('가입번호를 입력해주세요.');
+  if (oldNo === newNo) throw new Error('기존 가입번호와 동일합니다.');
+  if (!reason || !String(reason).trim()) throw new Error('수정사유를 입력해주세요.');
+
+  const { data: existsCustomer } = await supabase.from('customers').select('id').eq('join_no', newNo).limit(1);
+  const { data: existsTarget } = await supabase.from('happycall_targets').select('id').eq('join_no', newNo).limit(1);
+  if ((existsCustomer || []).length || (existsTarget || []).length) {
+    throw new Error('이미 존재하는 가입번호입니다. 수정할 수 없습니다.');
+  }
+
+  const tables = ['customers', 'happycall_targets', 'happycall_logs', 'refused_customers', 'assignment_history'];
+  for (const table of tables) {
+    const { error } = await supabase.from(table).update({ join_no: newNo }).eq('join_no', oldNo);
+    if (error) throw error;
+  }
+
+  await writeAuditLog('가입번호수정', 'join_no', oldNo, user, `기존 ${oldNo} → 변경 ${newNo} / 사유: ${reason}`);
+}
 function dedupeHappycallTargets(rows) {
   const map = new Map();
   const duplicates = [];
@@ -3378,6 +3456,7 @@ function TargetGenerator({ user }) {
               : decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
             rows.push({
               join_no: c.join_no,
+              customer_name: c.customer_name,
               customer_id: c.id,
               target_date: targetDate,
               target_month: targetMonthText,
@@ -3401,6 +3480,7 @@ function TargetGenerator({ user }) {
         const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, counter);
         rows.push({
           join_no: c.join_no,
+          customer_name: c.customer_name,
           customer_id: c.id,
           target_date: targetDate,
           target_month: targetMonthText,
@@ -3561,7 +3641,7 @@ function TargetGenerator({ user }) {
             <tbody>
               {preview.map((r, i) => (
                 <tr key={`${r.join_no}-${r.call_type}-${i}`}>
-                  <td>{r.join_no}</td>
+                  <td>{r.customer_name ? `${r.customer_name} (${r.join_no})` : r.join_no}</td>
                   <td>{r.target_date}</td>
                   <td>{callTypeLabel(r.call_type)}</td>
                   <td>{r.assigned_store}</td>

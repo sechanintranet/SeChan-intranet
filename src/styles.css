@@ -1785,3 +1785,25 @@ input.requiredInput::placeholder{
     width:100% !important;
   }
 }
+
+/* V20 customer name + join number edit */
+.modalHeadBtns{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.joinNoEditBox{
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+  border-radius:14px;
+  padding:14px;
+}
+.joinNoEditBox input,
+.joinNoEditBox textarea{
+  width:100%;
+  box-sizing:border-box;
+  margin:6px 0;
+}
+.joinNoEditBox textarea{
+  min-height:72px;
+}
