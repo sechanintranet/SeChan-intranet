@@ -2308,3 +2308,66 @@ input.requiredInput::placeholder{
 .reviewFilterBox input::placeholder{
   font-size:13px;
 }
+
+/* V27.1 Intranet + Freepass */
+.moduleTabs{margin-bottom:12px;}
+.formGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px;}
+.formGrid label{display:flex;flex-direction:column;gap:5px;font-weight:800;}
+.photoCaptureBox{margin:12px 0;padding:12px;border:1px dashed #94a3b8;border-radius:14px;background:#f8fafc;}
+.evidencePreview{display:block;max-width:260px;max-height:260px;border-radius:12px;margin-top:10px;border:1px solid #e5e7eb;object-fit:cover;}
+.evidencePreview.large{max-width:100%;max-height:520px;}
+.freepassCards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.freepassCard{border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:4px;}
+.freepassCard strong{font-size:24px;}
+.freepassCard.good{border-color:#86efac;background:#f0fdf4;}
+.freepassCard.mid{border-color:#fdba74;background:#fff7ed;}
+.freepassCard.low{border-color:#fca5a5;background:#fef2f2;}
+@media(max-width:768px){
+  .formGrid{grid-template-columns:1fr;}
+  .freepassCards{grid-template-columns:1fr 1fr;}
+}
+
+/* V27.1 logo placement */
+.loginLogo{
+  display:block;
+  width:180px;
+  max-width:70%;
+  height:auto;
+  object-fit:contain;
+  margin:0 auto 18px;
+}
+.headerRight{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-left:auto;
+}
+.headerLogo{
+  width:120px;
+  max-width:18vw;
+  height:auto;
+  object-fit:contain;
+  display:block;
+}
+@media (max-width:768px){
+  .loginLogo{
+    width:150px;
+    margin-bottom:14px;
+  }
+  .headerRight{
+    width:100%;
+    justify-content:space-between;
+    gap:10px;
+    margin-left:0;
+    margin-top:10px;
+  }
+  .headerLogo{
+    width:96px;
+    max-width:32vw;
+  }
+}
+@media (max-width:430px){
+  .headerLogo{
+    width:82px;
+  }
+}
