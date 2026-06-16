@@ -2289,3 +2289,22 @@ input.requiredInput::placeholder{
     margin-top:8px !important;
   }
 }
+
+/* V26 review minor visibility */
+.minorReviewInfoBox{
+  margin-top:10px;
+  padding:12px;
+  border:1px solid #fbbf24;
+  background:#fffbeb;
+  border-radius:12px;
+}
+.minorReviewInfoBox h4{
+  margin:0 0 8px;
+  color:#92400e;
+}
+.minorReviewInfoBox p{
+  margin:4px 0;
+}
+.reviewFilterBox input::placeholder{
+  font-size:13px;
+}

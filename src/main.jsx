@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v25-20260616011517';
+const APP_BUILD_VERSION = 'v26-20260616050154';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2776,10 +2776,10 @@ function ReviewDashboard({ user }) {
           <tbody>
             {reviewRows.map(({log, target}) => (
               <tr key={log.id} className="clickableRow" onClick={()=>setSelected({log, target, allLogs: logs})}>
-                <td>{target.join_no}</td>
+                <td>{formatCustomerJoinNo(target.join_no, customersByJoinNo, target.customer_name)} {hasMinorInfo(log) && <span className="minorBadge">미성년자</span>}</td>
                 <td>{target.assigned_employee}</td>
                 <td>{target.assigned_store}</td>
-                <td>{log.call_result} / {log.call_detail}</td>
+                <td>{log.call_result} / {log.call_detail} {hasMinorInfo(log) && <span className="minorBadge">미성년자</span>}</td>
                 <td>{log.memo ? '있음' : '-'}</td>
                 <td>{log.review_status || '검수대기'}</td>
                 <td>{formatKST(log.checked_at)}</td>
@@ -2875,7 +2875,10 @@ function ReviewModal({ item, user, onClose, onSaved }) {
         <section>
           <h3>기본정보</h3>
           <div className="infoGrid">
-            <p><b>가입번호</b><br />{target.join_no}</p>
+            <p><b>가입번호</b><br />{target.customer_name ? `${target.customer_name} (${target.join_no})` : target.join_no}</p>
+            {hasMinorInfo(log) && <p><b>미성년자</b><br /><span className="minorBadge">미성년자</span></p>}
+            {hasMinorInfo(log) && <p><b>법정대리인 가입번호</b><br />{log.legal_rep_join_no || '미입력'}</p>}
+            {hasMinorInfo(log) && <p><b>미성년자 생년월일</b><br />{log.minor_birth_date || '미입력'}</p>}
             <p><b>담당자</b><br />{target.assigned_employee}</p>
             <p><b>매장</b><br />{target.assigned_store}</p>
             <p><b>대상일</b><br />{target.target_date}</p>
@@ -2886,8 +2889,15 @@ function ReviewModal({ item, user, onClose, onSaved }) {
 
         <section>
           <h3>직원 입력 결과</h3>
-          <p><b>{log.call_result}</b> / {log.call_detail}</p>
+          <p><b>{log.call_result}</b> / {log.call_detail} {hasMinorInfo(log) && <span className="minorBadge">미성년자</span>}</p>
           <p className="reason">{log.memo || '메모 없음'}</p>
+          {hasMinorInfo(log) && (
+            <div className="minorReviewInfoBox">
+              <h4>미성년자 정보</h4>
+              <p><b>법정대리인 가입번호</b> {log.legal_rep_join_no || '미입력'}</p>
+              <p><b>미성년자 생년월일</b> {log.minor_birth_date || '미입력'}</p>
+            </div>
+          )}
         </section>
 
         {rejectionHistory.length > 0 && (
@@ -3378,7 +3388,7 @@ function isActiveMinor(birthDate) {
   return age !== null && age < 19;
 }
 function hasMinorInfo(row = {}) {
-  return !!(row.is_minor || row.minor_birth_date || row.legal_rep_join_no);
+  return !!(row.is_minor || row.minor_birth_date || row.legal_rep_join_no || row.call_detail === '미성년자');
 }
 function getCustomerNameForJoinNo(joinNo, customersByJoinNo = {}) {
   const c = customersByJoinNo?.[joinNo];
