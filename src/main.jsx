@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v27.1-20260616080550';
+const APP_BUILD_VERSION = 'v27.2-20260616085608';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -141,7 +141,7 @@ function EnvMissing() {
   return (
     <div className="page center">
       <div className="loginCard">
-        <img className="loginLogo" src="/sechan-logo.png" alt="세찬컴퍼니 로고" />
+        <img className="loginLogo" src="./sechan-logo.png" alt="세찬컴퍼니 로고" onError={e=>{e.currentTarget.style.display='none'}} />
         <h1>세찬컴퍼니 인트라넷</h1>
         <p className="error">Supabase 연결값이 설정되지 않았습니다.</p>
         <p className="muted">Vercel 환경변수에 VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY를 넣어주세요.</p>
@@ -369,14 +369,27 @@ function freepassBalanceOf(rows, name) {
 function freepassUsedInMonth(rows, name, ym = todayLocalISO().slice(0,7)) {
   return (rows || []).filter(r => r.employee_name === name && String(r.effective_date || r.created_at || '').slice(0,7) === ym && r.type === '사용').reduce((s,r)=>s+Math.abs(Number(r.hours || 0)),0);
 }
+
+function freepassPhotoTimeLabel(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return iso;
+  }
+}
+
 function validateFreepassRequest({ requestType, useType, requestDate, hours, useStartTime, currentUsed = 0 }) {
   const h = Number(hours || 0);
   if (requestType === '월차 전환') {
     if (h !== 10) return '월차 전환은 10시간만 가능합니다.';
     return '';
   }
+  
   if (![1,2,3].includes(h)) return '프리패스는 1시간 단위로 하루 최대 3시간까지만 신청 가능합니다.';
-  if (requestType === '사용' && currentUsed + h > 10) return '프리패스는 월 최대 10시간까지만 사용 가능합니다. 월차 전환은 제외됩니다.';
+  if (requestType === '사용' && useType !== '월차 사용' && currentUsed + h > 10) return '프리패스는 월 최대 10시간까지만 사용 가능합니다. 월차 전환과 월차 사용은 제외됩니다.';
+  if (requestType === '사용' && useType === '월차 사용') return '';
   if (!requestDate) return '사용일을 선택해주세요.';
   if (requestType !== '사용') return '';
   if (useType === '오전 늦게 출근') {
@@ -577,8 +590,8 @@ function AutoLogoutGuard({ onLogout }) {
 function FreepassModule({ user }) {
   const [tab, setTab] = useState('내 프리패스');
   const tabs = ['내 프리패스', '사용 신청'];
-  if (user.role === '점장' || isAdminLike(user)) tabs.push('점장 승인');
-  if (isSuperAdmin(user)) tabs.push('최종 승인', '관리자 조정');
+  if (user.role === '점장' || isAdminLike(user)) tabs.push('점장 승인', '매장 현황');
+  if (isSuperAdmin(user)) tabs.push('최종 승인', '관리자 조정', '반기 초기화');
   if (isAdminLike(user)) tabs.push('전체 현황');
   return (
     <div>
@@ -587,9 +600,11 @@ function FreepassModule({ user }) {
       {tab==='내 프리패스' && <FreepassMyPage user={user} />}
       {tab==='사용 신청' && <FreepassRequestForm user={user} />}
       {tab==='점장 승인' && <FreepassApprovalQueue user={user} mode="manager" />}
+      {tab==='매장 현황' && <FreepassStoreOverview user={user} />}
       {tab==='최종 승인' && <FreepassApprovalQueue user={user} mode="final" />}
       {tab==='관리자 조정' && <FreepassAdminAdjust user={user} />}
       {tab==='전체 현황' && <FreepassOverview user={user} />}
+      {tab==='반기 초기화' && <FreepassSemiannualReset user={user} />}
     </div>
   );
 }
@@ -628,43 +643,57 @@ function FreepassRequestForm({ user }) {
   const [hours,setHours]=useState(1);
   const [useStartTime,setUseStartTime]=useState('');
   const [reason,setReason]=useState('');
-  const [photoData,setPhotoData]=useState('');
+  const [photoItems,setPhotoItems]=useState([]);
   const [ledger,setLedger]=useState([]);
   const [busy,setBusy]=useState(false);
   useEffect(()=>{ supabase.from('freepass_ledger').select('*').then(({data})=>setLedger(data||[])); },[]);
-  async function onPhoto(file){ if(!file) return; const reader=new FileReader(); reader.onload=()=>setPhotoData(String(reader.result||'')); reader.readAsDataURL(file); }
+  async function onPhoto(file){
+    if(!file) return;
+    if(photoItems.length >= 2) return alert('사진은 최대 2장까지 첨부 가능합니다.');
+    const capturedAt = new Date().toISOString();
+    const reader=new FileReader();
+    reader.onload=()=>setPhotoItems(prev=>[...prev,{ data:String(reader.result||''), captured_at:capturedAt }].slice(0,2));
+    reader.readAsDataURL(file);
+  }
+  function removePhoto(idx){
+    setPhotoItems(prev=>prev.filter((_,i)=>i!==idx));
+  }
   async function submit(){
     if(!reason.trim()) return alert('사유를 입력해주세요.');
     const currentUsed=freepassUsedInMonth(ledger,user.name,String(requestDate).slice(0,7));
     const validation=validateFreepassRequest({requestType,useType,requestDate,hours,useStartTime,currentUsed});
     if(validation) return alert(validation);
-    if(requestType==='야근 적립' && !photoData) return alert('야근 적립은 타임스탬프 사진 직접 촬영이 필요합니다.');
+    if((requestType==='야근 적립'||requestType==='휴무출근 적립') && !photoItems.length) return alert('적립 신청은 타임스탬프 사진 직접 촬영이 필요합니다.');
     setBusy(true);
     try{
       const {error}=await supabase.from('freepass_requests').insert({
         employee_id:user.id, employee_name:user.name, employee_store:user.store_name,
         request_type:requestType, use_type:requestType==='사용'?useType:null,
         request_date:requestDate, use_start_time:useStartTime||null, hours:Number(hours),
-        reason, evidence_photo_data:requestType==='야근 적립'?photoData:null,
-        status:'점장승인대기', manager_status:'대기', final_status:'대기', requested_at:new Date().toISOString()
+        reason, evidence_photo_data:(requestType==='야근 적립'||requestType==='휴무출근 적립')?JSON.stringify(photoItems):null,
+        status:user.role==='점장'?'최종승인대기':'점장승인대기', manager_status:user.role==='점장'?'본인점장자동승인':'대기', final_status:'대기', requested_at:new Date().toISOString(), manager_approved_by:user.role==='점장'?user.name:null, manager_approved_at:user.role==='점장'?new Date().toISOString():null
       });
       if(error) throw error;
       await writeAuditLog('프리패스신청','freepass_requests',user.name,user,`${requestType} ${hours}시간 / ${reason}`);
       alert('프리패스 신청이 등록되었습니다.');
-      setReason(''); setPhotoData('');
+      setReason(''); setPhotoItems([]);
     }catch(e){ askErrorReport({user,currentTab:'프리패스',actionName:'프리패스 신청',error:e}); }
     finally{ setBusy(false); }
   }
   return <div className="sectionCard">
     <h3>프리패스 신청</h3>
     <div className="formGrid">
-      <label>신청 유형<select value={requestType} onChange={e=>setRequestType(e.target.value)}><option>사용</option><option>야근 적립</option><option>월차 전환</option></select></label>
-      {requestType==='사용' && <label>사용 구분<select value={useType} onChange={e=>setUseType(e.target.value)}><option>오전 늦게 출근</option><option>오후 일찍 퇴근</option></select></label>}
+      <label>신청 유형<select value={requestType} onChange={e=>setRequestType(e.target.value)}><option>사용</option><option>야근 적립</option><option>휴무출근 적립</option><option>월차 전환</option></select></label>
+      {requestType==='사용' && <label>사용 구분<select value={useType} onChange={e=>setUseType(e.target.value)}><option>오전 늦게 출근</option><option>오후 일찍 퇴근</option><option>월차 사용</option></select></label>}
       <label>사용/적립일<input type="date" value={requestDate} onChange={e=>setRequestDate(e.target.value)} /></label>
-      <label>시간<select value={hours} onChange={e=>setHours(Number(e.target.value))}>{requestType==='월차 전환'?<option value={10}>10시간</option>:<><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></>}</select></label>
+      <label>시간<select value={hours} onChange={e=>setHours(Number(e.target.value))}>{(requestType==='월차 전환'||useType==='월차 사용')?<option value={10}>1일</option>:<><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></>}</select></label>
       {requestType==='사용' && useType==='오후 일찍 퇴근' && <label>사용 시작 시간<input type="time" value={useStartTime} onChange={e=>setUseStartTime(e.target.value)} /></label>}
     </div>
-    {requestType==='야근 적립' && <div className="photoCaptureBox"><p className="muted">현장에서 직접 촬영한 타임스탬프 사진만 첨부해주세요. 최종 승인 시 사진 데이터는 즉시 삭제됩니다.</p><input type="file" accept="image/*" capture="environment" onChange={e=>onPhoto(e.target.files?.[0])}/>{photoData && <img className="evidencePreview" src={photoData} alt="야근 증빙" />}</div>}
+    {(requestType==='야근 적립'||requestType==='휴무출근 적립') && <div className="photoCaptureBox"><p className="muted">현장에서 직접 촬영한 타임스탬프 사진만 첨부해주세요. 최대 2장까지 가능하며, 최종 승인 시 사진 데이터는 즉시 삭제됩니다.</p><input type="file" accept="image/*" capture="environment" onChange={e=>onPhoto(e.target.files?.[0])}/>
+      <div className="evidenceGrid">
+        {photoItems.map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview" src={p.data} alt={`증빙 ${idx+1}`} /><p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p><button type="button" onClick={()=>removePhoto(idx)}>삭제/재촬영</button></div>)}
+      </div>
+    </div>}
     <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="사유 입력" />
     <button className="primary" onClick={submit} disabled={busy}>신청 등록</button>
   </div>;
@@ -681,8 +710,8 @@ function FreepassApprovalQueue({ user, mode }) {
         await writeAuditLog('프리패스점장승인','freepass_requests',row.id,user,`${row.employee_name} ${row.hours}시간`);
       } else {
         if(!isSuperAdmin(user)) return alert('최종 승인은 최고관리자만 가능합니다.');
-        const type=row.request_type==='야근 적립'?'적립':(row.request_type==='월차 전환'?'월차전환':'사용');
-        const sign=row.request_type==='야근 적립'?1:-1;
+        const type=(row.request_type==='야근 적립'||row.request_type==='휴무출근 적립')?'적립':(row.request_type==='월차 전환'?'월차전환':(row.use_type==='월차 사용'?'월차사용':'사용'));
+        const sign=(row.request_type==='야근 적립'||row.request_type==='휴무출근 적립')?1:-1;
         const {error:reqError}=await supabase.from('freepass_requests').update({status:'최종승인완료',final_status:'승인',final_approved_by:user.name,final_approved_at:new Date().toISOString(),evidence_photo_data:null,evidence_deleted_at:new Date().toISOString()}).eq('id',row.id); if(reqError) throw reqError;
         const {error:ledgerError}=await supabase.from('freepass_ledger').insert({employee_id:row.employee_id,employee_name:row.employee_name,employee_store:row.employee_store,type,hours:sign*Number(row.hours),reason:row.reason,source_request_id:row.id,effective_date:row.request_date,created_by:user.name}); if(ledgerError) throw ledgerError;
         await writeAuditLog('프리패스최종승인','freepass_requests',row.id,user,`${row.employee_name} ${type} ${row.hours}시간`);
@@ -691,7 +720,7 @@ function FreepassApprovalQueue({ user, mode }) {
     }catch(e){ askErrorReport({user,currentTab:'프리패스 승인',actionName:'승인',error:e}); }
   }
   async function reject(row){ const memo=prompt('반려 사유를 입력해주세요.'); if(!memo) return; try{ const patch=mode==='manager'?{status:'점장반려',manager_status:'반려',manager_rejected_by:user.name,manager_rejected_at:new Date().toISOString(),reject_reason:memo}:{status:'최종반려',final_status:'반려',final_rejected_by:user.name,final_rejected_at:new Date().toISOString(),reject_reason:memo}; const {error}=await supabase.from('freepass_requests').update(patch).eq('id',row.id); if(error) throw error; alert('반려 처리되었습니다.'); setSelected(null); load(); }catch(e){ askErrorReport({user,currentTab:'프리패스 승인',actionName:'반려',error:e}); } }
-  return <div className="sectionCard"><h3>{mode==='manager'?'점장 승인 대기':'최종 승인 대기'}</h3><table><thead><tr><th>신청자</th><th>매장</th><th>유형</th><th>일자</th><th>시간</th><th>사유</th><th>상태</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}><td>{r.employee_name}</td><td>{r.employee_store}</td><td>{r.request_type} {r.use_type||''}</td><td>{r.request_date}</td><td>{r.hours}시간</td><td>{r.reason}</td><td>{r.status}</td></tr>)}{!rows.length&&<tr><td colSpan="7" className="muted">승인 대기 건이 없습니다.</td></tr>}</tbody></table>{selected&&<div className="modalBg"><div className="modal"><div className="modalHead"><h2>프리패스 승인 상세</h2><button onClick={()=>setSelected(null)}>닫기</button></div><section className="infoGrid"><p><b>신청자</b><br/>{selected.employee_name}</p><p><b>유형</b><br/>{selected.request_type} {selected.use_type||''}</p><p><b>일자</b><br/>{selected.request_date}</p><p><b>시간</b><br/>{selected.hours}시간</p><p><b>사유</b><br/>{selected.reason}</p></section>{selected.evidence_photo_data&&<img className="evidencePreview large" src={selected.evidence_photo_data} alt="야근 증빙"/>}<div className="reviewActions"><button className="primary" onClick={()=>approve(selected)}>승인</button><button className="dangerBtn" onClick={()=>reject(selected)}>반려</button></div></div></div>}</div>;
+  return <div className="sectionCard"><h3>{mode==='manager'?'점장 승인 대기':'최종 승인 대기'}</h3><table><thead><tr><th>신청자</th><th>매장</th><th>유형</th><th>일자</th><th>시간</th><th>사유</th><th>상태</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}><td>{r.employee_name}</td><td>{r.employee_store}</td><td>{r.request_type} {r.use_type||''}</td><td>{r.request_date}</td><td>{r.hours}시간</td><td>{r.reason}</td><td>{r.status}</td></tr>)}{!rows.length&&<tr><td colSpan="7" className="muted">승인 대기 건이 없습니다.</td></tr>}</tbody></table>{selected&&<div className="modalBg"><div className="modal"><div className="modalHead"><h2>프리패스 승인 상세</h2><button onClick={()=>setSelected(null)}>닫기</button></div><section className="infoGrid"><p><b>신청자</b><br/>{selected.employee_name}</p><p><b>유형</b><br/>{selected.request_type} {selected.use_type||''}</p><p><b>일자</b><br/>{selected.request_date}</p><p><b>시간</b><br/>{selected.hours}시간</p><p><b>사유</b><br/>{selected.reason}</p></section>{selected.evidence_photo_data&&<div className="evidenceGrid large">{(() => { try { const arr = JSON.parse(selected.evidence_photo_data); return Array.isArray(arr) ? arr : [{data:selected.evidence_photo_data}]; } catch { return [{data:selected.evidence_photo_data}]; } })().map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview large" src={p.data || p} alt={`증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}</div>}<div className="reviewActions"><button className="primary" onClick={()=>approve(selected)}>승인</button><button className="dangerBtn" onClick={()=>reject(selected)}>반려</button></div></div></div>}</div>;
 }
 
 function FreepassAdminAdjust({ user }) {
@@ -701,12 +730,210 @@ function FreepassAdminAdjust({ user }) {
   return <div className="sectionCard"><h3>최고관리자 적립/차감</h3><div className="formGrid"><select value={employeeName} onChange={e=>setEmployeeName(e.target.value)}><option value="">직원 선택</option>{employees.map(e=><option key={e.id||e.name} value={e.name}>{e.store_name} · {e.name}</option>)}</select><select value={type} onChange={e=>setType(e.target.value)}><option>적립</option><option>차감</option></select><input type="number" min="1" step="1" value={hours} onChange={e=>setHours(e.target.value)}/></div><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="사유 입력"/><button className="primary" onClick={save}>저장</button></div>;
 }
 
+
+function FreepassStoreOverview({ user }) {
+  const [ledger,setLedger]=useState([]);
+  const [employees,setEmployees]=useState([]);
+  const [selected,setSelected]=useState(null);
+
+  useEffect(()=>{ load(); },[]);
+
+  async function load(){
+    const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false});
+    const {data:e}=await supabase.from('employees').select('*').eq('status','재직').order('name');
+    const visibleEmployees = isAdminLike(user) ? (e || []) : (e || []).filter(emp => emp.store_name === user.store_name);
+    setLedger(l||[]);
+    setEmployees(visibleEmployees);
+  }
+
+  const rows = [...employees].sort((a,b)=>{
+    if (a.role === '점장' && b.role !== '점장') return -1;
+    if (a.role !== '점장' && b.role === '점장') return 1;
+    return String(a.name||'').localeCompare(String(b.name||''),'ko');
+  });
+
+  const selectedRows = selected ? ledger.filter(r => r.employee_name === selected.name) : [];
+
+  return (
+    <div className="sectionCard">
+      <h3>{isAdminLike(user) ? '매장 직원 프리패스 현황' : `${user.store_name} 프리패스 현황`}</h3>
+      <p className="muted">직원을 누르면 적립/사용/차감/초기화 이력을 확인할 수 있습니다.</p>
+      <table className="freepassOverviewTable">
+        <thead>
+          <tr><th>매장</th><th>직원</th><th>권한</th><th>잔여시간</th><th>이번달 사용</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(emp=>{
+            const balance = freepassBalanceOf(ledger, emp.name);
+            const used = freepassUsedInMonth(ledger, emp.name);
+            return (
+              <tr key={emp.id||emp.name} className="clickableRow" onClick={()=>setSelected(emp)}>
+                <td>{emp.store_name}</td>
+                <td>{emp.name}</td>
+                <td>{emp.role || '직원'}</td>
+                <td><span className={`balanceBadge ${balance < 0 ? 'negative' : balance <= 5 ? 'low' : balance <= 10 ? 'mid' : 'good'}`}>{balance}시간</span></td>
+                <td>{used}시간</td>
+              </tr>
+            );
+          })}
+          {!rows.length && <tr><td colSpan="5" className="muted">표시할 직원이 없습니다.</td></tr>}
+        </tbody>
+      </table>
+
+      {selected && (
+        <div className="modalBg">
+          <div className="modal">
+            <div className="modalHead">
+              <h2>{selected.name} 프리패스 이력</h2>
+              <button onClick={()=>setSelected(null)}>닫기</button>
+            </div>
+            <section className="infoGrid">
+              <p><b>매장</b><br />{selected.store_name}</p>
+              <p><b>권한</b><br />{selected.role || '직원'}</p>
+              <p><b>잔여시간</b><br />{freepassBalanceOf(ledger, selected.name)}시간</p>
+              <p><b>이번달 사용</b><br />{freepassUsedInMonth(ledger, selected.name)}시간</p>
+            </section>
+            <section>
+              <h3>적립/사용/차감 이력</h3>
+              <table>
+                <thead><tr><th>일시</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
+                <tbody>
+                  {selectedRows.map(r=>(
+                    <tr key={r.id}>
+                      <td>{formatKST(r.created_at)}</td>
+                      <td>{r.type}</td>
+                      <td>{Number(r.hours)>0?`+${r.hours}`:r.hours}시간</td>
+                      <td>{r.reason || '-'}</td>
+                      <td>{r.created_by || '-'}</td>
+                    </tr>
+                  ))}
+                  {!selectedRows.length && <tr><td colSpan="5" className="muted">프리패스 이력이 없습니다.</td></tr>}
+                </tbody>
+              </table>
+            </section>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FreepassSemiannualReset({ user }) {
+  const [ledger,setLedger]=useState([]);
+  const [employees,setEmployees]=useState([]);
+  const [busy,setBusy]=useState(false);
+
+  useEffect(()=>{ load(); },[]);
+  async function load(){
+    const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false});
+    const {data:e}=await supabase.from('employees').select('*').eq('status','재직').order('store_name');
+    setLedger(l||[]);
+    setEmployees(e||[]);
+  }
+
+  const resetTargets = employees.map(emp => ({...emp, balance: freepassBalanceOf(ledger, emp.name)})).filter(emp => emp.balance > 0);
+
+  async function runReset(){
+    if(!isSuperAdmin(user)) return alert('최고관리자만 실행할 수 있습니다.');
+    if(!confirm(`양수 잔여 프리패스 ${resetTargets.length}명을 0으로 초기화합니다.\n마이너스 잔여시간은 유지됩니다.\n진행할까요?`)) return;
+    setBusy(true);
+    try{
+      const rows = resetTargets.map(emp => ({
+        employee_id: emp.id || null,
+        employee_name: emp.name,
+        employee_store: emp.store_name,
+        type: '반기초기화',
+        hours: -Math.abs(Number(emp.balance)),
+        reason: '6개월 단위 양수 프리패스 초기화',
+        effective_date: todayLocalISO(),
+        created_by: user.name,
+        reset_cycle: todayLocalISO().slice(0,7)
+      }));
+      if(rows.length){
+        const {error}=await supabase.from('freepass_ledger').insert(rows);
+        if(error) throw error;
+      }
+      await writeAuditLog('프리패스반기초기화','freepass_ledger','semiannual',user,`초기화 ${rows.length}명`);
+      alert('반기 초기화가 완료되었습니다.');
+      load();
+    }catch(e){
+      askErrorReport({user,currentTab:'프리패스',actionName:'반기 초기화',error:e});
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="sectionCard">
+      <h3>6개월 양수 프리패스 초기화</h3>
+      <p className="muted">양수 잔여시간만 0으로 초기화하고, 마이너스 잔여시간은 유지합니다.</p>
+      <button className="dangerBtn" disabled={busy} onClick={runReset}>양수 프리패스 초기화 실행</button>
+      <table>
+        <thead><tr><th>매장</th><th>직원</th><th>현재 잔여</th><th>초기화 차감</th></tr></thead>
+        <tbody>
+          {resetTargets.map(emp=>(
+            <tr key={emp.id || emp.name}>
+              <td>{emp.store_name}</td><td>{emp.name}</td><td>{emp.balance}시간</td><td>-{emp.balance}시간</td>
+            </tr>
+          ))}
+          {!resetTargets.length && <tr><td colSpan="4" className="muted">초기화 대상 양수 잔여시간이 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function FreepassOverview({ user }) {
   const [ledger,setLedger]=useState([]),[employees,setEmployees]=useState([]);
+  const storeOrder = ['금촌','야당','봉일천','화정','능곡','관리직'];
+
   useEffect(()=>{ load(); },[]);
-  async function load(){ const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false}); const {data:e}=await supabase.from('employees').select('*').eq('status','재직').order('store_name'); setLedger(l||[]); setEmployees(e||[]); }
-  return <div className="sectionCard"><h3>전체 프리패스 현황</h3><div className="freepassCards">{employees.map(emp=>{ const balance=freepassBalanceOf(ledger,emp.name); return <div className={`freepassCard ${balance<=5?'low':balance<=10?'mid':'good'}`} key={emp.id||emp.name}><b>{emp.name}</b><span>{emp.store_name}</span><strong>{balance}시간</strong></div>; })}</div></div>;
+  async function load(){
+    const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false});
+    const {data:e}=await supabase.from('employees').select('*').eq('status','재직').order('store_name');
+    setLedger(l||[]);
+    setEmployees(e||[]);
+  }
+
+  const rows = [...employees].sort((a,b)=>{
+    const ai = storeOrder.indexOf(a.store_name) >= 0 ? storeOrder.indexOf(a.store_name) : 999;
+    const bi = storeOrder.indexOf(b.store_name) >= 0 ? storeOrder.indexOf(b.store_name) : 999;
+    if (ai !== bi) return ai - bi;
+    if (a.role === '점장' && b.role !== '점장') return -1;
+    if (a.role !== '점장' && b.role === '점장') return 1;
+    return String(a.name||'').localeCompare(String(b.name||''),'ko');
+  });
+
+  return (
+    <div className="sectionCard">
+      <h3>전체 프리패스 현황</h3>
+      <p className="muted">매장 순서 기준으로 잔여 시간을 확인합니다. 양수 잔여시간은 6개월마다 초기화 대상이며, 마이너스는 유지됩니다.</p>
+      <table className="freepassOverviewTable">
+        <thead>
+          <tr><th>매장</th><th>직원</th><th>권한</th><th>잔여시간</th><th>이번달 사용</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(emp=>{
+            const balance = freepassBalanceOf(ledger, emp.name);
+            const used = freepassUsedInMonth(ledger, emp.name);
+            return (
+              <tr key={emp.id||emp.name}>
+                <td>{emp.store_name}</td>
+                <td>{emp.name}</td>
+                <td>{emp.role || '직원'}</td>
+                <td><span className={`balanceBadge ${balance < 0 ? 'negative' : balance <= 5 ? 'low' : balance <= 10 ? 'mid' : 'good'}`}>{balance}시간</span></td>
+                <td>{used}시간</td>
+              </tr>
+            );
+          })}
+          {!rows.length && <tr><td colSpan="5" className="muted">직원 정보가 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
 }
+
+
 function MainApp({ user, onLogout, onUserUpdate }) {
   const [tab, setTab] = useState('mycalls');
   const [showPassword, setShowPassword] = useState(false);
@@ -724,68 +951,42 @@ function MainApp({ user, onLogout, onUserUpdate }) {
           <h1>세찬컴퍼니 인트라넷</h1>
           <p>{user.name} · {user.store_name} · {user.role || '직원'}</p>
         </div>
-        <div className="headerRight"><img className="headerLogo" src="/sechan-logo.png" alt="세찬컴퍼니 로고" /><div className="headerActions"><button onClick={() => setShowPassword(true)}>비밀번호 변경</button><button onClick={onLogout}>로그아웃</button></div></div>
+        <div className="headerRight"><img className="headerLogo" src="./sechan-logo.png" alt="세찬컴퍼니 로고" onError={e=>{e.currentTarget.style.display='none'}} /><div className="headerActions"><button onClick={() => setShowPassword(true)}>비밀번호 변경</button><button onClick={onLogout}>로그아웃</button></div></div>
       </header>
 
       <nav className="topNav compactNav">
-        <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>해피콜</button>
-        <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>
-        {isAdmin && <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>}
-        {isAdmin && <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>}
+        <div className="compactGroup">
+          <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'happycall' ? '' : 'happycall')}>
+            해피콜 {openMenu === 'happycall' ? '▲' : '▼'}
+          </button>
+          {openMenu === 'happycall' && (
+            <div className="compactItems">
+              <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
+              {isManager && <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 현황</button>}
+              {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 리스트</button>}
+              {isManager && <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>}
+              {(isAdmin || isChecker) && <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>}
+              {(isAdmin || isChecker) && <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>}
+              {(isAdmin || isChecker) && <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>전체 직원 현황</button>}
+              {isAdmin && <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>}
+              {isAdmin && <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>}
+              {isAdmin && <button className={tab==='refused'?'active':''} onClick={()=>setTab('refused')}>통화 불가 고객</button>}
+            </div>
+          )}
+        </div>
 
-        {isManager && (
-          <div className="compactGroup">
-            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'store' ? '' : 'store')}>
-              매장관리 {openMenu === 'store' ? '▲' : '▼'}
-            </button>
-            {openMenu === 'store' && (
-              <div className="compactItems">
-                <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 현황</button>
-                <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 리스트</button>
-                <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>
-              </div>
-            )}
-          </div>
-        )}
+        <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>
 
         {isAdmin && (
           <div className="compactGroup">
-            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'ops' ? '' : 'ops')}>
-              기본 설정 {openMenu === 'ops' ? '▲' : '▼'}
+            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'settings' ? '' : 'settings')}>
+              기본 설정 {openMenu === 'settings' ? '▲' : '▼'}
             </button>
-            {openMenu === 'ops' && (
+            {openMenu === 'settings' && (
               <div className="compactItems">
                 <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
                 <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {(isAdmin || isChecker) && (
-          <div className="compactGroup">
-            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'review' ? '' : 'review')}>
-              검수/현황 {openMenu === 'review' ? '▲' : '▼'}
-            </button>
-            {openMenu === 'review' && (
-              <div className="compactItems">
-                <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>
-                <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>
-                <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>직원별 현황</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {isAdmin && (
-          <div className="compactGroup">
-            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'logs' ? '' : 'logs')}>
-              기록 {openMenu === 'logs' ? '▲' : '▼'}
-            </button>
-            {openMenu === 'logs' && (
-              <div className="compactItems">
                 <button className={tab==='audit'?'active':''} onClick={()=>setTab('audit')}>감사로그</button>
-                <button className={tab==='refused'?'active':''} onClick={()=>setTab('refused')}>통화 불가 고객</button>
                 <button className={tab==='errors'?'active':''} onClick={()=>setTab('errors')}>오류보고</button>
               </div>
             )}
@@ -793,7 +994,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         )}
 
         <button className={tab==='suggestions'?'active':''} onClick={()=>setTab('suggestions')}>건의/문의</button>
-              <button className={tab==='guide'?'active':''} onClick={()=>setTab('guide')}>사용방법</button>
+        <button className={tab==='guide'?'active':''} onClick={()=>setTab('guide')}>사용방법</button>
       </nav>
 
       <main>

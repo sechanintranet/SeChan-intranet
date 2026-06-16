@@ -2371,3 +2371,183 @@ input.requiredInput::placeholder{
     width:82px;
   }
 }
+
+/* V27.2 logo/nav/freepass polish */
+.loginLogo{
+  width:120px !important;
+  max-width:48% !important;
+  height:auto !important;
+  margin:0 auto 12px !important;
+}
+.headerLogo{
+  width:72px !important;
+  max-width:10vw !important;
+  height:auto !important;
+}
+.headerRight{
+  gap:10px !important;
+}
+.freepassOverviewTable td,
+.freepassOverviewTable th{
+  text-align:center;
+  vertical-align:middle;
+}
+.balanceBadge{
+  display:inline-flex;
+  justify-content:center;
+  min-width:72px;
+  padding:4px 8px;
+  border-radius:999px;
+  font-weight:900;
+}
+.balanceBadge.good{background:#dcfce7;color:#166534;}
+.balanceBadge.mid{background:#ffedd5;color:#9a3412;}
+.balanceBadge.low{background:#fee2e2;color:#991b1b;}
+.balanceBadge.negative{background:#e0e7ff;color:#3730a3;}
+@media(max-width:768px){
+  .loginLogo{width:104px !important; max-width:42% !important;}
+  .headerLogo{width:54px !important; max-width:18vw !important;}
+  .freepassOverviewTable{font-size:12px;}
+}
+
+/* V27.2 mobile UI re-polish */
+header h1{
+  white-space:nowrap !important;
+  word-break:keep-all !important;
+  font-size:clamp(22px, 4.2vw, 30px) !important;
+  line-height:1.15 !important;
+}
+.loginLogo{
+  width:60px !important;
+  max-width:26% !important;
+}
+.headerLogo{
+  width:36px !important;
+  max-width:8vw !important;
+}
+.topNav.compactNav{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  align-items:stretch !important;
+}
+.topNav.compactNav > button,
+.topNav.compactNav > .compactGroup{
+  flex:1 1 150px !important;
+  min-width:150px !important;
+}
+.topNav.compactNav .compactHead,
+.topNav.compactNav > button{
+  width:100% !important;
+  min-height:44px !important;
+}
+.compactItems{
+  z-index:20 !important;
+}
+.evidenceGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+  margin-top:10px;
+}
+.evidenceItem{
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:8px;
+  background:#fff;
+}
+.evidenceItem p{
+  margin:6px 0;
+  font-size:12px;
+  color:#475569;
+}
+.evidenceItem button{
+  min-height:34px;
+  padding:0 10px;
+  font-size:12px;
+}
+@media(max-width:768px){
+  header{
+    display:grid !important;
+    grid-template-columns:1fr auto !important;
+    gap:10px !important;
+    align-items:center !important;
+  }
+  header h1{
+    font-size:24px !important;
+    max-width:none !important;
+  }
+  .headerRight{
+    width:auto !important;
+    margin-top:0 !important;
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:flex-end !important;
+    gap:6px !important;
+  }
+  .headerLogo{
+    width:32px !important;
+    max-width:32px !important;
+    order:-1;
+  }
+  .headerActions{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:6px !important;
+  }
+  .headerActions button{
+    min-height:42px !important;
+    padding:0 14px !important;
+    white-space:nowrap !important;
+  }
+  .topNav.compactNav{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .topNav.compactNav > button,
+  .topNav.compactNav > .compactGroup{
+    min-width:0 !important;
+    width:100% !important;
+  }
+  .topNav.compactNav .compactGroup:nth-child(1),
+  .topNav.compactNav .compactGroup:nth-child(3){
+    grid-column:1 / -1;
+  }
+  .compactItems{
+    position:static !important;
+    width:100% !important;
+    margin-top:8px !important;
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .compactItems button{
+    width:100% !important;
+    min-height:40px !important;
+    text-align:center !important;
+  }
+  .evidenceGrid{
+    grid-template-columns:1fr !important;
+  }
+}
+@media(max-width:430px){
+  header h1{
+    font-size:22px !important;
+  }
+  .headerLogo{
+    width:28px !important;
+    max-width:28px !important;
+  }
+}
+
+/* V27.2 manager freepass overview */
+.freepassOverviewTable .clickableRow{
+  cursor:pointer;
+}
+@media(max-width:768px){
+  .modal .freepassOverviewTable,
+  .modal table{
+    font-size:12px;
+  }
+}
