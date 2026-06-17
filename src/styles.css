@@ -2579,3 +2579,24 @@ header h1{
     font-size:12px !important;
   }
 }
+
+/* V27.4 freepass naming/color/bulk adjustment */
+.balanceBadge.positive{background:#dbeafe !important;color:#1d4ed8 !important;}
+.balanceBadge.zero{background:#ffedd5 !important;color:#9a3412 !important;}
+.balanceBadge.negative{background:#fee2e2 !important;color:#991b1b !important;}
+.balanceBadge.good,.balanceBadge.mid,.balanceBadge.low{background:#dbeafe !important;color:#1d4ed8 !important;}
+.freepassBulkTable input[type="number"]{width:80px;min-height:36px;}
+.freepassBulkTable select{min-height:36px;}
+.bulkActions{display:flex;gap:8px;margin:10px 0;}
+@media(max-width:768px){.freepassBulkTable{font-size:12px;}.freepassBulkTable input[type="number"]{width:64px;}}
+
+/* V27.4 push notification + request status */
+.pushStatusBox{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:12px 0;}
+.pushStatusBox p{background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin:0;}
+.requestStatusBadge{display:inline-flex;align-items:center;justify-content:center;min-width:92px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:900;white-space:nowrap;}
+.requestStatusBadge.waiting{background:#fef3c7;color:#92400e;}
+.requestStatusBadge.finalWaiting{background:#dbeafe;color:#1d4ed8;}
+.requestStatusBadge.approved{background:#dcfce7;color:#166534;}
+.requestStatusBadge.rejected{background:#fee2e2;color:#991b1b;}
+.smallText{font-size:12px;}
+@media(max-width:768px){.requestStatusBadge{min-width:auto;font-size:11px;}}

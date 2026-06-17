@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v27.3-20260616093630';
+const APP_BUILD_VERSION = 'v27.4-20260617040725';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -354,6 +354,27 @@ async function saveErrorReport({ user, currentTab = '', actionName = '', joinNo 
 }
 
 
+
+function isPushSupported() {
+  return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
+function pushStatusLabel(status) {
+  const map = {'점장승인대기':'점장 승인 대기','최종승인대기':'점장 승인 완료 / 최종 승인 대기','최종승인완료':'최종 승인 완료','점장반려':'점장 반려','최종반려':'최종 반려'};
+  return map[status] || status || '대기';
+}
+function pushStatusClass(status) {
+  if (status === '최종승인완료') return 'approved';
+  if (status === '점장반려' || status === '최종반려') return 'rejected';
+  if (status === '최종승인대기') return 'finalWaiting';
+  return 'waiting';
+}
+
 function isSuperAdmin(user) {
   return user?.role === '최고관리자' || user?.name === '심성우' || user?.email === 'sungwood0123@gmail.com';
 }
@@ -589,9 +610,9 @@ function AutoLogoutGuard({ onLogout }) {
 function FreepassModule({ user }) {
   const [tab, setTab] = useState('내 프리패스');
   const tabs = ['내 프리패스', '사용 신청'];
-  if (user.role === '점장' || isAdminLike(user)) tabs.push('점장 승인', '매장 현황');
+  if (user.role === '점장' || isAdminLike(user)) tabs.push('점장 승인', '전체 현황');
   if (isSuperAdmin(user)) tabs.push('최종 승인', '관리자 조정', '반기 초기화');
-  if (isAdminLike(user)) tabs.push('전체 현황');
+  
   return (
     <div>
       <h2>프리패스</h2>
@@ -599,10 +620,9 @@ function FreepassModule({ user }) {
       {tab==='내 프리패스' && <FreepassMyPage user={user} />}
       {tab==='사용 신청' && <FreepassRequestForm user={user} />}
       {tab==='점장 승인' && <FreepassApprovalQueue user={user} mode="manager" />}
-      {tab==='매장 현황' && <FreepassStoreOverview user={user} />}
+      {tab==='전체 현황' && <FreepassStoreOverview user={user} />}
       {tab==='최종 승인' && <FreepassApprovalQueue user={user} mode="final" />}
       {tab==='관리자 조정' && <FreepassAdminAdjust user={user} />}
-      {tab==='전체 현황' && <FreepassOverview user={user} />}
       {tab==='반기 초기화' && <FreepassSemiannualReset user={user} />}
     </div>
   );
@@ -610,30 +630,74 @@ function FreepassModule({ user }) {
 
 function FreepassMyPage({ user }) {
   const [ledger,setLedger]=useState([]);
+  const [requests,setRequests]=useState([]);
+  const [selected,setSelected]=useState(null);
+
   useEffect(()=>{ load(); },[]);
-  async function load(){ const {data}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false}); setLedger(data||[]); }
+
+  async function load(){
+    const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false});
+    const {data:r}=await supabase.from('freepass_requests').select('*').eq('employee_name',user.name).order('requested_at',{ascending:false});
+    setLedger(l||[]);
+    setRequests(r||[]);
+  }
+
   const myRows=ledger.filter(r=>r.employee_name===user.name);
   const balance=freepassBalanceOf(ledger,user.name);
   const monthUsed=freepassUsedInMonth(ledger,user.name);
-  return (
-    <div>
-      <div className="summaryGrid">
-        <Card title="잔여 프리패스" value={`${balance}시간`} />
-        <Card title="이번달 사용" value={`${monthUsed}시간`} />
-        <Card title="월 사용 한도" value="10시간" />
-        <Card title="월차 전환" value="10시간" subValue="월차 1개" />
-      </div>
-      <div className="sectionCard">
-        <h3>내 프리패스 이력</h3>
-        <table><thead><tr><th>일시</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
-        <tbody>
-          {myRows.map(r=><tr key={r.id}><td>{formatKST(r.created_at)}</td><td>{r.type}</td><td>{Number(r.hours)>0?`+${r.hours}`:r.hours}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
-          {!myRows.length && <tr><td colSpan="5" className="muted">프리패스 이력이 없습니다.</td></tr>}
-        </tbody></table>
-      </div>
+
+  return <div>
+    <div className="summaryGrid">
+      <Card title="잔여 프리패스" value={`${balance}시간`} />
+      <Card title="이번달 사용" value={`${monthUsed}시간`} />
+      <Card title="월 사용 한도" value="10시간" />
+      <Card title="월차 전환" value="10시간" />
     </div>
-  );
+
+    <div className="sectionCard">
+      <h3>내 신청 현황</h3>
+      <p className="muted">내가 신청한 프리패스의 승인 진행 상태를 확인할 수 있습니다.</p>
+      <table>
+        <thead><tr><th>신청일</th><th>유형</th><th>사용/적립일</th><th>시간</th><th>상태</th><th>사유</th></tr></thead>
+        <tbody>
+          {requests.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}>
+            <td>{formatKST(r.requested_at||r.created_at)}</td>
+            <td>{r.request_type} {r.use_type||''}</td>
+            <td>{r.request_date}</td>
+            <td>{r.hours}시간</td>
+            <td><span className={`requestStatusBadge ${pushStatusClass(r.status)}`}>{pushStatusLabel(r.status)}</span></td>
+            <td>{r.reason||'-'}</td>
+          </tr>)}
+          {!requests.length&&<tr><td colSpan="6" className="muted">신청 내역이 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="sectionCard">
+      <h3>내 프리패스 이력</h3>
+      <table><thead><tr><th>일시</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
+      <tbody>
+        {myRows.map(r=><tr key={r.id}><td>{formatKST(r.created_at)}</td><td>{r.type}</td><td>{Number(r.hours)>0?`+${r.hours}`:r.hours}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
+        {!myRows.length&&<tr><td colSpan="5" className="muted">프리패스 이력이 없습니다.</td></tr>}
+      </tbody></table>
+    </div>
+
+    {selected&&<div className="modalBg"><div className="modal">
+      <div className="modalHead"><h2>프리패스 신청 상세</h2><button onClick={()=>setSelected(null)}>닫기</button></div>
+      <section className="infoGrid">
+        <p><b>신청 유형</b><br />{selected.request_type} {selected.use_type||''}</p>
+        <p><b>상태</b><br /><span className={`requestStatusBadge ${pushStatusClass(selected.status)}`}>{pushStatusLabel(selected.status)}</span></p>
+        <p><b>사용/적립일</b><br />{selected.request_date}</p>
+        <p><b>시간</b><br />{selected.hours}시간</p>
+        <p><b>점장 승인</b><br />{selected.manager_status||'대기'} {selected.manager_approved_by?`· ${selected.manager_approved_by}`:''}</p>
+        <p><b>최종 승인</b><br />{selected.final_status||'대기'} {selected.final_approved_by?`· ${selected.final_approved_by}`:''}</p>
+        <p><b>반려 사유</b><br />{selected.reject_reason||'-'}</p>
+        <p><b>신청 사유</b><br />{selected.reason||'-'}</p>
+      </section>
+    </div></div>}
+  </div>;
 }
+
 
 function FreepassRequestForm({ user }) {
   const [requestType,setRequestType]=useState('사용');
@@ -723,10 +787,113 @@ function FreepassApprovalQueue({ user, mode }) {
 }
 
 function FreepassAdminAdjust({ user }) {
-  const [employees,setEmployees]=useState([]),[employeeName,setEmployeeName]=useState(''),[type,setType]=useState('적립'),[hours,setHours]=useState(1),[reason,setReason]=useState('');
-  useEffect(()=>{ supabase.from('employees').select('*').eq('status','재직').order('store_name').then(({data})=>setEmployees(data||[])); },[]);
-  async function save(){ if(!isSuperAdmin(user)) return alert('최고관리자만 조정할 수 있습니다.'); if(!employeeName) return alert('직원을 선택해주세요.'); if(!reason.trim()) return alert('사유를 입력해주세요.'); const emp=employees.find(e=>e.name===employeeName); const value=type==='차감'?-Math.abs(Number(hours)):Math.abs(Number(hours)); try{ const {error}=await supabase.from('freepass_ledger').insert({employee_id:emp?.id||null,employee_name:employeeName,employee_store:emp?.store_name||'',type,hours:value,reason,effective_date:todayLocalISO(),created_by:user.name}); if(error) throw error; await writeAuditLog('프리패스관리자조정','freepass_ledger',employeeName,user,`${type} ${value}시간 / ${reason}`); alert('조정 완료'); setReason(''); }catch(e){ askErrorReport({user,currentTab:'프리패스',actionName:'관리자 조정',error:e}); } }
-  return <div className="sectionCard"><h3>최고관리자 적립/차감</h3><div className="formGrid"><select value={employeeName} onChange={e=>setEmployeeName(e.target.value)}><option value="">직원 선택</option>{employees.map(e=><option key={e.id||e.name} value={e.name}>{e.store_name} · {e.name}</option>)}</select><select value={type} onChange={e=>setType(e.target.value)}><option>적립</option><option>차감</option></select><input type="number" min="1" step="1" value={hours} onChange={e=>setHours(e.target.value)}/></div><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="사유 입력"/><button className="primary" onClick={save}>저장</button></div>;
+  const [employees,setEmployees]=useState([]);
+  const [employeeName,setEmployeeName]=useState('');
+  const [type,setType]=useState('적립');
+  const [hours,setHours]=useState(1);
+  const [reason,setReason]=useState('');
+  const [bulkRows,setBulkRows]=useState({});
+  const [bulkReason,setBulkReason]=useState('');
+  const [busy,setBusy]=useState(false);
+
+  useEffect(()=>{ load(); },[]);
+
+  async function load(){
+    const {data}=await supabase.from('employees').select('*').eq('status','재직').order('store_name');
+    const sorted=sortEmployeesForLogin(data||[]);
+    setEmployees(sorted);
+    const initial={};
+    sorted.forEach(e=>{ initial[e.id||e.name]={checked:false,type:'적립',hours:0}; });
+    setBulkRows(initial);
+  }
+
+  async function save(){
+    if(!isSuperAdmin(user)) return alert('최고관리자만 조정할 수 있습니다.');
+    if(!employeeName) return alert('직원을 선택해주세요.');
+    if(!reason.trim()) return alert('사유를 입력해주세요.');
+    const emp=employees.find(e=>e.name===employeeName);
+    const value=type==='차감'?-Math.abs(Number(hours)):Math.abs(Number(hours));
+    try{
+      const {error}=await supabase.from('freepass_ledger').insert({employee_id:emp?.id||null,employee_name:employeeName,employee_store:emp?.store_name||'',type,hours:value,reason,effective_date:todayLocalISO(),created_by:user.name});
+      if(error) throw error;
+      await writeAuditLog('프리패스관리자조정','freepass_ledger',employeeName,user,`${type} ${value}시간 / ${reason}`);
+      alert('조정 완료');
+      setReason('');
+    }catch(e){ askErrorReport({user,currentTab:'프리패스',actionName:'관리자 조정',error:e}); }
+  }
+
+  function updateBulkRow(key,patch){ setBulkRows(prev=>({...prev,[key]:{...(prev[key]||{}),...patch}})); }
+  function selectAllBulk(checked){
+    const next={};
+    employees.forEach(e=>{ const key=e.id||e.name; next[key]={...(bulkRows[key]||{type:'적립',hours:0}),checked}; });
+    setBulkRows(next);
+  }
+
+  async function saveBulk(){
+    if(!isSuperAdmin(user)) return alert('최고관리자만 일괄 조정할 수 있습니다.');
+    if(!bulkReason.trim()) return alert('일괄 처리 사유를 입력해주세요.');
+    const selected=employees.map(emp=>({emp,row:bulkRows[emp.id||emp.name]||{}})).filter(x=>x.row.checked&&Number(x.row.hours||0)>0);
+    if(!selected.length) return alert('일괄 처리할 직원을 선택하고 시간을 입력해주세요.');
+    if(!confirm(`${selected.length}명 프리패스를 일괄 처리합니다.\n진행할까요?`)) return;
+    setBusy(true);
+    try{
+      const rows=selected.map(({emp,row})=>{
+        const t=row.type||'적립'; const h=Math.abs(Number(row.hours||0));
+        return {employee_id:emp.id||null,employee_name:emp.name,employee_store:emp.store_name||'',type:t,hours:t==='차감'?-h:h,reason:bulkReason,effective_date:todayLocalISO(),created_by:user.name};
+      });
+      const {error}=await supabase.from('freepass_ledger').insert(rows);
+      if(error) throw error;
+      await writeAuditLog('프리패스일괄조정','freepass_ledger','bulk',user,`${rows.length}명 / ${bulkReason}`);
+      alert(`일괄 처리 완료: ${rows.length}명`);
+      setBulkReason('');
+      const reset={}; employees.forEach(e=>{reset[e.id||e.name]={checked:false,type:'적립',hours:0};});
+      setBulkRows(reset);
+    }catch(e){ askErrorReport({user,currentTab:'프리패스',actionName:'일괄 조정',error:e}); }
+    finally{ setBusy(false); }
+  }
+
+  return (
+    <div>
+      <div className="sectionCard">
+        <h3>개별 적립/차감</h3>
+        <div className="formGrid">
+          <select value={employeeName} onChange={e=>setEmployeeName(e.target.value)}>
+            <option value="">직원 선택</option>
+            {employees.map(e=><option key={e.id||e.name} value={e.name}>{e.store_name} · {e.name}</option>)}
+          </select>
+          <select value={type} onChange={e=>setType(e.target.value)}><option>적립</option><option>차감</option></select>
+          <input type="number" min="1" step="1" value={hours} onChange={e=>setHours(e.target.value)}/>
+        </div>
+        <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="사유 입력"/>
+        <button className="primary" onClick={save}>저장</button>
+      </div>
+
+      <div className="sectionCard">
+        <h3>전직원 일괄 적립/차감</h3>
+        <p className="muted">직원을 체크하고 지급/차감 시간과 사유를 입력하면 한 번에 처리됩니다. 직원 순서는 로그인 화면과 동일합니다.</p>
+        <div className="bulkActions">
+          <button type="button" onClick={()=>selectAllBulk(true)}>전체 선택</button>
+          <button type="button" onClick={()=>selectAllBulk(false)}>전체 해제</button>
+        </div>
+        <textarea value={bulkReason} onChange={e=>setBulkReason(e.target.value)} placeholder="일괄 처리 사유 입력" />
+        <table className="freepassBulkTable">
+          <thead><tr><th>선택</th><th>매장</th><th>직원</th><th>권한</th><th>구분</th><th>시간</th></tr></thead>
+          <tbody>
+            {employees.map(emp=>{
+              const key=emp.id||emp.name; const row=bulkRows[key]||{};
+              return <tr key={key}>
+                <td><input type="checkbox" checked={!!row.checked} onChange={e=>updateBulkRow(key,{checked:e.target.checked})}/></td>
+                <td>{emp.store_name}</td><td>{emp.name}</td><td>{emp.role||'직원'}</td>
+                <td><select value={row.type||'적립'} onChange={e=>updateBulkRow(key,{type:e.target.value})}><option>적립</option><option>차감</option></select></td>
+                <td><input type="number" min="0" step="1" value={row.hours??0} onChange={e=>updateBulkRow(key,{hours:e.target.value})}/></td>
+              </tr>
+            })}
+          </tbody>
+        </table>
+        <button className="primary" disabled={busy} onClick={saveBulk}>일괄 처리 저장</button>
+      </div>
+    </div>
+  );
 }
 
 
@@ -766,7 +933,7 @@ function FreepassStoreOverview({ user }) {
                 <td>{emp.store_name}</td>
                 <td>{emp.name}</td>
                 <td>{emp.role || '직원'}</td>
-                <td><span className={`balanceBadge ${balance < 0 ? 'negative' : balance <= 5 ? 'low' : balance <= 10 ? 'mid' : 'good'}`}>{balance}시간</span></td>
+                <td><span className={`balanceBadge ${balance < 0 ? 'negative' : balance === 0 ? 'zero' : 'positive'}`}>{balance}시간</span></td>
                 <td>{used}시간</td>
               </tr>
             );
@@ -830,7 +997,7 @@ function FreepassSemiannualReset({ user }) {
 
   async function runReset(){
     if(!isSuperAdmin(user)) return alert('최고관리자만 실행할 수 있습니다.');
-    if(!confirm(`양수 잔여 프리패스 ${resetTargets.length}명을 0으로 초기화합니다.\n마이너스 잔여시간은 유지됩니다.\n진행할까요?`)) return;
+    if(!confirm(`잔여 프리패스 ${resetTargets.length}명을 0으로 초기화합니다.\n마이너스 잔여시간은 유지됩니다.\n진행할까요?`)) return;
     setBusy(true);
     try{
       const rows = resetTargets.map(emp => ({
@@ -839,7 +1006,7 @@ function FreepassSemiannualReset({ user }) {
         employee_store: emp.store_name,
         type: '반기초기화',
         hours: -Math.abs(Number(emp.balance)),
-        reason: '6개월 단위 양수 프리패스 초기화',
+        reason: '6개월 단위 잔여 프리패스 초기화',
         effective_date: todayLocalISO(),
         created_by: user.name,
         reset_cycle: todayLocalISO().slice(0,7)
@@ -860,9 +1027,9 @@ function FreepassSemiannualReset({ user }) {
 
   return (
     <div className="sectionCard">
-      <h3>6개월 양수 프리패스 초기화</h3>
-      <p className="muted">양수 잔여시간만 0으로 초기화하고, 마이너스 잔여시간은 유지합니다.</p>
-      <button className="dangerBtn" disabled={busy} onClick={runReset}>양수 프리패스 초기화 실행</button>
+      <h3>6개월 잔여 프리패스 초기화</h3>
+      <p className="muted">잔여 프리패스만 0으로 초기화하고, 마이너스 잔여시간은 유지합니다.</p>
+      <button className="dangerBtn" disabled={busy} onClick={runReset}>잔여 프리패스 초기화 실행</button>
       <table>
         <thead><tr><th>매장</th><th>직원</th><th>현재 잔여</th><th>초기화 차감</th></tr></thead>
         <tbody>
@@ -871,7 +1038,7 @@ function FreepassSemiannualReset({ user }) {
               <td>{emp.store_name}</td><td>{emp.name}</td><td>{emp.balance}시간</td><td>-{emp.balance}시간</td>
             </tr>
           ))}
-          {!resetTargets.length && <tr><td colSpan="4" className="muted">초기화 대상 양수 잔여시간이 없습니다.</td></tr>}
+          {!resetTargets.length && <tr><td colSpan="4" className="muted">초기화 대상 잔여 프리패스이 없습니다.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -893,7 +1060,7 @@ function FreepassOverview({ user }) {
   return (
     <div className="sectionCard">
       <h3>전체 프리패스 현황</h3>
-      <p className="muted">매장 순서 기준으로 잔여 시간을 확인합니다. 양수 잔여시간은 6개월마다 초기화 대상이며, 마이너스는 유지됩니다.</p>
+      <p className="muted">매장 순서 기준으로 잔여 시간을 확인합니다. 잔여 프리패스은 6개월마다 초기화 대상이며, 마이너스는 유지됩니다.</p>
       <table className="freepassOverviewTable">
         <thead>
           <tr><th>매장</th><th>직원</th><th>권한</th><th>잔여시간</th><th>이번달 사용</th></tr>
@@ -907,7 +1074,7 @@ function FreepassOverview({ user }) {
                 <td>{emp.store_name}</td>
                 <td>{emp.name}</td>
                 <td>{emp.role || '직원'}</td>
-                <td><span className={`balanceBadge ${balance < 0 ? 'negative' : balance <= 5 ? 'low' : balance <= 10 ? 'mid' : 'good'}`}>{balance}시간</span></td>
+                <td><span className={`balanceBadge ${balance < 0 ? 'negative' : balance === 0 ? 'zero' : 'positive'}`}>{balance}시간</span></td>
                 <td>{used}시간</td>
               </tr>
             );
@@ -919,6 +1086,73 @@ function FreepassOverview({ user }) {
   );
 }
 
+
+
+function PushSettings({ user }) {
+  const [supported,setSupported]=useState(false);
+  const [permission,setPermission]=useState(typeof Notification!=='undefined'?Notification.permission:'unsupported');
+  const [subscriptionSaved,setSubscriptionSaved]=useState(false);
+  const [busy,setBusy]=useState(false);
+
+  useEffect(()=>{ setSupported(isPushSupported()); checkExistingSubscription(); },[]);
+
+  async function checkExistingSubscription(){
+    if(!isPushSupported()) return;
+    try{
+      const reg=await navigator.serviceWorker.getRegistration();
+      const sub=await reg?.pushManager?.getSubscription?.();
+      setSubscriptionSaved(!!sub);
+    }catch{}
+  }
+
+  async function enablePush(){
+    if(!isPushSupported()) return alert('현재 브라우저에서는 푸시 알림을 지원하지 않습니다. 크롬/엣지 또는 홈화면에 추가한 Safari 기준으로 사용해주세요.');
+    setBusy(true);
+    try{
+      const result=await Notification.requestPermission();
+      setPermission(result);
+      if(result!=='granted') return alert('브라우저 알림 허용이 필요합니다.');
+      const reg=await navigator.serviceWorker.register('/service-worker.js');
+      const publicKey=import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+      if(!publicKey) return alert('VITE_VAPID_PUBLIC_KEY 환경변수가 아직 설정되지 않았습니다. UI와 DB 구조는 준비되었습니다.');
+      const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(publicKey)});
+      const {error}=await supabase.from('push_subscriptions').upsert({
+        employee_id:user.id, employee_name:user.name, employee_store:user.store_name,
+        endpoint:sub.endpoint, subscription_json:JSON.stringify(sub), user_agent:navigator.userAgent,
+        is_active:true, updated_at:new Date().toISOString()
+      },{onConflict:'endpoint'});
+      if(error) throw error;
+      setSubscriptionSaved(true);
+      alert('브라우저 푸시 알림이 등록되었습니다.');
+    }catch(e){ askErrorReport({user,currentTab:'알림 설정',actionName:'푸시 알림 등록',error:e}); }
+    finally{ setBusy(false); }
+  }
+
+  async function saveTestNotification(){
+    try{
+      const {error}=await supabase.from('notification_requests').insert({
+        employee_id:user.id, employee_name:user.name,
+        title:'세찬컴퍼니 인트라넷 테스트 알림',
+        body:`${user.name}님, 브라우저 푸시 알림 테스트 요청이 접수되었습니다.`,
+        status:'대기', created_by:user.name
+      });
+      if(error) throw error;
+      alert('테스트 알림 요청이 저장되었습니다. 실제 발송은 푸시 발송 함수 연결 후 작동합니다.');
+    }catch(e){ askErrorReport({user,currentTab:'알림 설정',actionName:'테스트 알림 요청',error:e}); }
+  }
+
+  return <div className="sectionCard">
+    <h3>브라우저 알림 설정</h3>
+    <p className="muted">프리패스 승인/반려, 해피콜 반려 같은 알림을 브라우저 푸시로 받을 수 있도록 준비합니다.</p>
+    <div className="pushStatusBox">
+      <p><b>지원 여부</b> {supported?'지원 가능':'지원 불가'}</p>
+      <p><b>브라우저 권한</b> {permission}</p>
+      <p><b>구독 상태</b> {subscriptionSaved?'등록됨':'미등록'}</p>
+    </div>
+    <div className="reviewActions"><button className="primary" onClick={enablePush} disabled={busy}>알림 허용/등록</button><button onClick={saveTestNotification}>테스트 알림 요청</button></div>
+    <p className="muted smallText">아이폰은 Safari에서 홈 화면에 추가한 웹앱 기준으로 안정적이며, 카카오톡 인앱브라우저에서는 제한될 수 있습니다.</p>
+  </div>;
+}
 
 function MainApp({ user, onLogout, onUserUpdate }) {
   const [tab, setTab] = useState('mycalls');
@@ -963,6 +1197,8 @@ function MainApp({ user, onLogout, onUserUpdate }) {
 
         <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>
 
+        <button className={tab==='pushSettings'?'active':''} onClick={()=>setTab('pushSettings')}>알림 설정</button>
+
         {isAdmin && (
           <div className="compactGroup">
             <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'settings' ? '' : 'settings')}>
@@ -988,6 +1224,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         {tab === 'mycalls' && <CallList user={user} mode="mine" />}
         {tab === 'suggestions' && <SuggestionsPage user={user} />}
         {tab === 'freepass' && <FreepassModule user={user} />}
+        {tab === 'pushSettings' && <PushSettings user={user} />}
         {tab === 'guide' && <UsageGuide user={user} />}
         {tab === 'manager' && <ManagerStoreDashboardV6 user={user} />}
         {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
