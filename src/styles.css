@@ -2642,3 +2642,29 @@ header h1{
 .balanceCard.negative strong{
   white-space:nowrap;
 }
+
+/* V27.6 accrual wording + unified card design */
+.timeValue.positive{
+  color:#1d4ed8 !important;
+}
+.timeValue.zero{
+  color:#9a3412 !important;
+}
+.timeValue.negative{
+  color:#991b1b !important;
+}
+.balanceCard.positive,
+.balanceCard.zero,
+.balanceCard.negative{
+  background:#fff !important;
+  border-color:#e5e7eb !important;
+  color:inherit !important;
+}
+.summaryGrid .card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+}
+.photoCaptureBox .primary:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}

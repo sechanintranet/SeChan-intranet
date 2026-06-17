@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v27.5-20260617072632';
+const APP_BUILD_VERSION = 'v27.6-20260617074543';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -722,7 +722,6 @@ function FreepassMyPage({ user }) {
   const balance=freepassBalanceOf(ledger,user.name);
   const pending = pendingDebitHours(requests, user.name);
   const available = balance - pending;
-  const monthUsed=freepassUsedInMonth(ledger,user.name);
   const tone = getBalanceTone(balance);
 
   function openDetail(row){
@@ -787,12 +786,12 @@ function FreepassMyPage({ user }) {
 
   return <div>
     <div className="summaryGrid">
-      <div className={`card balanceCard ${tone}`}>
+      <div className="card">
         <span>잔여 프리패스</span>
-        <strong>{balance}시간</strong>
+        <strong className={`timeValue ${tone}`}>{balance}시간</strong>
       </div>
-      <Card title="승인대기 사용" value={`${pending}시간`} />
       <Card title="신청 가능" value={`${available}시간`} />
+      <Card title="승인대기 사용" value={`${pending}시간`} />
       <Card title="월 사용 한도" value={`${monthlyLimit}시간`} />
     </div>
 
@@ -800,7 +799,7 @@ function FreepassMyPage({ user }) {
       <h3>내 신청 현황</h3>
       <p className="muted">승인대기 중인 사용/월차전환 시간은 신청 가능 시간에서 먼저 차감됩니다.</p>
       <table>
-        <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>사용 요청 날짜</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
+        <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>적립 발생일</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
         <tbody>
           {requests.map(r=><tr key={r.id} className="clickableRow" onClick={()=>openDetail(r)}>
             <td>{formatKST(r.requested_at||r.created_at)}</td>
@@ -830,7 +829,7 @@ function FreepassMyPage({ user }) {
         <p><b>접수 날짜·시각</b><br />{formatKST(selected.requested_at||selected.created_at)}</p>
         <p><b>신청 유형</b><br />{selected.request_type} {selected.use_type||''}</p>
         <p><b>상태</b><br /><span className={`requestStatusBadge ${pushStatusClass(selected.status)}`}>{pushStatusLabel(selected.status)}</span></p>
-        <p><b>사용 요청 날짜</b><br />{selected.request_date}</p>
+        <p><b>적립 발생일</b><br />{selected.request_date}</p>
         <p><b>시간</b><br />{selected.hours}시간</p>
         <p><b>점장 승인</b><br />{selected.manager_status||'대기'} {selected.manager_approved_by?`· ${selected.manager_approved_by}`:''}</p>
         <p><b>최종 승인</b><br />{selected.final_status||'대기'} {selected.final_approved_by?`· ${selected.final_approved_by}`:''}</p>
@@ -841,7 +840,7 @@ function FreepassMyPage({ user }) {
       {editMode && <section className="sectionCard innerEditBox">
         <h3>신청 수정</h3>
         <div className="formGrid">
-          <label>사용 요청 날짜<input type="date" value={editDraft.request_date} onChange={e=>setEditDraft(p=>({...p,request_date:e.target.value}))} /></label>
+          <label>적립 발생일<input type="date" value={editDraft.request_date} onChange={e=>setEditDraft(p=>({...p,request_date:e.target.value}))} /></label>
           {selected.request_type === '사용' && <label>사용 구분<select value={editDraft.use_type} onChange={e=>setEditDraft(p=>({...p,use_type:e.target.value}))}><option>오전 늦게 출근</option><option>오후 일찍 퇴근</option></select></label>}
           <label>시간<select value={editDraft.hours} onChange={e=>setEditDraft(p=>({...p,hours:Number(e.target.value)}))}>{selected.request_type==='월차 전환'?<option value={10}>10시간</option>:<><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></>}</select></label>
         </div>
@@ -1041,22 +1040,22 @@ function AccrualRequestTab({ user }) {
         </div>
 
         <div className="formGrid">
-          <label>사용 요청 날짜<input type="date" value={requestDate} onChange={e=>setRequestDate(e.target.value)} /></label>
-          <label>적립 요청 시간<select value={hours} onChange={e=>setHours(Number(e.target.value))}><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></select></label>
+          <label>적립 발생일<input type="date" value={requestDate} onChange={e=>setRequestDate(e.target.value)} /></label>
+          <label>적립 시간<select value={hours} onChange={e=>setHours(Number(e.target.value))}><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></select></label>
         </div>
         <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="사유 입력" />
 
         {mode==='야근 적립' && <div className="photoCaptureBox">
-          <p className="muted">야근 적립은 사진 촬영 후 바로 최고관리자 승인 대기로 올라갑니다.</p>
+          <p className="muted">야근 적립은 사진 촬영 후 바로 최고관리자 승인 대기로 올라갑니다. 사진 촬영 후 신청 버튼이 활성화됩니다.</p>
           <label className="cameraButton">사진 촬영<input type="file" accept="image/*" capture="environment" onChange={e=>addNightPhoto(e.target.files?.[0])} /></label>
           <div className="evidenceGrid">
             {photoItems.map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview" src={p.data} alt={`야근 증빙 ${idx+1}`} /><p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p><button type="button" onClick={()=>setPhotoItems(prev=>prev.filter((_,i)=>i!==idx))}>삭제/재촬영</button></div>)}
           </div>
-          <button className="primary" disabled={busy} onClick={submitNight}>야근 적립 신청</button>
+          <button className="primary" disabled={busy || !photoItems.length} onClick={submitNight}>{photoItems.length ? "야근 적립 신청" : "사진 촬영 후 신청 가능"}</button>
         </div>}
 
         {mode==='휴무출근 적립' && <div className="photoCaptureBox">
-          <p className="muted">출근 시 출근 사진을 1차 임시저장하고, 퇴근 시 아래 신청현황에서 해당 건을 눌러 퇴근 사진을 추가해주세요.</p>
+          <p className="muted">휴무출근은 1단계 출근 사진 임시저장 → 2단계 퇴근 사진 추가 → 최종 승인 요청 순서로 진행됩니다.</p>
           <label className="cameraButton">출근 사진 촬영<input type="file" accept="image/*" capture="environment" onChange={e=>capturePhoto(e.target.files?.[0], setStartPhoto, '출근')} /></label>
           {startPhoto && <div className="evidenceItem"><img className="evidencePreview" src={startPhoto.data} alt="출근 사진" /><p>촬영일시: {freepassPhotoTimeLabel(startPhoto.captured_at)}</p><button type="button" onClick={()=>setStartPhoto(null)}>삭제/재촬영</button></div>}
           <button className="primary" disabled={busy} onClick={saveStartDraft}>1차 임시저장</button>
@@ -1064,9 +1063,9 @@ function AccrualRequestTab({ user }) {
       </div>
 
       <div className="sectionCard">
-        <h3>적립 요청 신청현황</h3>
+        <h3>적립 요청 신청현황</h3><p className="muted">휴무출근 임시저장 건은 해당 행을 눌러 퇴근 사진을 추가하면 최종 신청됩니다.</p>
         <table>
-          <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>사용 요청 날짜</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
+          <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>적립 발생일</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
           <tbody>
             {rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}>
               <td>{formatKST(r.requested_at || r.created_at)}</td>
@@ -1086,8 +1085,8 @@ function AccrualRequestTab({ user }) {
         <section className="infoGrid">
           <p><b>접수 날짜·시각</b><br />{formatKST(selected.requested_at || selected.created_at)}</p>
           <p><b>유형</b><br />{selected.request_type}</p>
-          <p><b>사용 요청 날짜</b><br />{selected.request_date}</p>
-          <p><b>적립 요청 시간</b><br />{selected.hours}시간</p>
+          <p><b>적립 발생일</b><br />{selected.request_date}</p>
+          <p><b>적립 시간</b><br />{selected.hours}시간</p>
           <p><b>상태</b><br /><span className={`requestStatusBadge ${pushStatusClass(selected.status)}`}>{pushStatusLabel(selected.status)}</span></p>
           <p><b>사유</b><br />{selected.reason || '-'}</p>
         </section>
