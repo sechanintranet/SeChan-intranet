@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v27.8-20260618060650';
+const APP_BUILD_VERSION = 'v27.8-20260618061746';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1603,7 +1603,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
           <h1>세찬컴퍼니 인트라넷</h1>
           <p>{user.name} · {user.store_name} · {user.role || '직원'}</p>
         </div>
-        <div className="headerRight"><img className="headerLogo" src="./sechan-logo.png" alt="세찬컴퍼니 로고" onError={e=>{e.currentTarget.style.display='none'}} /><div className="headerActions"><button onClick={() => setShowPassword(true)}>비밀번호 변경</button><button onClick={onLogout}>로그아웃</button></div></div>
+        <div className="headerRight"><img className="headerLogo" src="./sechan-logo.png" alt="세찬컴퍼니 로고" onError={e=>{e.currentTarget.style.display='none'}} /><div className="headerActions"><button onClick={() => setShowPassword(true)} className="compactHeaderButton">비밀번호 변경</button><button onClick={onLogout} className="compactHeaderButton">로그아웃</button></div></div>
       </header>
 
       <nav className="topNav compactNav">
