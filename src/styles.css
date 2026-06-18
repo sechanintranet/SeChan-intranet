@@ -3189,3 +3189,385 @@ header .compactHeaderButton,
     }
   }
 }
+
+/* V28 UI/UX Renewal: mobile-first structure, dashboard, bottom nav, card lists */
+:root{
+  --v28-bg:#f6f7fb;
+  --v28-card:#ffffff;
+  --v28-border:#e5e7eb;
+  --v28-text:#0f172a;
+  --v28-muted:#64748b;
+  --v28-primary:#111827;
+  --v28-blue:#1d4ed8;
+  --v28-orange:#9a3412;
+  --v28-red:#991b1b;
+}
+body{
+  background:var(--v28-bg);
+}
+.homeDashboard{
+  width:100%;
+  max-width:1120px;
+  margin:0 auto;
+}
+.homeHero{
+  background:linear-gradient(135deg,#111827,#334155);
+  color:#fff;
+  border-radius:22px;
+  padding:26px;
+  margin:18px 0;
+}
+.homeHero h2{
+  color:#fff;
+  margin:4px 0 8px;
+}
+.homeHero .muted{
+  color:#cbd5e1;
+}
+.eyebrow{
+  margin:0;
+  color:#93c5fd;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.dashboardGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
+}
+.dashboardCard{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  min-height:128px;
+  padding:20px;
+  border:1px solid var(--v28-border);
+  border-radius:18px;
+  background:#fff;
+  text-align:left;
+  cursor:pointer;
+}
+.dashboardCard span{
+  color:var(--v28-muted);
+  font-size:14px;
+  font-weight:800;
+}
+.dashboardCard strong{
+  margin:10px 0 6px;
+  color:var(--v28-text);
+  font-size:36px;
+  line-height:1;
+}
+.dashboardCard em{
+  color:var(--v28-muted);
+  font-style:normal;
+  font-size:13px;
+}
+.quickActionGrid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  margin:16px 0;
+}
+.quickActionGrid button{
+  min-height:46px;
+  border-radius:14px;
+  font-weight:800;
+}
+
+/* desktop navigation is cleaner */
+.topNav.compactNav,
+.topNav{
+  align-items:center;
+  gap:8px;
+}
+.topNav.compactNav > button,
+.topNav > button,
+.compactHead{
+  min-height:42px !important;
+  border-radius:13px !important;
+  padding:0 16px !important;
+}
+
+/* shared cards */
+.summaryGrid .card,
+.dashboardCard,
+.sectionCard{
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+
+/* mobile bottom nav hidden on desktop */
+.mobileBottomNav{
+  display:none;
+}
+
+/* Mobile renewal */
+@media(max-width:768px){
+  body{
+    padding-bottom:76px;
+    background:#f6f7fb;
+  }
+
+  /* top header compact */
+  header,.header,.topBar,.appHeader{
+    padding:12px 14px !important;
+    gap:8px !important;
+  }
+  header h1,.header h1,.topBar h1,.appHeader h1{
+    font-size:21px !important;
+    line-height:1.15 !important;
+    margin:0 !important;
+  }
+  header p,.header p,.topBar p,.appHeader p{
+    font-size:12px !important;
+    color:var(--v28-muted) !important;
+  }
+  header img,.header img,.topBar img,.appHeader img{
+    max-height:22px !important;
+  }
+  header button,.header button,.topBar button,.appHeader button,
+  .compactHeaderButton,.headerActionBtn{
+    height:28px !important;
+    min-height:28px !important;
+    padding:0 9px !important;
+    border-radius:9px !important;
+    font-size:11px !important;
+  }
+
+  /* top nav not needed as primary on mobile; bottom nav takes over */
+  .topNav.compactNav,
+  .topNav{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+    padding:8px 14px !important;
+  }
+  .topNav.compactNav > button,
+  .topNav > button,
+  .compactHead{
+    min-height:40px !important;
+    width:100% !important;
+    font-size:13px !important;
+    padding:0 8px !important;
+  }
+  .compactItems{
+    position:static !important;
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+    width:100% !important;
+    margin-top:8px !important;
+  }
+  .compactItems button{
+    width:100% !important;
+    min-height:38px !important;
+  }
+
+  .container,.page,.content,main{
+    width:100% !important;
+    max-width:100% !important;
+    padding-left:12px !important;
+    padding-right:12px !important;
+    overflow-x:hidden !important;
+  }
+
+  .homeHero{
+    border-radius:18px;
+    padding:20px;
+    margin:12px 0;
+  }
+  .homeHero h2{
+    font-size:21px !important;
+  }
+  .dashboardGrid{
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .dashboardCard{
+    min-height:106px;
+    padding:16px;
+    border-radius:16px;
+  }
+  .dashboardCard strong{
+    font-size:30px;
+  }
+  .quickActionGrid{
+    grid-template-columns:1fr;
+  }
+
+  /* module tabs reduce crowding */
+  .moduleTabs,.filterBar{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+    width:100%;
+  }
+  .moduleTabs button,.filterBar button{
+    width:100% !important;
+    min-height:40px !important;
+    font-size:13px !important;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* summary cards balanced */
+  .summaryGrid{
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+  }
+  .summaryGrid .card{
+    min-height:88px !important;
+    padding:14px !important;
+    border-radius:16px !important;
+  }
+  .summaryGrid .card span{
+    font-size:12px !important;
+    margin-bottom:8px !important;
+  }
+  .summaryGrid .card strong{
+    font-size:25px !important;
+  }
+
+  /* tables become mobile cards - no clipped right side */
+  .sectionCard table{
+    display:block !important;
+    width:100% !important;
+    overflow:visible !important;
+    white-space:normal !important;
+  }
+  .sectionCard thead{
+    display:none !important;
+  }
+  .sectionCard tbody{
+    display:block !important;
+    width:100% !important;
+  }
+  .sectionCard tr{
+    display:block !important;
+    width:100% !important;
+    background:#fff !important;
+    border:1px solid var(--v28-border) !important;
+    border-radius:15px !important;
+    padding:10px 12px !important;
+    margin:10px 0 !important;
+    overflow:hidden !important;
+  }
+  .sectionCard td{
+    display:grid !important;
+    grid-template-columns:88px 1fr !important;
+    gap:10px !important;
+    width:100% !important;
+    border:0 !important;
+    padding:7px 0 !important;
+    white-space:normal !important;
+    overflow-wrap:anywhere !important;
+    line-height:1.35 !important;
+    font-size:13px !important;
+  }
+  .sectionCard td::before{
+    content:"항목";
+    color:var(--v28-muted);
+    font-size:12px;
+    font-weight:900;
+  }
+  .sectionCard td:nth-child(1)::before{content:"일시";}
+  .sectionCard td:nth-child(2)::before{content:"구분";}
+  .sectionCard td:nth-child(3)::before{content:"날짜";}
+  .sectionCard td:nth-child(4)::before{content:"시간";}
+  .sectionCard td:nth-child(5)::before{content:"사유";}
+  .sectionCard td:nth-child(6)::before{content:"상태";}
+  .sectionCard td:nth-child(7)::before{content:"내용";}
+  .sectionCard td:nth-child(8)::before{content:"비고";}
+  .sectionCard tr:has(td[colspan]){
+    border:0 !important;
+    padding:0 !important;
+    background:transparent !important;
+  }
+  .sectionCard td[colspan]{
+    display:block !important;
+  }
+  .sectionCard td[colspan]::before{
+    display:none !important;
+  }
+
+  /* forms and actions */
+  .formGrid,.compactFormGrid{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+  }
+  input,select,textarea{
+    width:100% !important;
+    max-width:100% !important;
+  }
+  .buttonRow,.reviewActions{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+    width:100% !important;
+  }
+  .buttonRow button,.buttonRow .cameraButton,.reviewActions button,.photoCaptureBox > button,.photoCaptureBox .cameraButton{
+    width:100% !important;
+    min-height:42px !important;
+    justify-content:center !important;
+  }
+
+  .sectionCard{
+    padding:15px !important;
+    border-radius:17px !important;
+    overflow:hidden !important;
+  }
+
+  .modal{
+    width:calc(100vw - 22px) !important;
+    max-width:calc(100vw - 22px) !important;
+    padding:15px !important;
+    overflow-x:hidden !important;
+  }
+  .infoGrid{
+    grid-template-columns:1fr !important;
+  }
+
+  /* bottom navigation */
+  .mobileBottomNav{
+    display:grid !important;
+    grid-template-columns:repeat(5,1fr);
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:9999;
+    background:rgba(255,255,255,.96);
+    border-top:1px solid var(--v28-border);
+    backdrop-filter:blur(12px);
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    gap:6px;
+  }
+  .mobileBottomNav button{
+    min-height:48px;
+    border:0;
+    background:transparent;
+    border-radius:14px;
+    font-size:12px;
+    font-weight:900;
+    color:var(--v28-muted);
+  }
+  .mobileBottomNav button.active{
+    background:#111827;
+    color:#fff;
+  }
+}
+
+@media(max-width:420px){
+  .dashboardGrid{
+    grid-template-columns:1fr;
+  }
+  .summaryGrid{
+    grid-template-columns:1fr !important;
+  }
+  .sectionCard td{
+    grid-template-columns:78px 1fr !important;
+    gap:8px !important;
+  }
+}

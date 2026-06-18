@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v27.8-20260618061746';
+const APP_BUILD_VERSION = 'v28-20260618070018';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1586,8 +1586,116 @@ function PushSettings({ user }) {
   </div>;
 }
 
+
+function HomeDashboard({ user, setTab }) {
+  const [happyCount,setHappyCount]=useState(0);
+  const [reviewCount,setReviewCount]=useState(0);
+  const [freepassMine,setFreepassMine]=useState(0);
+  const [managerPending,setManagerPending]=useState(0);
+  const [finalPending,setFinalPending]=useState(0);
+  const [suggestions,setSuggestions]=useState(0);
+  const [errors,setErrors]=useState(0);
+
+  useEffect(()=>{ load(); },[]);
+
+  async function load(){
+    try{
+      const today = todayLocalISO ? todayLocalISO() : new Date().toISOString().slice(0,10);
+
+      const {data:mine}=await supabase.from('happycall_targets').select('id,status,assigned_to,assigned_employee_name,target_date').eq('assigned_employee_name',user.name);
+      setHappyCount((mine||[]).filter(r => !['통화 완료','최종완료','완료'].includes(r.status)).length);
+
+      if(isAdminLike(user)){
+        const {data:rv}=await supabase.from('happycall_targets').select('id,review_status,status').in('review_status',['검수대기','반려','대기']);
+        setReviewCount((rv||[]).length);
+      }
+
+      const {data:fp}=await supabase.from('freepass_requests').select('id,status,employee_name,employee_store').eq('employee_name',user.name);
+      setFreepassMine((fp||[]).filter(r => ['점장승인대기','최종승인대기','임시저장'].includes(r.status)).length);
+
+      if(user.role==='점장' || isAdminLike(user)){
+        const {data:mp}=await supabase.from('freepass_requests').select('id,status,employee_store').eq('status','점장승인대기');
+        setManagerPending(isAdminLike(user) ? (mp||[]).length : (mp||[]).filter(r=>r.employee_store===user.store_name).length);
+      }
+
+      if(isSuperAdmin(user)){
+        const {data:fp2}=await supabase.from('freepass_requests').select('id,status').eq('status','최종승인대기');
+        setFinalPending((fp2||[]).length);
+      }
+
+      const {data:sg}=await supabase.from('suggestions').select('id,status');
+      setSuggestions((sg||[]).filter(r=>!['완료','종료'].includes(r.status)).length);
+
+      if(isAdminLike(user)){
+        const {data:er}=await supabase.from('error_reports').select('id,status');
+        setErrors((er||[]).filter(r=>!['완료','해결'].includes(r.status)).length);
+      }
+    }catch(e){
+      console.warn('dashboard load failed', e);
+    }
+  }
+
+  const cards = [
+    {title:'내 해피콜', value:happyCount, desc:'진행 필요', tab:'mycalls', show:true},
+    {title:'해피콜 검수', value:reviewCount, desc:'확인 필요', tab:'review', show:isAdminLike(user)},
+    {title:'내 프리패스', value:freepassMine, desc:'진행 중 신청', tab:'freepass', show:true},
+    {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', show:user.role==='점장'||isAdminLike(user)},
+    {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', show:isSuperAdmin(user)},
+    {title:'건의/문의', value:suggestions, desc:'진행 중', tab:'suggestions', show:true},
+    {title:'오류보고', value:errors, desc:'미해결', tab:'errors', show:isAdminLike(user)},
+  ].filter(c=>c.show);
+
+  return (
+    <div className="homeDashboard">
+      <div className="homeHero">
+        <div>
+          <p className="eyebrow">세찬컴퍼니 인트라넷</p>
+          <h2>{user.name}님, 오늘 확인할 업무입니다.</h2>
+          <p className="muted">업무·인사·소통 현황을 한 화면에서 확인하세요.</p>
+        </div>
+      </div>
+
+      <div className="dashboardGrid">
+        {cards.map(c=>(
+          <button key={c.title} className="dashboardCard" onClick={()=>setTab(c.tab)}>
+            <span>{c.title}</span>
+            <strong>{c.value}</strong>
+            <em>{c.desc}</em>
+          </button>
+        ))}
+      </div>
+
+      <div className="quickActionGrid">
+        <button onClick={()=>setTab('mycalls')}>해피콜 바로가기</button>
+        <button onClick={()=>setTab('freepass')}>프리패스 바로가기</button>
+        <button onClick={()=>setTab('suggestions')}>건의/문의</button>
+      </div>
+    </div>
+  );
+}
+
+
+function MobileBottomNav({ tab, setTab, user }) {
+  const items = [
+    {key:'home', label:'홈'},
+    {key:'mycalls', label:'해피콜'},
+    {key:'freepass', label:'프리패스'},
+    {key:'suggestions', label:'건의'},
+    {key:'guide', label:'더보기'}
+  ];
+  return (
+    <nav className="mobileBottomNav" aria-label="모바일 하단 메뉴">
+      {items.map(item=>(
+        <button key={item.key} className={tab===item.key?'active':''} onClick={()=>setTab(item.key)}>
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 function MainApp({ user, onLogout, onUserUpdate }) {
-  const [tab, setTab] = useState('mycalls');
+  const [tab, setTab] = useState('home');
   const [showPassword, setShowPassword] = useState(false);
   const [openMenu, setOpenMenu] = useState('');
   const isAdmin = isAdminLike(user);
@@ -1607,6 +1715,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
       </header>
 
       <nav className="topNav compactNav">
+        <button className={tab==='home'?'active':''} onClick={()=>setTab('home')}>홈</button>
         <div className="compactGroup">
           <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'happycall' ? '' : 'happycall')}>
             해피콜 {openMenu === 'happycall' ? '▲' : '▼'}
@@ -1655,8 +1764,10 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         {tab === 'dashboard' && <Dashboard user={user} />}
         {tab === 'mycalls' && <CallList user={user} mode="mine" />}
         {tab === 'suggestions' && <SuggestionsPage user={user} />}
+        {tab === 'home' && <HomeDashboard user={user} setTab={setTab} />}
         {tab === 'freepass' && <FreepassModule user={user} />}
         {tab === 'pushSettings' && <PushSettings user={user} />}
+        <MobileBottomNav tab={tab} setTab={setTab} user={user} />
         {tab === 'guide' && <UsageGuide user={user} />}
         {tab === 'manager' && <ManagerStoreDashboardV6 user={user} />}
         {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
