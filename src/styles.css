@@ -3572,23 +3572,24 @@ body{
   }
 }
 
-/* V28.1 Mobile Emergency Rebuild
-   Source of truth: mobile must have ONE navigation system: right drawer hamburger.
-   Bottom nav and top duplicate nav are hidden on mobile. Tables are restored to readable scroll tables.
+/* V28.2 Mobile Recovery
+   1) 메뉴는 햄버거 하나로 정리
+   2) 하단 네비 제거
+   3) 실패한 모바일 카드형 테이블 변환을 강제 해제
+   4) 데이터 컬럼이 사라지지 않도록 원본 테이블을 유지하고 내부 가로 스크롤로 처리
 */
 
 :root{
-  --s-bg:#f6f7fb;
-  --s-card:#ffffff;
-  --s-border:#e5e7eb;
-  --s-text:#0f172a;
-  --s-muted:#64748b;
-  --s-primary:#111827;
+  --r-bg:#f6f7fb;
+  --r-card:#ffffff;
+  --r-border:#e5e7eb;
+  --r-text:#0f172a;
+  --r-muted:#64748b;
+  --r-primary:#111827;
 }
 
-.mobileHamburgerBtn{
-  display:none;
-}
+/* drawer base */
+.mobileHamburgerBtn{display:none;}
 .mobileDrawerOverlay{
   position:fixed;
   inset:0;
@@ -3612,31 +3613,13 @@ body{
   gap:12px;
   align-items:flex-start;
   padding-bottom:14px;
-  border-bottom:1px solid var(--s-border);
+  border-bottom:1px solid var(--r-border);
 }
-.drawerHead strong{
-  font-size:18px;
-}
-.drawerHead p{
-  margin:4px 0 0;
-  color:var(--s-muted);
-  font-size:13px;
-}
-.drawerClose{
-  min-height:32px;
-  padding:0 10px;
-  border-radius:10px;
-}
-.drawerGroup{
-  padding:14px 0;
-  border-bottom:1px solid #f1f5f9;
-}
-.drawerGroup h4{
-  margin:0 0 8px;
-  color:var(--s-muted);
-  font-size:12px;
-  letter-spacing:.03em;
-}
+.drawerHead strong{font-size:18px;}
+.drawerHead p{margin:4px 0 0;color:var(--r-muted);font-size:13px;}
+.drawerClose{min-height:32px;padding:0 10px;border-radius:10px;}
+.drawerGroup{padding:14px 0;border-bottom:1px solid #f1f5f9;}
+.drawerGroup h4{margin:0 0 8px;color:var(--r-muted);font-size:12px;letter-spacing:.03em;}
 .drawerGroup button{
   width:100%;
   min-height:42px;
@@ -3646,13 +3629,10 @@ body{
   justify-content:flex-start;
   padding:0 14px;
   background:#fff;
-  color:var(--s-text);
-  border:1px solid var(--s-border);
+  color:var(--r-text);
+  border:1px solid var(--r-border);
 }
-.drawerGroup button.dangerMenu{
-  background:#111827;
-  color:#fff;
-}
+.drawerGroup button.dangerMenu{background:#111827;color:#fff;}
 
 @media(max-width:768px){
   html,body,#root{
@@ -3660,53 +3640,35 @@ body{
     max-width:100% !important;
     overflow-x:hidden !important;
   }
-  *{
-    box-sizing:border-box !important;
-  }
+  *{box-sizing:border-box !important;}
   body{
-    background:var(--s-bg) !important;
+    background:var(--r-bg) !important;
     padding-bottom:0 !important;
   }
 
-  /* Header: compact, logo/hamburger only */
-  header,
-  .header,
-  .topBar,
-  .appHeader{
+  /* Header */
+  header,.header,.topBar,.appHeader{
     padding:12px 16px !important;
     min-height:72px !important;
     gap:8px !important;
     background:#fff !important;
-    border-bottom:1px solid var(--s-border) !important;
+    border-bottom:1px solid var(--r-border) !important;
   }
-  header h1,
-  .header h1,
-  .topBar h1,
-  .appHeader h1{
+  header h1,.header h1,.topBar h1,.appHeader h1{
     font-size:22px !important;
     line-height:1.15 !important;
     margin:0 !important;
     letter-spacing:-.03em !important;
     white-space:normal !important;
   }
-  header p,
-  .header p,
-  .topBar p,
-  .appHeader p{
+  header p,.header p,.topBar p,.appHeader p{
     margin:4px 0 0 !important;
     font-size:12px !important;
-    color:var(--s-muted) !important;
+    color:var(--r-muted) !important;
   }
-  .headerRight{
-    gap:8px !important;
-    align-items:center !important;
-  }
-  .headerLogo{
-    max-height:24px !important;
-  }
-  .desktopHeaderActions{
-    display:none !important;
-  }
+  .headerRight{gap:8px !important;align-items:center !important;}
+  .headerLogo{max-height:24px !important;}
+  .desktopHeaderActions{display:none !important;}
   .mobileHamburgerBtn{
     display:flex !important;
     align-items:center !important;
@@ -3722,20 +3684,12 @@ body{
     line-height:1 !important;
   }
 
-  /* Remove duplicated mobile menus */
-  .topNav,
-  .topNav.compactNav,
-  .mainNav,
-  .navBar,
-  .mobileBottomNav{
+  /* 모바일 메뉴 중복 제거 */
+  .topNav,.topNav.compactNav,.mainNav,.navBar,.mobileBottomNav{
     display:none !important;
   }
 
-  main,
-  .container,
-  .page,
-  .content,
-  .appMain{
+  main,.container,.page,.content,.appMain{
     width:100% !important;
     max-width:100% !important;
     padding:16px 14px 24px !important;
@@ -3757,16 +3711,16 @@ body{
   .muted{
     font-size:13px !important;
     line-height:1.45 !important;
-    color:var(--s-muted) !important;
+    color:var(--r-muted) !important;
   }
 
-  /* Card system: one card only, no nested borders */
+  /* 카드 체계 */
   .sectionCard{
     width:100% !important;
     max-width:100% !important;
     margin:12px 0 !important;
     padding:18px !important;
-    border:1px solid var(--s-border) !important;
+    border:1px solid var(--r-border) !important;
     border-radius:18px !important;
     background:#fff !important;
     box-shadow:0 1px 2px rgba(15,23,42,.04) !important;
@@ -3782,7 +3736,6 @@ body{
     box-shadow:none !important;
   }
 
-  /* Summary cards compact */
   .summaryGrid{
     display:grid !important;
     grid-template-columns:1fr 1fr !important;
@@ -3793,7 +3746,7 @@ body{
   .summaryGrid .card{
     min-height:92px !important;
     padding:15px !important;
-    border:1px solid var(--s-border) !important;
+    border:1px solid var(--r-border) !important;
     border-radius:16px !important;
     background:#fff !important;
     box-shadow:none !important;
@@ -3802,7 +3755,7 @@ body{
   }
   .summaryGrid .card span{
     font-size:13px !important;
-    color:var(--s-muted) !important;
+    color:var(--r-muted) !important;
     margin-bottom:8px !important;
     line-height:1.25 !important;
   }
@@ -3811,16 +3764,14 @@ body{
     line-height:1 !important;
   }
 
-  /* Freepass tabs: visible but not flooding; admin still available via desktop/drawer future */
-  .freepassModule > .moduleTabs,
-  .freepassModule > .filterBar{
+  .moduleTabs,.filterBar{
     display:grid !important;
     grid-template-columns:1fr 1fr !important;
     gap:8px !important;
     margin:8px 0 14px !important;
+    width:100% !important;
   }
-  .freepassModule > .moduleTabs button,
-  .freepassModule > .filterBar button{
+  .moduleTabs button,.filterBar button{
     min-height:44px !important;
     border-radius:14px !important;
     font-size:14px !important;
@@ -3831,9 +3782,7 @@ body{
     white-space:nowrap !important;
   }
 
-  /* Forms */
-  .formGrid,
-  .compactFormGrid{
+  .formGrid,.compactFormGrid{
     display:grid !important;
     grid-template-columns:1fr !important;
     gap:10px !important;
@@ -3847,46 +3796,32 @@ body{
     font-size:15px !important;
     border-radius:14px !important;
   }
-  textarea{
-    min-height:92px !important;
-  }
-  .buttonRow,
-  .reviewActions{
+  textarea{min-height:92px !important;}
+  .buttonRow,.reviewActions{
     display:grid !important;
     grid-template-columns:1fr !important;
     gap:8px !important;
     width:100% !important;
   }
-  .buttonRow button,
-  .buttonRow .cameraButton,
-  .reviewActions button,
-  .photoCaptureBox > button,
-  .photoCaptureBox .cameraButton,
-  .sectionCard button.primary,
-  .sectionCard button{
-    max-width:100% !important;
-  }
 
-  /* IMPORTANT: generic fake card tables caused wrong labels.
-     Restore real table semantics with internal horizontal scroll instead of broken labels. */
-  .sectionCard table{
-    display:block !important;
+  /* 핵심 복구: 모든 모바일 카드형 테이블 강제변환 해제 */
+  .sectionCard table,
+  table{
+    display:table !important;
     width:100% !important;
-    max-width:100% !important;
-    overflow-x:auto !important;
-    overflow-y:visible !important;
-    -webkit-overflow-scrolling:touch !important;
+    min-width:620px !important;
     border-collapse:collapse !important;
-    white-space:nowrap !important;
+    table-layout:auto !important;
     background:#fff !important;
+    white-space:normal !important;
   }
-  .sectionCard thead{
+  .sectionCard thead, table thead{
     display:table-header-group !important;
   }
-  .sectionCard tbody{
+  .sectionCard tbody, table tbody{
     display:table-row-group !important;
   }
-  .sectionCard tr{
+  .sectionCard tr, table tr{
     display:table-row !important;
     background:#fff !important;
     border:0 !important;
@@ -3894,8 +3829,8 @@ body{
     padding:0 !important;
     box-shadow:none !important;
   }
-  .sectionCard th,
-  .sectionCard td{
+  .sectionCard th,.sectionCard td,
+  table th, table td{
     display:table-cell !important;
     border-bottom:1px solid #eef2f7 !important;
     padding:11px 12px !important;
@@ -3904,31 +3839,37 @@ body{
     font-size:13px !important;
     line-height:1.35 !important;
     vertical-align:middle !important;
+    max-width:none !important;
   }
-  .sectionCard td::before,
-  .sectionCard th::before{
+
+  /* 가짜 모바일 라벨 제거 */
+  .sectionCard td::before,.sectionCard th::before,
+  table td::before, table th::before{
     display:none !important;
     content:none !important;
   }
+
+  /* 긴 내용 컬럼은 줄바꿈 허용 */
   .sectionCard td:nth-child(5),
   .sectionCard td:nth-child(6),
   .sectionCard td:nth-child(7),
-  .sectionCard td:nth-child(8){
-    max-width:240px !important;
+  .sectionCard td:nth-child(8),
+  table td:nth-child(5),
+  table td:nth-child(6),
+  table td:nth-child(7),
+  table td:nth-child(8){
+    max-width:280px !important;
     white-space:normal !important;
     word-break:break-word !important;
   }
 
-  /* If a table is only an empty-state row, keep it clean */
-  .sectionCard td[colspan]{
-    display:block !important;
-    padding:14px 0 !important;
-    white-space:normal !important;
-    color:var(--s-muted) !important;
+  /* 테이블은 카드 안에서만 가로 스크롤 */
+  .sectionCard:has(table){
+    overflow-x:auto !important;
+    -webkit-overflow-scrolling:touch !important;
   }
 
-  .requestStatusBadge,
-  .balanceBadge{
+  .requestStatusBadge,.balanceBadge{
     white-space:nowrap !important;
     font-size:12px !important;
     line-height:1.2 !important;
@@ -3952,9 +3893,7 @@ body{
     padding:15px !important;
     border-radius:16px !important;
   }
-  .dashboardCard strong{
-    font-size:30px !important;
-  }
+  .dashboardCard strong{font-size:30px !important;}
 
   .modal{
     width:calc(100vw - 24px) !important;
@@ -3963,14 +3902,11 @@ body{
     padding:16px !important;
     overflow-x:hidden !important;
   }
-  .infoGrid{
-    grid-template-columns:1fr !important;
-  }
+  .infoGrid{grid-template-columns:1fr !important;}
 }
 
 @media(max-width:420px){
-  .summaryGrid,
-  .dashboardGrid{
+  .summaryGrid,.dashboardGrid{
     grid-template-columns:1fr !important;
   }
 }

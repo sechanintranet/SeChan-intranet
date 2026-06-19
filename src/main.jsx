@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v28.1-20260619050001';
+const APP_BUILD_VERSION = 'v28.2-20260619053608';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1681,15 +1681,11 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
   const isAdmin = isAdminLike(user);
   const isManager = user.role === '점장';
   const isChecker = user.role === '검수자' || isAdminLike(user);
-
-  const go = (nextTab) => {
-    setTab(nextTab);
-    onClose();
-  };
+  const go = (nextTab) => { setTab(nextTab); onClose(); };
 
   return (
     <div className="mobileDrawerOverlay" onClick={onClose}>
-      <aside className="mobileDrawer" onClick={e=>e.stopPropagation()} aria-label="모바일 메뉴">
+      <aside className="mobileDrawer" onClick={e=>e.stopPropagation()}>
         <div className="drawerHead">
           <div>
             <strong>세찬컴퍼니</strong>
@@ -1699,7 +1695,7 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
         </div>
 
         <div className="drawerGroup">
-          <h4>주요 메뉴</h4>
+          <h4>메인</h4>
           <button onClick={()=>go('home')}>홈</button>
           <button onClick={()=>go('mycalls')}>내 해피콜</button>
           <button onClick={()=>go('freepass')}>프리패스</button>
@@ -1707,10 +1703,9 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
         </div>
 
         {(isManager || isChecker || isAdmin) && <div className="drawerGroup">
-          <h4>해피콜 관리</h4>
+          <h4>해피콜</h4>
           {isManager && <button onClick={()=>go('manager')}>매장 현황</button>}
           {isManager && <button onClick={()=>go('storecalls')}>매장 리스트</button>}
-          {isManager && <button onClick={()=>go('storePerformance')}>직원별 현황</button>}
           {(isAdmin || isChecker) && <button onClick={()=>go('review')}>검수</button>}
           {(isAdmin || isChecker) && <button onClick={()=>go('allcalls')}>전체 해피콜</button>}
           {(isAdmin || isChecker) && <button onClick={()=>go('performance')}>전체 직원 현황</button>}
@@ -1720,7 +1715,7 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
         </div>}
 
         {isAdmin && <div className="drawerGroup">
-          <h4>기본 설정</h4>
+          <h4>관리</h4>
           <button onClick={()=>go('employees')}>직원관리</button>
           <button onClick={()=>go('stores')}>매장관리</button>
           <button onClick={()=>go('audit')}>감사로그</button>
@@ -1761,8 +1756,8 @@ function MobileBottomNav({ tab, setTab, user }) {
 function MainApp({ user, onLogout, onUserUpdate }) {
   const [tab, setTab] = useState('home');
   const [showPassword, setShowPassword] = useState(false);
-  const [openMenu, setOpenMenu] = useState('');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState('');
   const isAdmin = isAdminLike(user);
   const isManager = user.role === '점장';
   const isChecker = user.role === '검수자' || isAdminLike(user);
