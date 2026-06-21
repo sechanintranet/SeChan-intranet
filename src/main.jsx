@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v28.3-20260619085101';
+const APP_BUILD_VERSION = 'v28.4-20260621141634';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -490,6 +490,8 @@ function validateFreepassRequest({ requestType, useType, requestDate, hours, use
   if (!requestDate) return requestType === '월차 전환' || requestType === '사용' ? '사용 요청 날짜를 선택해주세요.' : '적립 발생일을 선택해주세요.';
   if (!h || h <= 0) return '시간을 선택해주세요.';
 
+  if (requestType === '사용' && h > 3) return '프리패스는 하루 최대 3시간까지만 사용할 수 있습니다.';
+
   if (requestType === '월차 전환') {
     if (h !== 10) return '월차 전환은 10시간만 가능합니다.';
     return '';
@@ -510,12 +512,33 @@ function validateFreepassRequest({ requestType, useType, requestDate, hours, use
   if (requestType === '사용' && useType === '오후 일찍 퇴근') {
     const endTime = useStartTime || '20:00';
     const [hh, mm] = String(endTime).split(':').map(Number);
-    const leaveTime = new Date(requestDay);
-    leaveTime.setHours(hh || 20, mm || 0, 0, 0);
-    leaveTime.setHours(leaveTime.getHours() - h);
-    const deadline = new Date(leaveTime);
-    deadline.setHours(deadline.getHours() - 3);
-    if (now > deadline) return '오후 프리패스는 실제 사용 시간 기준 3시간 전까지만 신청 가능합니다.';
+
+    const normalEndTime = new Date(requestDay);
+    normalEndTime.setHours(hh || 20, mm || 0, 0, 0);
+
+    const actualLeaveTime = new Date(normalEndTime);
+    actualLeaveTime.setHours(actualLeaveTime.getHours() - h);
+
+    const deadline = new Date(actualLeaveTime);
+    deadline.setHours(deadline.getHours() - 2);
+
+    if (now > deadline) {
+      const endLabel = `${String(hh || 20).padStart(2,'0')}:${String(mm || 0).padStart(2,'0')}`;
+      const leaveLabel = `${String(actualLeaveTime.getHours()).padStart(2,'0')}:${String(actualLeaveTime.getMinutes()).padStart(2,'0')}`;
+      const deadlineLabel = `${String(deadline.getHours()).padStart(2,'0')}:${String(deadline.getMinutes()).padStart(2,'0')}`;
+      return `오후 프리패스는 신청 시점 기준으로 실제 퇴근 시간 2시간 전까지만 신청 가능합니다.
+
+현재 신청 조건
+정상 퇴근: ${endLabel}
+사용 시간: ${h}시간
+실제 퇴근: ${leaveLabel}
+신청 마감: ${deadlineLabel} 전
+
+예시)
+18시 퇴근 / 2시간 사용 → 16시 퇴근 → 14시 전 신청
+20시 퇴근 / 2시간 사용 → 18시 퇴근 → 16시 전 신청
+20시 퇴근 / 3시간 사용 → 17시 퇴근 → 15시 전 신청`;
+    }
   }
 
   return '';
