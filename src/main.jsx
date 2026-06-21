@@ -386,6 +386,33 @@ function isManagerLike(user) {
 }
 
 
+
+function maskCustomerName(name) {
+  const s = String(name || '').trim();
+  if (!s) return '';
+  if (s.length === 1) return s;
+  if (s.length === 2) return `${s[0]}*`;
+  return `${s[0]}${'*'.repeat(Math.max(1, s.length - 2))}${s[s.length - 1]}`;
+}
+
+function formatKRW(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return '0원';
+  return `${n.toLocaleString('ko-KR')}원`;
+}
+
+function accessoryOrderStatus(row) {
+  if (row?.store_arrived) return '매장 도착';
+  if (row?.order_completed) return '주문 완료';
+  return '주문 미완료';
+}
+
+function accessoryStatusKey(row) {
+  if (row?.store_arrived) return 'arrived';
+  if (row?.order_completed) return 'completed';
+  return 'pending';
+}
+
 function isPendingFreepassRequest(status) {
   return ['점장승인대기','최종승인대기','임시저장'].includes(status);
 }
@@ -1610,6 +1637,268 @@ function PushSettings({ user }) {
 }
 
 
+
+function AccessoryOrdersPage({ user }) {
+  const categories = ['케이스','필름','충전기','보조배터리','기타'];
+  const orderSources = ['개통','기존고객','워크인 고객'];
+  const [rows,setRows]=useState([]);
+  const [employees,setEmployees]=useState([]);
+  const [active,setActive]=useState('pending');
+  const [scope,setScope]=useState('mine');
+  const [storeFilter,setStoreFilter]=useState('');
+  const [employeeFilter,setEmployeeFilter]=useState('');
+  const [categoryFilter,setCategoryFilter]=useState('');
+  const [sourceFilter,setSourceFilter]=useState('');
+  const [newOrder,setNewOrder]=useState({
+    customer_name:'',
+    model_name:'',
+    category:'케이스',
+    item_name:'',
+    price:'',
+    order_source:'개통'
+  });
+  const [busy,setBusy]=useState(false);
+  const [arrivalDateById,setArrivalDateById]=useState({});
+
+  const isAdmin = isAdminLike(user);
+  const isManager = user.role === '점장';
+  const canSeeStore = isManager || isAdmin;
+  const canSeeAll = isAdmin;
+
+  useEffect(()=>{ load(); },[]);
+
+  async function load(){
+    try{
+      const {data}=await supabase.from('accessory_orders').select('*').order('created_at',{ascending:false});
+      setRows(data||[]);
+    }catch(e){
+      console.warn('accessory_orders load failed', e);
+      askErrorReport?.({user,currentTab:'악세사리 주문',actionName:'주문 목록 불러오기',error:e});
+    }
+    try{
+      const {data:emps}=await supabase.from('employees').select('*');
+      setEmployees(sortEmployeesForLogin ? sortEmployeesForLogin(emps||[]) : (emps||[]));
+    }catch(e){
+      console.warn('employees load failed', e);
+    }
+  }
+
+  function visibleRows(){
+    let list = [...rows];
+    const effectiveScope = canSeeAll ? scope : (canSeeStore && scope !== 'mine' ? 'store' : 'mine');
+
+    if (effectiveScope === 'mine') {
+      list = list.filter(r => r.employee_name === user.name);
+    } else if (effectiveScope === 'store') {
+      list = list.filter(r => r.store_name === user.store_name);
+    }
+
+    if (storeFilter) list = list.filter(r => r.store_name === storeFilter);
+    if (employeeFilter) list = list.filter(r => r.employee_name === employeeFilter);
+    if (categoryFilter) list = list.filter(r => r.category === categoryFilter);
+    if (sourceFilter) list = list.filter(r => r.order_source === sourceFilter);
+
+    if (active === 'pending') list = list.filter(r => !r.order_completed);
+    if (active === 'completed') list = list.filter(r => r.order_completed && !r.store_arrived);
+    if (active === 'arrived') list = list.filter(r => r.store_arrived);
+
+    return list;
+  }
+
+  const ownRows = rows.filter(r=>r.employee_name===user.name);
+  const storeRows = rows.filter(r=>r.store_name===user.store_name);
+  const baseRows = canSeeAll && scope==='all' ? rows : (canSeeStore && scope==='store' ? storeRows : ownRows);
+  const counts = {
+    pending: baseRows.filter(r=>!r.order_completed).length,
+    completed: baseRows.filter(r=>r.order_completed && !r.store_arrived).length,
+    arrived: baseRows.filter(r=>r.store_arrived).length
+  };
+  const filtered = visibleRows();
+  const totalAmount = filtered.reduce((s,r)=>s+Number(r.price||0),0);
+  const ownAmount = ownRows.reduce((s,r)=>s+Number(r.price||0),0);
+  const storeAmount = storeRows.reduce((s,r)=>s+Number(r.price||0),0);
+  const companyAmount = rows.reduce((s,r)=>s+Number(r.price||0),0);
+
+  async function generateOrderCode(){
+    const now = new Date();
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    const dd = String(now.getDate()).padStart(2,'0');
+    const prefix = `${mm}${dd}`;
+    const {data,error}=await supabase
+      .from('accessory_orders')
+      .select('order_code')
+      .like('order_code', `${prefix}%`);
+    if(error) throw error;
+    const maxNo = (data||[])
+      .map(r=>Number(String(r.order_code||'').slice(4)))
+      .filter(n=>Number.isFinite(n))
+      .reduce((a,b)=>Math.max(a,b),0);
+    return `${prefix}${String(maxNo+1).padStart(2,'0')}`;
+  }
+
+  async function createOrder(e){
+    e.preventDefault();
+    if(!newOrder.customer_name.trim()) return alert('고객명을 입력해주세요.');
+    if(!newOrder.model_name.trim()) return alert('모델명을 입력해주세요.');
+    if(!newOrder.item_name.trim()) return alert('주문 품목명을 입력해주세요.');
+    if(!Number(newOrder.price)) return alert('주문 가격을 입력해주세요.');
+    setBusy(true);
+    try{
+      const code = await generateOrderCode();
+      const masked = maskCustomerName(newOrder.customer_name);
+      const payload = {
+        order_code: code,
+        customer_name_masked: masked,
+        model_name: newOrder.model_name.trim(),
+        category: newOrder.category,
+        item_name: newOrder.item_name.trim(),
+        price: Number(newOrder.price),
+        order_source: newOrder.order_source,
+        employee_id: user.id || null,
+        employee_name: user.name,
+        store_name: user.store_name,
+        order_completed: false,
+        store_arrived: false,
+        created_by: user.name
+      };
+      const {error}=await supabase.from('accessory_orders').insert(payload);
+      if(error) throw error;
+      await writeAuditLog('악세사리주문생성','accessory_orders',code,user,`${masked} / ${newOrder.model_name} / ${newOrder.item_name} / ${formatKRW(newOrder.price)}`);
+      setNewOrder({customer_name:'',model_name:'',category:'케이스',item_name:'',price:'',order_source:'개통'});
+      setActive('pending');
+      alert(`주문건이 생성되었습니다.\n주문번호: ${code}`);
+      load();
+    }catch(e){
+      askErrorReport?.({user,currentTab:'악세사리 주문',actionName:'주문 생성',error:e});
+      alert(`주문 생성 실패: ${e.message || e}`);
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  async function markCompleted(row){
+    const arrival = arrivalDateById[row.id];
+    if(!arrival) return alert('주문 완료 체크 시 도착 예정 날짜를 먼저 선택해주세요.');
+    setBusy(true);
+    try{
+      const {error}=await supabase.from('accessory_orders').update({
+        order_completed:true,
+        order_completed_at:new Date().toISOString(),
+        expected_arrival_date:arrival,
+        updated_by:user.name
+      }).eq('id', row.id);
+      if(error) throw error;
+      await writeAuditLog('악세사리주문완료','accessory_orders',row.order_code,user,`도착 예정일 ${arrival}`);
+      load();
+    }catch(e){
+      askErrorReport?.({user,currentTab:'악세사리 주문',actionName:'주문 완료 체크',error:e});
+      alert(`처리 실패: ${e.message || e}`);
+    }finally{ setBusy(false); }
+  }
+
+  async function markArrived(row){
+    if(!row.order_completed) return alert('주문 완료 전에는 매장 도착 처리할 수 없습니다.');
+    setBusy(true);
+    try{
+      const {error}=await supabase.from('accessory_orders').update({
+        store_arrived:true,
+        store_arrived_at:new Date().toISOString(),
+        updated_by:user.name
+      }).eq('id', row.id);
+      if(error) throw error;
+      await writeAuditLog('악세사리매장도착','accessory_orders',row.order_code,user,row.customer_name_masked);
+      load();
+    }catch(e){
+      askErrorReport?.({user,currentTab:'악세사리 주문',actionName:'매장 도착 체크',error:e});
+      alert(`처리 실패: ${e.message || e}`);
+    }finally{ setBusy(false); }
+  }
+
+  const employeeOptions = [...new Set((canSeeAll ? rows : storeRows).map(r=>r.employee_name).filter(Boolean))];
+  const storeOptions = [...new Set(rows.map(r=>r.store_name).filter(Boolean))];
+
+  return (
+    <div className="accessoryModule">
+      <h2>악세사리 주문 관리</h2>
+
+      <div className="accessorySummaryGrid">
+        <div className="accessoryStat"><span>내 총 주문금액</span><strong>{formatKRW(ownAmount)}</strong></div>
+        {canSeeStore && <div className="accessoryStat"><span>매장 총 주문금액</span><strong>{formatKRW(storeAmount)}</strong></div>}
+        {canSeeAll && <div className="accessoryStat"><span>회사 총 주문금액</span><strong>{formatKRW(companyAmount)}</strong></div>}
+        <div className="accessoryStat"><span>현재 목록 합계</span><strong>{formatKRW(totalAmount)}</strong></div>
+      </div>
+
+      <div className="sectionCard accessoryFormCard">
+        <h3>주문건 생성</h3>
+        <form onSubmit={createOrder}>
+          <div className="accessoryFormGrid">
+            <label>고객명<input value={newOrder.customer_name} onChange={e=>setNewOrder(p=>({...p,customer_name:e.target.value}))} placeholder="예: 홍길동" /></label>
+            <label>모델명<input value={newOrder.model_name} onChange={e=>setNewOrder(p=>({...p,model_name:e.target.value}))} placeholder="예: 아이폰 16 Pro" /></label>
+            <label>카테고리<select value={newOrder.category} onChange={e=>setNewOrder(p=>({...p,category:e.target.value}))}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
+            <label>주문 품목<input value={newOrder.item_name} onChange={e=>setNewOrder(p=>({...p,item_name:e.target.value}))} placeholder="예: 투명 케이스" /></label>
+            <label>주문 가격<input type="number" value={newOrder.price} onChange={e=>setNewOrder(p=>({...p,price:e.target.value}))} placeholder="예: 25000" /></label>
+            <label>주문경로<select value={newOrder.order_source} onChange={e=>setNewOrder(p=>({...p,order_source:e.target.value}))}>{orderSources.map(c=><option key={c}>{c}</option>)}</select></label>
+          </div>
+          <button className="primary accessorySubmitBtn" disabled={busy}>주문건 생성</button>
+        </form>
+      </div>
+
+      <div className="sectionCard accessoryListCard">
+        <div className="accessoryHead">
+          <h3>{canSeeAll ? '전체 주문 현황' : canSeeStore ? '매장 주문 현황' : '내 주문 현황'}</h3>
+          {(canSeeStore || canSeeAll) && <div className="accessoryScope">
+            <button className={scope==='mine'?'active':''} onClick={()=>setScope('mine')}>내 주문</button>
+            {canSeeStore && <button className={scope==='store'?'active':''} onClick={()=>setScope('store')}>매장</button>}
+            {canSeeAll && <button className={scope==='all'?'active':''} onClick={()=>setScope('all')}>전체</button>}
+          </div>}
+        </div>
+
+        <div className="accessoryTabs">
+          <button className={active==='pending'?'active':''} onClick={()=>setActive('pending')}>주문 미완료 <b>{counts.pending}</b></button>
+          <button className={active==='completed'?'active':''} onClick={()=>setActive('completed')}>주문 완료 <b>{counts.completed}</b></button>
+          <button className={active==='arrived'?'active':''} onClick={()=>setActive('arrived')}>매장 도착 <b>{counts.arrived}</b></button>
+        </div>
+
+        {(canSeeStore || canSeeAll) && <div className="accessoryFilters">
+          {canSeeAll && <select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}><option value="">전체 매장</option>{storeOptions.map(s=><option key={s}>{s}</option>)}</select>}
+          <select value={employeeFilter} onChange={e=>setEmployeeFilter(e.target.value)}><option value="">전체 인원</option>{employeeOptions.map(n=><option key={n}>{n}</option>)}</select>
+          <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}><option value="">전체 카테고리</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
+          <select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">전체 경로</option>{orderSources.map(c=><option key={c}>{c}</option>)}</select>
+        </div>}
+
+        <div className="accessoryOrderList">
+          {filtered.map(row=>(
+            <div className="accessoryOrderCard" key={row.id}>
+              <div className="accessoryOrderTop">
+                <div>
+                  <strong>{row.order_code}</strong>
+                  <p>{row.customer_name_masked} · {row.model_name}</p>
+                </div>
+                <span className={`accessoryBadge ${accessoryStatusKey(row)}`}>{accessoryOrderStatus(row)}</span>
+              </div>
+              <div className="accessoryMeta">
+                <p><b>품목</b>{row.category} / {row.item_name}</p>
+                <p><b>금액</b>{formatKRW(row.price)}</p>
+                <p><b>경로</b>{row.order_source}</p>
+                <p><b>담당</b>{row.store_name} · {row.employee_name}</p>
+                <p><b>예정</b>{row.expected_arrival_date || '-'}</p>
+              </div>
+              <div className="accessoryActions">
+                {!row.order_completed && <>
+                  <input type="date" value={arrivalDateById[row.id]||''} onChange={e=>setArrivalDateById(p=>({...p,[row.id]:e.target.value}))} />
+                  <button disabled={busy} onClick={()=>markCompleted(row)}>주문 완료 체크</button>
+                </>}
+                {row.order_completed && !row.store_arrived && <button disabled={busy} onClick={()=>markArrived(row)}>매장 도착 체크</button>}
+              </div>
+            </div>
+          ))}
+          {!filtered.length && <p className="emptyAccessory">표시할 주문건이 없습니다.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomeDashboard({ user, setTab }) {
   const [happyCount,setHappyCount]=useState(0);
   const [reviewCount,setReviewCount]=useState(0);
@@ -1662,6 +1951,7 @@ function HomeDashboard({ user, setTab }) {
     {title:'내 해피콜', value:happyCount, desc:'진행 필요', tab:'mycalls', show:true},
     {title:'해피콜 검수', value:reviewCount, desc:'확인 필요', tab:'review', show:isAdminLike(user)},
     {title:'내 프리패스', value:freepassMine, desc:'진행 중 신청', tab:'freepass', show:true},
+    {title:'악세사리 주문', value:0, desc:'주문 관리', tab:'accessories', show:true},
     {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', show:user.role==='점장'||isAdminLike(user)},
     {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', show:isSuperAdmin(user)},
     {title:'건의/문의', value:suggestions, desc:'진행 중', tab:'suggestions', show:true},
@@ -1722,6 +2012,7 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
           <button onClick={()=>go('home')}>홈</button>
           <button onClick={()=>go('mycalls')}>내 해피콜</button>
           <button onClick={()=>go('freepass')}>프리패스</button>
+          <button onClick={()=>go('accessories')}>악세사리 주문</button>
           <button onClick={()=>go('suggestions')}>건의/문의</button>
         </div>
 
@@ -1821,6 +2112,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         </div>
 
         <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>
+              <button className={tab==='accessories'?'active':''} onClick={()=>setTab('accessories')}>악세사리 주문</button>
 
         <button className={tab==='pushSettings'?'active':''} onClick={()=>setTab('pushSettings')}>알림 설정</button>
 
@@ -1850,6 +2142,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         {tab === 'suggestions' && <SuggestionsPage user={user} />}
         {tab === 'home' && <HomeDashboard user={user} setTab={setTab} />}
         {tab === 'freepass' && <FreepassModule user={user} />}
+        {tab === 'accessories' && <AccessoryOrdersPage user={user} />}
         {tab === 'pushSettings' && <PushSettings user={user} />}
         <MobileBottomNav tab={tab} setTab={setTab} user={user} />
         {tab === 'guide' && <UsageGuide user={user} />}

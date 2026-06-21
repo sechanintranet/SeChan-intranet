@@ -4094,3 +4094,208 @@ body{
 @media(max-width:420px){
   .dashboardGrid{grid-template-columns:1fr 1fr !important;}
 }
+
+/* V28.5 Accessory Order Management */
+.accessorySummaryGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
+  margin:12px 0;
+}
+.accessoryStat{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:18px;
+}
+.accessoryStat span{
+  display:block;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+  margin-bottom:8px;
+}
+.accessoryStat strong{
+  font-size:24px;
+  color:#0f172a;
+}
+.accessoryFormGrid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+.accessoryFormGrid label{
+  font-weight:800;
+  color:#334155;
+}
+.accessorySubmitBtn{
+  margin-top:12px;
+}
+.accessoryHead{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+}
+.accessoryScope,.accessoryTabs,.accessoryFilters{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.accessoryScope button,.accessoryTabs button{
+  min-height:40px;
+  border-radius:12px;
+  padding:0 14px;
+}
+.accessoryScope button.active,.accessoryTabs button.active{
+  background:#111827;
+  color:#fff;
+}
+.accessoryTabs{
+  margin:12px 0;
+}
+.accessoryFilters{
+  margin:10px 0 14px;
+}
+.accessoryFilters select{
+  min-width:140px;
+}
+.accessoryOrderList{
+  display:grid;
+  gap:10px;
+}
+.accessoryOrderCard{
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:16px;
+  background:#fff;
+}
+.accessoryOrderTop{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+  margin-bottom:12px;
+}
+.accessoryOrderTop strong{
+  font-size:18px;
+}
+.accessoryOrderTop p{
+  margin:4px 0 0;
+  color:#64748b;
+}
+.accessoryBadge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:0 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.accessoryBadge.pending{background:#fee2e2;color:#991b1b;}
+.accessoryBadge.completed{background:#dbeafe;color:#1d4ed8;}
+.accessoryBadge.arrived{background:#dcfce7;color:#166534;}
+.accessoryMeta{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px 12px;
+}
+.accessoryMeta p{
+  margin:0;
+  color:#334155;
+}
+.accessoryMeta b{
+  display:block;
+  color:#64748b;
+  font-size:12px;
+  margin-bottom:2px;
+}
+.accessoryActions{
+  display:flex;
+  gap:8px;
+  margin-top:12px;
+  align-items:center;
+}
+.accessoryActions input{
+  max-width:180px;
+}
+.emptyAccessory{
+  padding:16px;
+  color:#64748b;
+}
+
+@media(max-width:768px){
+  .accessorySummaryGrid{
+    grid-template-columns:1fr 1fr !important;
+    gap:9px !important;
+  }
+  .accessoryStat{
+    padding:13px !important;
+    border-radius:15px !important;
+  }
+  .accessoryStat span{
+    font-size:12px !important;
+    margin-bottom:6px !important;
+  }
+  .accessoryStat strong{
+    font-size:19px !important;
+    word-break:keep-all;
+  }
+  .accessoryFormGrid{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+  }
+  .accessoryHead{
+    display:block !important;
+  }
+  .accessoryScope{
+    display:grid !important;
+    grid-template-columns:repeat(3,1fr) !important;
+    gap:8px !important;
+    margin-top:10px !important;
+  }
+  .accessoryTabs{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+  }
+  .accessoryTabs button{
+    width:100% !important;
+    justify-content:space-between !important;
+  }
+  .accessoryFilters{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .accessoryFilters select{
+    min-width:0 !important;
+    width:100% !important;
+  }
+  .accessoryOrderCard{
+    padding:14px !important;
+    border-radius:15px !important;
+  }
+  .accessoryOrderTop{
+    align-items:flex-start !important;
+  }
+  .accessoryOrderTop strong{
+    font-size:16px !important;
+  }
+  .accessoryMeta{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .accessoryActions{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+  }
+  .accessoryActions input,
+  .accessoryActions button{
+    width:100% !important;
+    max-width:100% !important;
+  }
+}
