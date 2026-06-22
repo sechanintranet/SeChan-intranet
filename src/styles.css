@@ -4299,3 +4299,33 @@ body{
     max-width:100% !important;
   }
 }
+
+/* V28.6 Accessory Orders Advanced */
+.accessoryMainTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.accessoryMainTabs button{min-height:42px;border-radius:13px;padding:0 16px;}
+.accessoryMainTabs button.active{background:#111827;color:#fff;}
+.accessoryFormGrid.baseInfo{grid-template-columns:repeat(4,1fr);}
+.accessoryItemsBox{margin-top:14px;padding:14px;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;}
+.accessoryItemsHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+.accessoryItemsHead h4{margin:0;}
+.accessoryItemsHead button{min-height:36px;border-radius:11px;}
+.accessoryItemRow{display:grid;grid-template-columns:140px 1fr 140px 80px;gap:8px;margin:8px 0;}
+.accessoryOrderTotal{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;}
+.accessoryOrderTotal span{color:#64748b;font-size:13px;font-weight:800;}
+.accessoryOrderTotal strong{font-size:16px;}
+.accessoryItemsView{border:1px solid #eef2f7;background:#f8fafc;border-radius:14px;padding:10px 12px;margin-bottom:12px;}
+.accessoryItemsView p{margin:5px 0;}
+.accessoryItemsView b{display:inline-block;min-width:90px;color:#334155;}
+.accessoryBadge.received{background:#ede9fe;color:#6d28d9;}
+.accessoryBadge.returned{background:#fee2e2;color:#991b1b;}
+@media(max-width:768px){
+  .accessoryFormGrid.baseInfo{grid-template-columns:1fr !important;}
+  .accessoryMainTabs{display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px !important;}
+  .accessoryMainTabs button{width:100% !important;min-height:40px !important;}
+  .accessoryItemRow{grid-template-columns:1fr !important;gap:8px !important;padding:10px !important;border:1px solid #e5e7eb;border-radius:14px;background:#fff;}
+  .accessoryItemsBox{padding:12px !important;}
+  .accessoryOrderTotal{grid-template-columns:1fr 1fr !important;}
+  .accessoryItemsView b{min-width:0;display:block;margin-bottom:2px;}
+  .accessoryTabs{grid-template-columns:1fr !important;}
+  .accessoryActions select{width:100% !important;}
+}
