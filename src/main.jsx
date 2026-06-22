@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v28.7-20260622053535';
+const APP_BUILD_VERSION = 'v28.8-20260622072100';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1838,17 +1838,19 @@ function AccessoryOrdersPage({ user }) {
     }finally{ setBusy(false); }
   }
 
-  function handleStatusChange(row){
+  function getNextStatusOptions(row){
     const current = accessoryStatusKey(row);
-    let options = [];
-    if(current === 'pending') options = ['주문 완료'];
-    if(current === 'completed') options = ['매장 도착','반품'];
-    if(current === 'arrived') options = ['고객 수령','반품'];
-    if(current === 'received') options = ['반품'];
-    if(!options.length) return alert('변경 가능한 상태가 없습니다.');
-    const choice = prompt(`변경할 상태를 입력해주세요.\n${options.join(' / ')}`);
+    if(current === 'pending') return ['주문 완료'];
+    if(current === 'completed') return ['매장 도착','반품'];
+    if(current === 'arrived') return ['고객 수령','반품'];
+    if(current === 'received') return ['반품'];
+    return [];
+  }
+
+  function handleStatusChange(row, choice){
     if(!choice) return;
-    if(!options.includes(choice)) return alert('선택 가능한 상태만 입력해주세요.');
+    const options = getNextStatusOptions(row);
+    if(!options.includes(choice)) return alert('선택 가능한 상태만 변경할 수 있습니다.');
     if(choice === '주문 완료'){
       const arrival = prompt('도착 예정일을 입력해주세요. 예: 2026-06-25');
       if(!arrival) return;
@@ -1857,10 +1859,11 @@ function AccessoryOrdersPage({ user }) {
     if(choice === '매장 도착') return updateOrder(row,{store_arrived:true, store_arrived_at:new Date().toISOString()},'악세사리매장도착',row.customer_name_masked);
     if(choice === '고객 수령') return updateOrder(row,{customer_received:true, customer_received_at:new Date().toISOString()},'악세사리고객수령',row.customer_name_masked);
     if(choice === '반품'){
-      const reason = prompt(`반품 사유를 입력해주세요.\n${returnReasons.join(' / ')}`, '고객 변심') || '기타';
+      const reason = prompt(`반품 사유를 입력해주세요. 예: ${returnReasons.join(' / ')}`, '고객 변심') || '기타';
       return updateOrder(row,{is_returned:true, returned_at:new Date().toISOString(), return_reason:reason},'악세사리반품',reason);
     }
   }
+
 
   function showHistory(row){
     const hist = Array.isArray(row.status_history) ? row.status_history : [];
@@ -1916,10 +1919,10 @@ function AccessoryOrdersPage({ user }) {
       <div className="sectionCard accessoryListCard">
         <div className="accessoryMainTabs">{availableScopes().map(s=><button key={s.key} className={scope===s.key?'active':''} onClick={()=>setScope(s.key)}>{s.label}</button>)}</div>
         <div className="accessoryTabs v287">
-          <button className={active==='pending'?'active':''} onClick={()=>setActive('pending')}>주문 미완료 <b>{counts.pending}</b></button>
-          <button className={active==='completed'?'active':''} onClick={()=>setActive('completed')}>주문 완료 <b>{counts.completed}</b></button>
-          <button className={active==='arrived'?'active':''} onClick={()=>setActive('arrived')}>매장 도착 <b>{counts.arrived}</b></button>
-          <button className={active==='received'?'active':''} onClick={()=>setActive('received')}>고객 수령 <b>{counts.received}</b></button>
+          <button className={active==='pending'?'active':''} onClick={()=>setActive('pending')}>미완료 <b>{counts.pending}</b></button>
+          <button className={active==='completed'?'active':''} onClick={()=>setActive('completed')}>완료 <b>{counts.completed}</b></button>
+          <button className={active==='arrived'?'active':''} onClick={()=>setActive('arrived')}>도착 <b>{counts.arrived}</b></button>
+          <button className={active==='received'?'active':''} onClick={()=>setActive('received')}>수령 <b>{counts.received}</b></button>
           <button className={active==='returned'?'active':''} onClick={()=>setActive('returned')}>반품 <b>{counts.returned}</b></button>
         </div>
         <div className="accessoryFilters">
@@ -1938,7 +1941,7 @@ function AccessoryOrdersPage({ user }) {
               {longUnclaimed >= 3 && <div className="accessoryWarning">장기 미수령 {longUnclaimed}일</div>}
               <div className="accessoryItemsView compact">{items.map((item,idx)=><p key={idx}><b>{idx+1}. {item.category}</b><span>{item.model_name ? `${item.model_name} · ` : ''}{item.item_name} · {formatKRW(item.price)}</span></p>)}</div>
               <div className="accessoryMeta compact"><p><b>원가</b>{formatKRW(row.price)}</p><p><b>수납</b>{row.customer_payment_amount === null || row.customer_payment_amount === undefined ? '무료제공' : `${row.payment_type || '후불'} · ${formatKRW(row.customer_payment_amount)}`}</p><p><b>수익</b>{formatKRW(Number(row.customer_payment_amount||0)-Number(row.price||0))}</p><p><b>담당</b>{row.store_name} · {row.employee_name}</p><p><b>예정</b>{row.expected_arrival_date || '-'}</p></div>
-              <div className="accessoryActions compact">{!row.is_returned && <button disabled={busy} onClick={()=>handleStatusChange(row)}>상태변경</button>}<button disabled={busy} onClick={()=>beginEdit(row)}>수정</button><button disabled={busy} onClick={()=>showHistory(row)}>이력</button>{(row.employee_name === user.name || isAdmin) && <button disabled={busy} onClick={()=>deleteOrder(row)}>삭제</button>}</div>
+              <div className="accessoryActions compact">{!row.is_returned && <select className="accessoryStatusSelect" disabled={busy} defaultValue="" onChange={e=>handleStatusChange(row,e.target.value)}><option value="">상태변경</option>{getNextStatusOptions(row).map(opt=><option key={opt} value={opt}>{opt}</option>)}</select>}<button disabled={busy} onClick={()=>beginEdit(row)}>수정</button><button disabled={busy} onClick={()=>showHistory(row)}>이력</button>{(row.employee_name === user.name || isAdmin) && <button disabled={busy} onClick={()=>deleteOrder(row)}>삭제</button>}</div>
             </div>
           })}
           {!filtered.length && <p className="emptyAccessory">표시할 주문건이 없습니다.</p>}
@@ -1955,6 +1958,7 @@ function HomeDashboard({ user, setTab }) {
   const [finalPending,setFinalPending]=useState(0);
   const [suggestions,setSuggestions]=useState(0);
   const [errors,setErrors]=useState(0);
+  const [accessoryPending,setAccessoryPending]=useState(0);
 
   useEffect(()=>{ load(); },[]);
 
@@ -1990,6 +1994,9 @@ function HomeDashboard({ user, setTab }) {
         const {data:er}=await supabase.from('error_reports').select('id,status');
         setErrors((er||[]).filter(r=>!['완료','해결'].includes(r.status)).length);
       }
+
+      const {data:ao}=await supabase.from('accessory_orders').select('id,employee_name,customer_received,is_returned').eq('employee_name',user.name);
+      setAccessoryPending((ao||[]).filter(r=>!r.customer_received && !r.is_returned).length);
     }catch(e){
       console.warn('dashboard load failed', e);
     }
@@ -1999,7 +2006,7 @@ function HomeDashboard({ user, setTab }) {
     {title:'내 해피콜', value:happyCount, desc:'진행 필요', tab:'mycalls', show:true},
     {title:'해피콜 검수', value:reviewCount, desc:'확인 필요', tab:'review', show:isAdminLike(user)},
     {title:'내 프리패스', value:freepassMine, desc:'진행 중 신청', tab:'freepass', show:true},
-    {title:'악세사리 주문', value:0, desc:'주문 관리', tab:'accessories', show:true},
+    {title:'악세사리 주문', value:accessoryPending, desc:'주문 관리', tab:'accessories', show:true},
     {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', show:user.role==='점장'||isAdminLike(user)},
     {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', show:isSuperAdmin(user)},
     {title:'건의/문의', value:suggestions, desc:'진행 중', tab:'suggestions', show:true},
