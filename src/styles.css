@@ -5653,3 +5653,149 @@ table th,table td{padding:9px 8px !important;vertical-align:middle !important;li
     touch-action:pan-y !important;
   }
 }
+
+
+/* =========================================================
+   V29.13 localized UI compact alignment
+   - 전역 CSS 변경 없음
+   - 해피콜/프리패스/악세사리 주요 리스트와 버튼 간격만 국소 보정
+   ========================================================= */
+
+/* 1) 버튼과 리스트 박스가 붙어 보이는 문제: 관련 모듈 내부만 여백 보정 */
+.freepassModule .sectionCard + .sectionCard,
+.accessoryOrdersPage .sectionCard + .sectionCard,
+.reviewListCard,
+.reviewBulkBar{
+  margin-top:12px !important;
+}
+
+.reviewBulkBar{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  padding:12px 14px !important;
+}
+
+.reviewBulkInfo{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.reviewBulkActions{
+  display:flex;
+  gap:8px;
+  flex:0 0 auto;
+}
+
+/* 2) 해피콜 검수 리스트 체크박스/표 폭 안정화 */
+.reviewTable{
+  table-layout:fixed !important;
+  width:100% !important;
+}
+.reviewTable .checkCol{
+  width:42px !important;
+  text-align:center !important;
+}
+.reviewTable input[type="checkbox"]{
+  width:20px !important;
+  height:20px !important;
+  min-width:20px !important;
+  min-height:20px !important;
+}
+.reviewTable th,
+.reviewTable td{
+  padding:8px 6px !important;
+  font-size:13px !important;
+  vertical-align:middle !important;
+}
+.reviewTable th:nth-child(2), .reviewTable td:nth-child(2){width:20% !important;}
+.reviewTable th:nth-child(3), .reviewTable td:nth-child(3){width:12% !important;}
+.reviewTable th:nth-child(4), .reviewTable td:nth-child(4){width:12% !important;}
+.reviewTable th:nth-child(5), .reviewTable td:nth-child(5){width:16% !important;}
+.reviewTable th:nth-child(6), .reviewTable td:nth-child(6){width:10% !important;}
+.reviewTable th:nth-child(7), .reviewTable td:nth-child(7){width:10% !important;}
+.reviewTable th:nth-child(8), .reviewTable td:nth-child(8){width:14% !important;}
+.reviewTable th:nth-child(9), .reviewTable td:nth-child(9){width:10% !important;}
+
+/* 3) 프리패스 날짜 구분 컬럼 */
+.freepassLedgerTable,
+.freepassLogTable{
+  table-layout:fixed !important;
+}
+.freepassLedgerTable th,
+.freepassLedgerTable td,
+.freepassLogTable th,
+.freepassLogTable td{
+  padding:8px 6px !important;
+  font-size:13px !important;
+}
+
+/* 4) 버튼 크기 국소 통일: 세 기능 내부만 */
+.freepassModule button,
+.accessoryOrdersPage button,
+.reviewBulkBar button,
+.reviewFilterBox button{
+  min-height:38px !important;
+  padding:7px 11px !important;
+  font-size:13px !important;
+  border-radius:11px !important;
+}
+
+/* 5) 탭/필터 간격 균일화 */
+.freepassModule .filterBar,
+.accessoryOrdersPage .filterBar,
+.reviewFilterBox{
+  gap:8px !important;
+}
+
+/* 6) 모바일: 기존 테이블 유지 + 버튼/리스트 분리 */
+@media(max-width:768px){
+  .reviewBulkBar{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+    padding:12px !important;
+  }
+  .reviewBulkActions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .reviewBulkActions button{
+    width:100% !important;
+  }
+
+  .reviewTable th,
+  .reviewTable td{
+    font-size:11px !important;
+    padding:7px 4px !important;
+  }
+  .reviewTable .checkCol{
+    width:34px !important;
+  }
+  .reviewTable input[type="checkbox"]{
+    width:18px !important;
+    height:18px !important;
+    min-width:18px !important;
+    min-height:18px !important;
+  }
+
+  .freepassLedgerTable th,
+  .freepassLedgerTable td,
+  .freepassLogTable th,
+  .freepassLogTable td{
+    font-size:11px !important;
+    padding:7px 4px !important;
+  }
+
+  .freepassModule button,
+  .accessoryOrdersPage button,
+  .reviewBulkBar button,
+  .reviewFilterBox button{
+    min-height:36px !important;
+    padding:6px 9px !important;
+    font-size:12px !important;
+  }
+}

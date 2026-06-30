@@ -530,6 +530,21 @@ function isAccrualRequest(type) {
 function isFreepassAccrualType(value) {
   return ['적립','고객 추가 응대','휴무 고객응대','야근 적립','휴무출근 적립','휴무 출근 적립'].includes(value);
 }
+
+function freepassActualDateLabel(row) {
+  return row?.effective_date || row?.request_date || '-';
+}
+function freepassRequestedDateTimeLabel(row, requestMap = {}) {
+  const sourceId = row?.source_request_id;
+  const source = sourceId ? requestMap[sourceId] : null;
+  return formatKST(source?.requested_at || source?.created_at || row?.requested_at || row?.created_at);
+}
+function freepassTypeLabel(value) {
+  if (value === '야근 적립') return '고객 추가 응대';
+  if (value === '휴무출근 적립' || value === '휴무 출근 적립') return '휴무 고객응대';
+  return value || '-';
+}
+
 function isFreepassDebitType(value) {
   return ['사용','차감','월차전환','월차 전환'].includes(value);
 }
@@ -884,6 +899,7 @@ function FreepassMyPage({ user }) {
   }
 
   const myRows=ledger.filter(r=>r.employee_name===user.name);
+  const requestMap = useMemo(()=>Object.fromEntries((requests||[]).map(r=>[r.id,r])), [requests]);
   const balance=freepassBalanceOf(ledger,user.name);
   const pending = pendingDebitHours(requests, user.name);
   const available = balance - pending;
@@ -960,11 +976,11 @@ function FreepassMyPage({ user }) {
       <h3>내 신청 현황</h3>
       <p className="muted">승인대기 중인 사용/월차전환 시간은 신청 가능 시간에서 먼저 차감됩니다.</p>
       <table>
-        <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>적립 발생일</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
+        <thead><tr><th>요청일시</th><th>유형</th><th>실제 사용/발생일</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
         <tbody>
           {requests.map(r=><tr key={r.id} className="clickableRow" onClick={()=>openDetail(r)}>
             <td>{formatKST(r.requested_at||r.created_at)}</td>
-            <td>{r.request_type} {r.use_type||''}</td>
+            <td>{freepassTypeLabel(r.request_type)} {r.use_type||''}</td>
             <td>{r.request_date}</td>
             <td>{r.hours}시간</td>
             <td>{r.reason||'-'}</td>
@@ -977,10 +993,10 @@ function FreepassMyPage({ user }) {
 
     <div className="sectionCard">
       <h3>내 프리패스 이력</h3>
-      <table><thead><tr><th>일시</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
+      <table className="freepassLedgerTable"><thead><tr><th>요청일시</th><th>실제 사용/발생일</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
       <tbody>
-        {myRows.map(r=><tr key={r.id}><td>{formatKST(r.created_at)}</td><td>{r.type}</td><td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
-        {!myRows.length&&<tr><td colSpan="5" className="muted">프리패스 이력이 없습니다.</td></tr>}
+        {myRows.map(r=><tr key={r.id}><td>{freepassRequestedDateTimeLabel(r, requestMap)}</td><td>{freepassActualDateLabel(r)}</td><td>{freepassTypeLabel(r.type)}</td><td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
+        {!myRows.length&&<tr><td colSpan="6" className="muted">프리패스 이력이 없습니다.</td></tr>}
       </tbody></table>
     </div>
 
@@ -988,9 +1004,9 @@ function FreepassMyPage({ user }) {
       <div className="modalHead"><h2>프리패스 신청 상세</h2><button onClick={()=>setSelected(null)}>닫기</button></div>
       {!editMode && <section className="infoGrid">
         <p><b>접수 날짜·시각</b><br />{formatKST(selected.requested_at||selected.created_at)}</p>
-        <p><b>신청 유형</b><br />{selected.request_type} {selected.use_type||''}</p>
+        <p><b>신청 유형</b><br />{freepassTypeLabel(selected.request_type)} {selected.use_type||''}</p>
         <p><b>상태</b><br /><span className={`requestStatusBadge ${pushStatusClass(selected.status)}`}>{pushStatusLabel(selected.status)}</span></p>
-        <p><b>적립 발생일</b><br />{selected.request_date}</p>
+        <p><b>실제 사용/발생일</b><br />{selected.request_date}</p>
         <p><b>시간</b><br />{selected.hours}시간</p>
         <p><b>점장 승인</b><br />{selected.manager_status||'대기'} {selected.manager_approved_by?`· ${selected.manager_approved_by}`:''}</p>
         <p><b>최종 승인</b><br />{selected.final_status||'대기'} {selected.final_approved_by?`· ${selected.final_approved_by}`:''}</p>
@@ -1495,13 +1511,17 @@ function FreepassLogTab({ user }) {
     return v || '-';
   }
 
+  const requestMap = useMemo(()=>Object.fromEntries((requests||[]).map(r=>[r.id,r])), [requests]);
+
   const logs = useMemo(() => {
     const ledgerLogs = (ledger || []).map(r => ({
       id:`ledger-${r.id}`,
       at:r.created_at,
+      requestedAt: freepassRequestedDateTimeLabel(r, requestMap),
+      actualDate: freepassActualDateLabel(r),
       store:r.employee_store,
       employee:r.employee_name,
-      type:r.type || '-',
+      type:freepassTypeLabel(r.type),
       hours:Number(r.hours || 0),
       detail:r.reason || '-',
       source:'프리패스 이력',
@@ -1510,6 +1530,8 @@ function FreepassLogTab({ user }) {
     const requestLogs = (requests || []).map(r => ({
       id:`request-${r.id}`,
       at:r.requested_at || r.created_at,
+      requestedAt: formatKST(r.requested_at || r.created_at),
+      actualDate: r.request_date || '-',
       store:r.employee_store,
       employee:r.employee_name,
       type:`신청/${normalizeType(r.request_type)}`,
@@ -1519,7 +1541,7 @@ function FreepassLogTab({ user }) {
       actor:r.final_approved_by || r.manager_approved_by || r.employee_name || '-'
     }));
     return [...ledgerLogs, ...requestLogs].sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
-  }, [ledger, requests]);
+  }, [ledger, requests, requestMap]);
 
   const storeOptions = ['전체', ...new Set((employees||[]).map(e=>e.store_name).filter(Boolean))];
 
@@ -1547,10 +1569,11 @@ function FreepassLogTab({ user }) {
         </select>
       </div>
       <table className="freepassLogTable">
-        <thead><tr><th>일시</th><th>매장</th><th>직원</th><th>유형</th><th>시간</th><th>내용</th><th>처리자</th></tr></thead>
+        <thead><tr><th>요청일시</th><th>실제 사용/발생일</th><th>매장</th><th>직원</th><th>유형</th><th>시간</th><th>내용</th><th>처리자</th></tr></thead>
         <tbody>
           {filtered.map(r=><tr key={r.id}>
-            <td>{formatKST(r.at)}</td>
+            <td>{r.requestedAt || formatKST(r.at)}</td>
+            <td>{r.actualDate || '-'}</td>
             <td>{r.store || '-'}</td>
             <td>{r.employee || '-'}</td>
             <td>{r.type}</td>
@@ -1558,7 +1581,7 @@ function FreepassLogTab({ user }) {
             <td>{r.detail}</td>
             <td>{r.actor}</td>
           </tr>)}
-          {!filtered.length && <tr><td colSpan="7" className="muted">표시할 로그가 없습니다.</td></tr>}
+          {!filtered.length && <tr><td colSpan="8" className="muted">표시할 로그가 없습니다.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -1721,20 +1744,24 @@ function FreepassStoreOverview({ user }) {
   const [ledger,setLedger]=useState([]);
   const [employees,setEmployees]=useState([]);
   const [selected,setSelected]=useState(null);
+  const [requests,setRequests]=useState([]);
 
   useEffect(()=>{ load(); },[]);
 
   async function load(){
     const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false});
+    const {data:req}=await supabase.from('freepass_requests').select('*').order('requested_at',{ascending:false});
     const {data:e}=await supabase.from('employees').select('*').eq('status','재직').order('name');
     const visibleEmployees = isAdminLike(user) ? (e || []) : (e || []).filter(emp => emp.store_name === user.store_name);
     setLedger(l||[]);
+    setRequests(req||[]);
     setEmployees(visibleEmployees);
   }
 
   const rows = sortEmployeesForLogin(employees);
 
   const selectedRows = selected ? ledger.filter(r => r.employee_name === selected.name) : [];
+  const requestMap = useMemo(()=>Object.fromEntries((requests||[]).map(r=>[r.id,r])), [requests]);
 
   return (
     <div className="sectionCard freepassStoreOverviewCard">
@@ -1778,18 +1805,19 @@ function FreepassStoreOverview({ user }) {
             <section>
               <h3>적립/사용/차감 이력</h3>
               <table>
-                <thead><tr><th>일시</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
+                <thead><tr><th>요청일시</th><th>실제 사용/발생일</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
                 <tbody>
                   {selectedRows.map(r=>(
                     <tr key={r.id}>
-                      <td>{formatKST(r.created_at)}</td>
-                      <td>{r.type}</td>
+                      <td>{freepassRequestedDateTimeLabel(r, requestMap)}</td>
+                      <td>{freepassActualDateLabel(r)}</td>
+                      <td>{freepassTypeLabel(r.type)}</td>
                       <td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td>
                       <td>{r.reason || '-'}</td>
                       <td>{r.created_by || '-'}</td>
                     </tr>
                   ))}
-                  {!selectedRows.length && <tr><td colSpan="5" className="muted">프리패스 이력이 없습니다.</td></tr>}
+                  {!selectedRows.length && <tr><td colSpan="6" className="muted">프리패스 이력이 없습니다.</td></tr>}
                 </tbody>
               </table>
             </section>
@@ -3978,10 +4006,22 @@ function RefusedCustomersViewer() {
   return (
     <div>
       <h2>통화 불가 고객</h2>
-      <div className="sectionCard">
-        <table>
+      <div className="sectionCard reviewBulkBar">
+        <div className="reviewBulkInfo">
+          <b>선택 {selectedReviewIds.length}건</b>
+          <span className="muted">검수대기 건만 일괄 처리할 수 있습니다.</span>
+        </div>
+        <div className="reviewBulkActions">
+          <button disabled={bulkBusy || !selectedReviewIds.length} onClick={bulkApproveReviews}>선택 승인</button>
+          <button className="dangerBtn" disabled={bulkBusy || !selectedReviewIds.length} onClick={bulkRejectReviews}>선택 반려</button>
+        </div>
+      </div>
+
+      <div className="sectionCard reviewListCard">
+        <table className="reviewTable">
           <thead>
             <tr>
+              <th className="checkCol"><input type="checkbox" checked={allVisibleSelected} onChange={e=>toggleAllVisibleReviews(e.target.checked)} /></th>
               <th>가입번호</th>
               <th>통화불가일시(KST)</th>
               <th>처리자</th>
@@ -4025,6 +4065,8 @@ function SuggestionsPage({ user }) {
   const [content, setContent] = useState('');
   const [statusFilter, setStatusFilter] = useState('전체');
   const [keyword, setKeyword] = useState('');
+  const [selectedReviewIds, setSelectedReviewIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [selected, setSelected] = useState(null);
 
   useEffect(() => { load(); }, []);
@@ -4794,6 +4836,81 @@ function ReviewDashboard({ user }) {
     return { total, pending, approved, rejected };
   }, [baseRows]);
 
+
+  const selectableReviewRows = useMemo(() => reviewRows.filter(r => (r.log.review_status || '검수대기') === '검수대기'), [reviewRows]);
+  const allVisibleSelected = selectableReviewRows.length > 0 && selectableReviewRows.every(r => selectedReviewIds.includes(r.log.id));
+
+  function toggleReviewSelection(id) {
+    setSelectedReviewIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function toggleAllVisibleReviews(checked) {
+    const ids = selectableReviewRows.map(r => r.log.id);
+    setSelectedReviewIds(prev => checked ? Array.from(new Set([...prev, ...ids])) : prev.filter(id => !ids.includes(id)));
+  }
+
+  async function bulkApproveReviews() {
+    const rows = baseRows.filter(r => selectedReviewIds.includes(r.log.id) && (r.log.review_status || '검수대기') === '검수대기');
+    if (!rows.length) return alert('일괄 승인할 검수대기 건을 선택해주세요.');
+    if (!confirm(`${rows.length}건을 일괄 검수 승인할까요?\n확인 후 반영됩니다.`)) return;
+
+    setBulkBusy(true);
+    try {
+      const now = new Date().toISOString();
+      const ids = rows.map(r => r.log.id);
+      const { error } = await supabase.from('happycall_logs').update({
+        review_status: '검수완료',
+        reviewed_by: user.name,
+        reviewed_at: now
+      }).in('id', ids);
+      if (error) throw error;
+      await writeAuditLog('검수일괄완료', 'happycall_log', 'bulk', user, `${rows.length}건 일괄 승인`);
+      alert(`${rows.length}건 검수 완료 처리되었습니다.`);
+      setSelectedReviewIds([]);
+      load();
+    } catch (e) {
+      askErrorReport({ user, currentTab: '검수', actionName: '일괄 검수 승인', error: e });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function bulkRejectReviews() {
+    const rows = baseRows.filter(r => selectedReviewIds.includes(r.log.id) && (r.log.review_status || '검수대기') === '검수대기');
+    if (!rows.length) return alert('일괄 반려할 검수대기 건을 선택해주세요.');
+    const memo = prompt('일괄 반려 사유를 입력해주세요.');
+    if (!memo || !memo.trim()) return;
+    if (!confirm(`${rows.length}건을 일괄 반려할까요?\n반려 사유: ${memo}`)) return;
+
+    setBulkBusy(true);
+    try {
+      const now = new Date().toISOString();
+      const ids = rows.map(r => r.log.id);
+      const { error } = await supabase.from('happycall_logs').update({
+        review_status: '반려',
+        reviewed_by: user.name,
+        reviewed_at: now,
+        review_memo: memo
+      }).in('id', ids);
+      if (error) throw error;
+
+      for (const { log, target } of rows) {
+        if (isUnavailableCall(log.call_result, log.call_detail)) {
+          await supabase.from('refused_customers').delete().eq('join_no', target.join_no);
+        }
+      }
+
+      await writeAuditLog('검수일괄반려', 'happycall_log', 'bulk', user, `${rows.length}건 일괄 반려 / ${memo}`);
+      alert(`${rows.length}건 반려 처리되었습니다.`);
+      setSelectedReviewIds([]);
+      load();
+    } catch (e) {
+      askErrorReport({ user, currentTab: '검수', actionName: '일괄 검수 반려', error: e });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   return (
     <div>
       <h2>검수</h2>
@@ -4840,6 +4957,7 @@ function ReviewDashboard({ user }) {
           <tbody>
             {reviewRows.map(({log, target}) => (
               <tr key={log.id} className="clickableRow" onClick={()=>setSelected({log, target, allLogs: logs})}>
+                <td className="checkCol" onClick={e=>e.stopPropagation()}>{(log.review_status || '검수대기') === '검수대기' ? <input type="checkbox" checked={selectedReviewIds.includes(log.id)} onChange={()=>toggleReviewSelection(log.id)} /> : '-'}</td>
                 <td>{formatCustomerJoinNo(target.join_no, customersByJoinNo, target.customer_name)} {hasMinorInfo(log) && <span className="minorBadge">미성년자</span>}</td>
                 <td>{target.assigned_employee}</td>
                 <td>{target.assigned_store}</td>
@@ -4850,7 +4968,7 @@ function ReviewDashboard({ user }) {
                 <td>{target.target_date}</td>
               </tr>
             ))}
-            {!reviewRows.length && <tr><td colSpan="8" className="muted">조건에 맞는 검수 건이 없습니다.</td></tr>}
+            {!reviewRows.length && <tr><td colSpan="9" className="muted">조건에 맞는 검수 건이 없습니다.</td></tr>}
           </tbody>
         </table>
       </div>
