@@ -526,11 +526,29 @@ function isAccrualRequest(type) {
   return type === '야근 적립' || type === '휴무출근 적립';
 }
 
+function isFreepassAccrualType(value) {
+  return ['적립','고객 추가 응대','휴무 고객응대','야근 적립','휴무출근 적립','휴무 출근 적립'].includes(value);
+}
+function isFreepassDebitType(value) {
+  return ['사용','차감','월차전환','월차 전환'].includes(value);
+}
+function freepassLedgerSignedHours(row) {
+  const raw = Number(row?.hours || 0);
+  const abs = Math.abs(raw);
+  const type = row?.type || row?.request_type || '';
+  if (isFreepassAccrualType(type)) return abs;
+  if (isFreepassDebitType(type)) return -abs;
+  return raw;
+}
 function freepassBalanceOf(rows, name) {
-  return (rows || []).filter(r => r.employee_name === name).reduce((s,r)=>s+Number(r.hours || 0),0);
+  return (rows || [])
+    .filter(r => r.employee_name === name)
+    .reduce((s,r)=>s+freepassLedgerSignedHours(r),0);
 }
 function freepassUsedInMonth(rows, name, ym = todayLocalISO().slice(0,7)) {
-  return (rows || []).filter(r => r.employee_name === name && String(r.effective_date || r.created_at || '').slice(0,7) === ym && r.type === '사용').reduce((s,r)=>s+Math.abs(Number(r.hours || 0)),0);
+  return (rows || [])
+    .filter(r => r.employee_name === name && String(r.effective_date || r.created_at || '').slice(0,7) === ym && isFreepassDebitType(r.type))
+    .reduce((s,r)=>s+Math.abs(Number(r.hours || 0)),0);
 }
 
 function freepassPhotoTimeLabel(iso) {
@@ -960,7 +978,7 @@ function FreepassMyPage({ user }) {
       <h3>내 프리패스 이력</h3>
       <table><thead><tr><th>일시</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
       <tbody>
-        {myRows.map(r=><tr key={r.id}><td>{formatKST(r.created_at)}</td><td>{r.type}</td><td>{Number(r.hours)>0?`+${r.hours}`:r.hours}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
+        {myRows.map(r=><tr key={r.id}><td>{formatKST(r.created_at)}</td><td>{r.type}</td><td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
         {!myRows.length&&<tr><td colSpan="5" className="muted">프리패스 이력이 없습니다.</td></tr>}
       </tbody></table>
     </div>
@@ -1414,7 +1432,7 @@ function FreepassApprovalQueue({ user, mode }) {
               <td>{r.reason}</td>
               <td>{r.status}</td>
             </tr>)}
-            {!rows.length&&<tr><td colSpan="7" className="muted">승인 대기 건이 없습니다.</td></tr>}
+            {!rows.length&&<tr className="approvalEmptyRow"><td colSpan="7"><div className="approvalEmptyBox">승인 대기 건이 없습니다.</div></td></tr>}
           </tbody>
         </table>
       </div>
@@ -1535,7 +1553,7 @@ function FreepassLogTab({ user }) {
             <td>{r.store || '-'}</td>
             <td>{r.employee || '-'}</td>
             <td>{r.type}</td>
-            <td>{Number(r.hours || 0)}시간</td>
+            <td>{freepassLedgerSignedHours(r)}시간</td>
             <td>{r.detail}</td>
             <td>{r.actor}</td>
           </tr>)}
@@ -1718,7 +1736,7 @@ function FreepassStoreOverview({ user }) {
   const selectedRows = selected ? ledger.filter(r => r.employee_name === selected.name) : [];
 
   return (
-    <div className="sectionCard">
+    <div className="sectionCard freepassStoreOverviewCard">
       <h3>{isAdminLike(user) ? '매장 직원 프리패스 현황' : `${user.store_name} 프리패스 현황`}</h3>
       <p className="muted">직원을 누르면 적립/사용/차감/초기화 이력을 확인할 수 있습니다.</p>
       <table className="freepassOverviewTable">
@@ -1745,7 +1763,7 @@ function FreepassStoreOverview({ user }) {
 
       {selected && (
         <div className="modalBg">
-          <div className="modal">
+          <div className="modal freepassHistoryModal">
             <div className="modalHead">
               <h2>{selected.name} 프리패스 이력</h2>
               <button onClick={()=>setSelected(null)}>닫기</button>
@@ -1765,7 +1783,7 @@ function FreepassStoreOverview({ user }) {
                     <tr key={r.id}>
                       <td>{formatKST(r.created_at)}</td>
                       <td>{r.type}</td>
-                      <td>{Number(r.hours)>0?`+${r.hours}`:r.hours}시간</td>
+                      <td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td>
                       <td>{r.reason || '-'}</td>
                       <td>{r.created_by || '-'}</td>
                     </tr>

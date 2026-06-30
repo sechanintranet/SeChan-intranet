@@ -4821,3 +4821,157 @@ body{
     min-width:760px;
   }
 }
+
+/* V29.6 프리패스 잔여시간/모바일 UI 보정 */
+.approvalEmptyRow td{
+  padding:0 !important;
+}
+.approvalEmptyBox{
+  padding:18px 20px;
+  color:#64748b;
+  background:#fff;
+  border-radius:14px;
+  border:1px solid #e5e7eb;
+  text-align:left;
+}
+.freepassStoreOverviewCard{
+  overflow:hidden !important;
+}
+.freepassStoreOverviewCard .freepassOverviewTable{
+  width:100%;
+}
+.freepassHistoryModal{
+  max-width:840px;
+  max-height:88vh;
+  overflow:auto;
+}
+@media(max-width:768px){
+  .freepassApprovalPanel .freepassApprovalTableWrap{
+    overflow:visible !important;
+  }
+  .freepassApprovalTable{
+    min-width:0 !important;
+    width:100% !important;
+  }
+  .freepassApprovalTable thead{
+    display:none !important;
+  }
+  .freepassApprovalTable tbody,
+  .freepassApprovalTable tr,
+  .freepassApprovalTable td{
+    display:block !important;
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+  }
+  .freepassApprovalTable tr{
+    border:1px solid #e5e7eb !important;
+    border-radius:16px !important;
+    padding:12px !important;
+    margin:0 0 10px !important;
+    background:#fff !important;
+  }
+  .freepassApprovalTable tr.approvalEmptyRow{
+    border:0 !important;
+    padding:0 !important;
+    margin:0 !important;
+    background:transparent !important;
+  }
+  .freepassApprovalTable td{
+    border:0 !important;
+    padding:5px 0 !important;
+    font-size:14px !important;
+    white-space:normal !important;
+  }
+  .approvalEmptyBox{
+    width:100%;
+    box-sizing:border-box;
+    padding:16px !important;
+  }
+
+  .freepassStoreOverviewCard{
+    padding:16px !important;
+    overflow:hidden !important;
+  }
+  .freepassStoreOverviewCard > p.muted{
+    margin-bottom:12px !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable{
+    display:block !important;
+    min-width:0 !important;
+    width:100% !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable thead{
+    display:none !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable tbody{
+    display:block !important;
+    width:100% !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable tr{
+    display:grid !important;
+    grid-template-columns:1fr auto !important;
+    grid-template-areas:
+      "name badge"
+      "meta used";
+    gap:4px 10px !important;
+    align-items:center !important;
+    width:100% !important;
+    box-sizing:border-box !important;
+    background:#fff !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:14px !important;
+    padding:12px !important;
+    margin:0 0 10px !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td{
+    display:block !important;
+    border:0 !important;
+    padding:0 !important;
+    min-width:0 !important;
+    max-width:none !important;
+    white-space:normal !important;
+    font-size:14px !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td:nth-child(1){
+    grid-area:meta;
+    color:#64748b;
+    font-size:12px !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td:nth-child(2){
+    grid-area:name;
+    font-size:17px !important;
+    font-weight:900 !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td:nth-child(3){
+    display:none !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td:nth-child(4){
+    grid-area:badge;
+    justify-self:end;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td:nth-child(5){
+    grid-area:used;
+    justify-self:end;
+    color:#475569;
+    font-size:12px !important;
+  }
+  .freepassStoreOverviewCard .freepassOverviewTable td:nth-child(5)::before{
+    content:"이번달 사용 ";
+    color:#94a3b8;
+  }
+
+  .freepassHistoryModal{
+    width:calc(100vw - 24px) !important;
+    max-height:calc(100vh - 50px) !important;
+    overflow:auto !important;
+    padding:16px !important;
+  }
+  .freepassHistoryModal .infoGrid{
+    grid-template-columns:1fr 1fr !important;
+    gap:12px !important;
+  }
+  .freepassHistoryModal table{
+    min-width:680px !important;
+  }
+}
