@@ -993,9 +993,9 @@ function FreepassMyPage({ user }) {
 
     <div className="sectionCard">
       <h3>내 프리패스 이력</h3>
-      <table className="freepassLedgerTable"><thead><tr><th>요청일시</th><th>실제 사용/발생일</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
+      <table className="freepassLedgerTable readableFreepassTable"><thead><tr><th>구분</th><th>시간</th><th>요청일시</th><th>실제일</th><th>사유</th><th>처리자</th></tr></thead>
       <tbody>
-        {myRows.map(r=><tr key={r.id}><td>{freepassRequestedDateTimeLabel(r, requestMap)}</td><td>{freepassActualDateLabel(r)}</td><td>{freepassTypeLabel(r.type)}</td><td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td><td>{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
+        {myRows.map(r=><tr key={r.id}><td>{freepassTypeLabel(r.type)}</td><td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td><td>{freepassRequestedDateTimeLabel(r, requestMap)}</td><td>{freepassActualDateLabel(r)}</td><td className="freepassReasonCell">{r.reason||'-'}</td><td>{r.created_by||'-'}</td></tr>)}
         {!myRows.length&&<tr><td colSpan="6" className="muted">프리패스 이력이 없습니다.</td></tr>}
       </tbody></table>
     </div>
@@ -1569,16 +1569,16 @@ function FreepassLogTab({ user }) {
         </select>
       </div>
       <table className="freepassLogTable">
-        <thead><tr><th>요청일시</th><th>실제 사용/발생일</th><th>매장</th><th>직원</th><th>유형</th><th>시간</th><th>내용</th><th>처리자</th></tr></thead>
+        <thead><tr><th>유형</th><th>시간</th><th>요청일시</th><th>실제일</th><th>매장</th><th>직원</th><th>내용</th><th>처리자</th></tr></thead>
         <tbody>
           {filtered.map(r=><tr key={r.id}>
+            <td>{r.type}</td>
+            <td>{freepassLedgerSignedHours(r)}시간</td>
             <td>{r.requestedAt || formatKST(r.at)}</td>
             <td>{r.actualDate || '-'}</td>
             <td>{r.store || '-'}</td>
             <td>{r.employee || '-'}</td>
-            <td>{r.type}</td>
-            <td>{freepassLedgerSignedHours(r)}시간</td>
-            <td>{r.detail}</td>
+            <td className="freepassReasonCell">{r.detail}</td>
             <td>{r.actor}</td>
           </tr>)}
           {!filtered.length && <tr><td colSpan="8" className="muted">표시할 로그가 없습니다.</td></tr>}
@@ -1805,15 +1805,15 @@ function FreepassStoreOverview({ user }) {
             <section>
               <h3>적립/사용/차감 이력</h3>
               <table>
-                <thead><tr><th>요청일시</th><th>실제 사용/발생일</th><th>구분</th><th>시간</th><th>사유</th><th>처리자</th></tr></thead>
+                <thead><tr><th>구분</th><th>시간</th><th>요청일시</th><th>실제일</th><th>사유</th><th>처리자</th></tr></thead>
                 <tbody>
                   {selectedRows.map(r=>(
                     <tr key={r.id}>
-                      <td>{freepassRequestedDateTimeLabel(r, requestMap)}</td>
-                      <td>{freepassActualDateLabel(r)}</td>
                       <td>{freepassTypeLabel(r.type)}</td>
                       <td>{freepassLedgerSignedHours(r)>0?`+${freepassLedgerSignedHours(r)}`:freepassLedgerSignedHours(r)}시간</td>
-                      <td>{r.reason || '-'}</td>
+                      <td>{freepassRequestedDateTimeLabel(r, requestMap)}</td>
+                      <td>{freepassActualDateLabel(r)}</td>
+                      <td className="freepassReasonCell">{r.reason || '-'}</td>
                       <td>{r.created_by || '-'}</td>
                     </tr>
                   ))}
@@ -4006,22 +4006,10 @@ function RefusedCustomersViewer() {
   return (
     <div>
       <h2>통화 불가 고객</h2>
-      <div className="sectionCard reviewBulkBar">
-        <div className="reviewBulkInfo">
-          <b>선택 {selectedReviewIds.length}건</b>
-          <span className="muted">검수대기 건만 일괄 처리할 수 있습니다.</span>
-        </div>
-        <div className="reviewBulkActions">
-          <button disabled={bulkBusy || !selectedReviewIds.length} onClick={bulkApproveReviews}>선택 승인</button>
-          <button className="dangerBtn" disabled={bulkBusy || !selectedReviewIds.length} onClick={bulkRejectReviews}>선택 반려</button>
-        </div>
-      </div>
-
-      <div className="sectionCard reviewListCard">
-        <table className="reviewTable">
+      <div className="sectionCard">
+        <table>
           <thead>
             <tr>
-              <th className="checkCol"><input type="checkbox" checked={allVisibleSelected} onChange={e=>toggleAllVisibleReviews(e.target.checked)} /></th>
               <th>가입번호</th>
               <th>통화불가일시(KST)</th>
               <th>처리자</th>
@@ -4065,8 +4053,6 @@ function SuggestionsPage({ user }) {
   const [content, setContent] = useState('');
   const [statusFilter, setStatusFilter] = useState('전체');
   const [keyword, setKeyword] = useState('');
-  const [selectedReviewIds, setSelectedReviewIds] = useState([]);
-  const [bulkBusy, setBulkBusy] = useState(false);
   const [selected, setSelected] = useState(null);
 
   useEffect(() => { load(); }, []);
@@ -4762,6 +4748,8 @@ function ReviewDashboard({ user }) {
   const [employeeFilter, setEmployeeFilter] = useState('전체');
   const [storeFilter, setStoreFilter] = useState('전체');
   const [keyword, setKeyword] = useState('');
+  const [selectedReviewIds, setSelectedReviewIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => { load(); }, []);
 

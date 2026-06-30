@@ -5799,3 +5799,62 @@ table th,table td{padding:9px 8px !important;vertical-align:middle !important;li
     font-size:12px !important;
   }
 }
+
+
+/* V29.14 프리패스 이력 가독성 + 검수 일괄 scope 오류 수정 */
+.readableFreepassTable,
+.freepassHistoryModal table,
+.freepassLogTable{
+  table-layout:fixed !important;
+}
+.readableFreepassTable th:nth-child(1), .readableFreepassTable td:nth-child(1),
+.freepassHistoryModal table th:nth-child(1), .freepassHistoryModal table td:nth-child(1),
+.freepassLogTable th:nth-child(1), .freepassLogTable td:nth-child(1){width:11% !important;}
+.readableFreepassTable th:nth-child(2), .readableFreepassTable td:nth-child(2),
+.freepassHistoryModal table th:nth-child(2), .freepassHistoryModal table td:nth-child(2),
+.freepassLogTable th:nth-child(2), .freepassLogTable td:nth-child(2){width:10% !important;}
+.readableFreepassTable th:nth-child(3), .readableFreepassTable td:nth-child(3),
+.freepassHistoryModal table th:nth-child(3), .freepassHistoryModal table td:nth-child(3),
+.freepassLogTable th:nth-child(3), .freepassLogTable td:nth-child(3){width:18% !important;}
+.readableFreepassTable th:nth-child(4), .readableFreepassTable td:nth-child(4),
+.freepassHistoryModal table th:nth-child(4), .freepassHistoryModal table td:nth-child(4),
+.freepassLogTable th:nth-child(4), .freepassLogTable td:nth-child(4){width:12% !important;}
+.readableFreepassTable th:nth-child(5), .readableFreepassTable td:nth-child(5),
+.freepassHistoryModal table th:nth-child(5), .freepassHistoryModal table td:nth-child(5),
+.freepassLogTable th:nth-child(7), .freepassLogTable td:nth-child(7){width:auto !important;}
+.readableFreepassTable th:nth-child(6), .readableFreepassTable td:nth-child(6),
+.freepassHistoryModal table th:nth-child(6), .freepassHistoryModal table td:nth-child(6),
+.freepassLogTable th:nth-child(8), .freepassLogTable td:nth-child(8){width:10% !important;}
+
+.freepassReasonCell{
+  white-space:normal !important;
+  overflow:hidden !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  line-height:1.35 !important;
+}
+
+.freepassHistoryModal{
+  width:min(920px, calc(100vw - 28px)) !important;
+}
+.freepassHistoryModal table td,
+.readableFreepassTable td,
+.freepassLogTable td{
+  vertical-align:top !important;
+}
+
+@media(max-width:768px){
+  .readableFreepassTable th,
+  .readableFreepassTable td,
+  .freepassHistoryModal table th,
+  .freepassHistoryModal table td,
+  .freepassLogTable th,
+  .freepassLogTable td{
+    font-size:10.5px !important;
+    padding:6px 3px !important;
+  }
+  .freepassReasonCell{
+    -webkit-line-clamp:2 !important;
+  }
+}
