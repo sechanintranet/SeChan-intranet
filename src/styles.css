@@ -4723,3 +4723,101 @@ body{
     min-height:42px !important;
   }
 }
+
+/* V29.5 프리패스 승인/로그 UI 보완 */
+.freepassApprovalPanel{
+  overflow:visible !important;
+  padding-bottom:28px !important;
+}
+.approvalListHint{
+  margin-bottom:12px;
+}
+.freepassApprovalTableWrap{
+  width:100%;
+  overflow-x:auto;
+  padding-bottom:14px;
+}
+.freepassApprovalTable{
+  min-width:760px;
+}
+.freepassApprovalModal{
+  max-width:860px;
+  width:min(860px, calc(100vw - 32px));
+  max-height:90vh !important;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden !important;
+}
+.freepassApprovalModalBody{
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+  padding:2px 2px 16px;
+}
+.stickyApprovalActions{
+  position:sticky;
+  bottom:0;
+  background:#fff;
+  padding-top:12px;
+  margin-top:8px;
+  z-index:5;
+}
+.freepassLogFilters{
+  display:grid;
+  grid-template-columns:1fr 160px 140px;
+  gap:10px;
+  margin-bottom:12px;
+}
+.freepassLogTable{
+  min-width:840px;
+}
+.freepassLogTab{
+  overflow-x:auto;
+}
+@media(max-width:768px){
+  .freepassApprovalPanel{
+    padding:14px !important;
+    padding-bottom:36px !important;
+    overflow:visible !important;
+  }
+  .freepassApprovalTableWrap{
+    overflow-x:auto !important;
+    -webkit-overflow-scrolling:touch !important;
+    padding-bottom:20px !important;
+  }
+  .freepassApprovalTable th,
+  .freepassApprovalTable td{
+    white-space:nowrap !important;
+    font-size:13px !important;
+    padding:9px 10px !important;
+  }
+  .freepassApprovalModal{
+    width:calc(100vw - 24px) !important;
+    max-height:calc(100vh - 42px) !important;
+    margin:20px auto !important;
+    padding:14px !important;
+    overflow:hidden !important;
+  }
+  .freepassApprovalModal .modalHead{
+    flex:0 0 auto;
+  }
+  .freepassApprovalModalBody{
+    max-height:calc(100vh - 190px) !important;
+    overflow-y:auto !important;
+    padding-bottom:20px !important;
+  }
+  .stickyApprovalActions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+    flex:0 0 auto;
+  }
+  .stickyApprovalActions button{
+    min-height:44px !important;
+  }
+  .freepassLogFilters{
+    grid-template-columns:1fr !important;
+  }
+  .freepassLogTable{
+    min-width:760px;
+  }
+}

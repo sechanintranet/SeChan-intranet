@@ -810,21 +810,35 @@ function freepassConsentSnapshot(user, requestType, earnType) {
 }
 
 function FreepassModule({ user }) {
-  const [tab, setTab] = useState('내 프리패스');
-  const tabs = ['내 프리패스', '사용 신청', '적립 요청'];
-  if (user.role === '점장' || isAdminLike(user)) tabs.push('점장 승인', '전체 현황');
-  if (isSuperAdmin(user)) tabs.push('최종 승인', '관리자 조정', '월 한도 설정', '반기 초기화');
-  
+  const defaultTab = isSuperAdmin(user) ? '점장 승인' : '내 프리패스';
+  const [tab, setTab] = useState(defaultTab);
+
+  const tabs = [];
+  if (!isSuperAdmin(user)) tabs.push('내 프리패스', '사용 신청', '적립 요청');
+
+  if (user.role === '점장' || isAdminLike(user)) tabs.push('점장 승인');
+  if (isSuperAdmin(user)) tabs.push('최종 승인');
+
+  if (user.role === '점장' || isAdminLike(user)) tabs.push('전체 현황');
+  if (isAdminLike(user)) tabs.push('프리패스 로그');
+
+  if (isSuperAdmin(user)) tabs.push('관리자 조정', '월 한도 설정', '반기 초기화');
+
+  useEffect(() => {
+    if (!tabs.includes(tab)) setTab(tabs[0] || '전체 현황');
+  }, [user?.role]);
+
   return (
     <div className="freepassModule">
       <h2>프리패스</h2>
       <div className="filterBar moduleTabs">{tabs.map(t => <button key={t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
-      {tab==='내 프리패스' && <FreepassMyPage user={user} />}
-      {tab==='사용 신청' && <FreepassRequestForm user={user} />}
-      {tab==='적립 요청' && <AccrualRequestTab user={user} />}
+      {tab==='내 프리패스' && !isSuperAdmin(user) && <FreepassMyPage user={user} />}
+      {tab==='사용 신청' && !isSuperAdmin(user) && <FreepassRequestForm user={user} />}
+      {tab==='적립 요청' && !isSuperAdmin(user) && <AccrualRequestTab user={user} />}
       {tab==='점장 승인' && <FreepassApprovalQueue user={user} mode="manager" />}
-      {tab==='전체 현황' && <FreepassStoreOverview user={user} />}
       {tab==='최종 승인' && <FreepassApprovalQueue user={user} mode="final" />}
+      {tab==='전체 현황' && <FreepassStoreOverview user={user} />}
+      {tab==='프리패스 로그' && <FreepassLogTab user={user} />}
       {tab==='관리자 조정' && <FreepassAdminAdjust user={user} />}
       {tab==='월 한도 설정' && <FreepassLimitSettings user={user} />}
       {tab==='반기 초기화' && <FreepassSemiannualReset user={user} />}
@@ -1288,29 +1302,249 @@ function AccrualRequestTab({ user }) {
   );
 }
 function FreepassApprovalQueue({ user, mode }) {
-  const [rows,setRows]=useState([]); const [selected,setSelected]=useState(null);
+  const [rows,setRows]=useState([]);
+  const [selected,setSelected]=useState(null);
+
   useEffect(()=>{load();},[mode]);
-  async function load(){ const {data}=await supabase.from('freepass_requests').select('*').order('requested_at',{ascending:false}); let list=data||[]; if(mode==='manager'){list=list.filter(r=>r.status==='점장승인대기'); if(user.role==='점장') list=list.filter(r=>r.employee_store===user.store_name);} if(mode==='final') list=list.filter(r=>r.status==='최종승인대기'); setRows(list); }
+
+  function isAccrualRequest(row){
+    return ['고객 추가 응대','휴무 고객응대','야근 적립','휴무출근 적립','휴무 출근 적립'].includes(row.request_type);
+  }
+
+  function displayRequestType(row){
+    if(row.request_type === '야근 적립') return '고객 추가 응대';
+    if(row.request_type === '휴무출근 적립' || row.request_type === '휴무 출근 적립') return '휴무 고객응대';
+    return row.request_type || '-';
+  }
+
+  async function load(){
+    const {data}=await supabase.from('freepass_requests').select('*').order('requested_at',{ascending:false});
+    let list=data||[];
+    if(mode==='manager'){
+      list=list.filter(r=>r.status==='점장승인대기');
+      if(user.role==='점장') list=list.filter(r=>r.employee_store===user.store_name);
+    }
+    if(mode==='final') list=list.filter(r=>r.status==='최종승인대기');
+    setRows(list);
+  }
+
   async function approve(row){
     try{
       if(mode==='manager'){
-        const {error}=await supabase.from('freepass_requests').update({status:'최종승인대기',manager_status:'승인',manager_approved_by:user.name,manager_approved_at:new Date().toISOString()}).eq('id',row.id); if(error) throw error;
+        const {error}=await supabase.from('freepass_requests').update({
+          status:'최종승인대기',
+          manager_status:'승인',
+          manager_approved_by:user.name,
+          manager_approved_at:new Date().toISOString()
+        }).eq('id',row.id);
+        if(error) throw error;
         await writeAuditLog('프리패스점장승인','freepass_requests',row.id,user,`${row.employee_name} ${row.hours}시간`);
       } else {
         if(!isSuperAdmin(user)) return alert('최종 승인은 최고관리자만 가능합니다.');
-        const type=(row.request_type==='야근 적립'||row.request_type==='휴무출근 적립')?'적립':(row.request_type==='월차 전환'?'월차전환':'사용');
-        const sign=(row.request_type==='야근 적립'||row.request_type==='휴무출근 적립')?1:-1;
-        const {error:reqError}=await supabase.from('freepass_requests').update({status:'최종승인완료',final_status:'승인',final_approved_by:user.name,final_approved_at:new Date().toISOString(),evidence_photo_data:null,evidence_deleted_at:new Date().toISOString()}).eq('id',row.id); if(reqError) throw reqError;
-        const {error:ledgerError}=await supabase.from('freepass_ledger').insert({employee_id:row.employee_id,employee_name:row.employee_name,employee_store:row.employee_store,type,hours:sign*Number(row.hours),reason:row.reason,source_request_id:row.id,effective_date:row.request_date,created_by:user.name}); if(ledgerError) throw ledgerError;
-        await writeAuditLog('프리패스최종승인','freepass_requests',row.id,user,`${row.employee_name} ${type} ${row.hours}시간`);
+
+        const accrual = isAccrualRequest(row);
+        const type = accrual ? '적립' : (row.request_type==='월차 전환' ? '월차전환' : '사용');
+        const hoursValue = accrual ? Math.abs(Number(row.hours || 0)) : -Math.abs(Number(row.hours || 0));
+
+        const {error:reqError}=await supabase.from('freepass_requests').update({
+          status:'최종승인완료',
+          final_status:'승인',
+          final_approved_by:user.name,
+          final_approved_at:new Date().toISOString(),
+          evidence_photo_data:null,
+          evidence_deleted_at:new Date().toISOString()
+        }).eq('id',row.id);
+        if(reqError) throw reqError;
+
+        const {error:ledgerError}=await supabase.from('freepass_ledger').insert({
+          employee_id:row.employee_id,
+          employee_name:row.employee_name,
+          employee_store:row.employee_store,
+          type,
+          hours:hoursValue,
+          reason:row.reason,
+          source_request_id:row.id,
+          effective_date:row.request_date,
+          created_by:user.name
+        });
+        if(ledgerError) throw ledgerError;
+
+        await writeAuditLog('프리패스최종승인','freepass_requests',row.id,user,`${row.employee_name} ${type} ${Math.abs(Number(row.hours||0))}시간 / ledger ${hoursValue}`);
       }
-      alert('승인 처리되었습니다.'); setSelected(null); load();
-    }catch(e){ askErrorReport({user,currentTab:'프리패스 승인',actionName:'승인',error:e}); }
+      alert('승인 처리되었습니다.');
+      setSelected(null);
+      load();
+    }catch(e){
+      askErrorReport({user,currentTab:'프리패스 승인',actionName:'승인',error:e});
+    }
   }
-  async function reject(row){ const memo=prompt('반려 사유를 입력해주세요.'); if(!memo) return; try{ const patch=mode==='manager'?{status:'점장반려',manager_status:'반려',manager_rejected_by:user.name,manager_rejected_at:new Date().toISOString(),reject_reason:memo}:{status:'최종반려',final_status:'반려',final_rejected_by:user.name,final_rejected_at:new Date().toISOString(),reject_reason:memo}; const {error}=await supabase.from('freepass_requests').update(patch).eq('id',row.id); if(error) throw error; alert('반려 처리되었습니다.'); setSelected(null); load(); }catch(e){ askErrorReport({user,currentTab:'프리패스 승인',actionName:'반려',error:e}); } }
-  return <div className="sectionCard"><h3>{mode==='manager'?'점장 승인 대기':'최종 승인 대기'}</h3><table><thead><tr><th>신청자</th><th>매장</th><th>유형</th><th>일자</th><th>시간</th><th>사유</th><th>상태</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}><td>{r.employee_name}</td><td>{r.employee_store}</td><td>{r.request_type} {r.use_type||''}</td><td>{r.request_date}</td><td>{r.hours}시간</td><td>{r.reason}</td><td>{r.status}</td></tr>)}{!rows.length&&<tr><td colSpan="7" className="muted">승인 대기 건이 없습니다.</td></tr>}</tbody></table>{selected&&<div className="modalBg"><div className="modal"><div className="modalHead"><h2>프리패스 승인 상세</h2><button onClick={()=>setSelected(null)}>닫기</button></div><section className="infoGrid"><p><b>신청자</b><br/>{selected.employee_name}</p><p><b>유형</b><br/>{selected.request_type} {selected.use_type||''}</p><p><b>일자</b><br/>{selected.request_date}</p><p><b>시간</b><br/>{selected.hours}시간</p><p><b>사유</b><br/>{selected.reason}</p></section>{selected.evidence_photo_data&&<div className="evidenceGrid large">{(() => { try { const arr = JSON.parse(selected.evidence_photo_data); return Array.isArray(arr) ? arr : [{data:selected.evidence_photo_data}]; } catch { return [{data:selected.evidence_photo_data}]; } })().map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview large" src={p.data || p} alt={`증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}</div>}<div className="reviewActions"><button className="primary" onClick={()=>approve(selected)}>승인</button><button className="dangerBtn" onClick={()=>reject(selected)}>반려</button></div></div></div>}</div>;
+
+  async function reject(row){
+    const memo=prompt('반려 사유를 입력해주세요.');
+    if(!memo) return;
+    try{
+      const patch=mode==='manager'
+        ? {status:'점장반려',manager_status:'반려',manager_rejected_by:user.name,manager_rejected_at:new Date().toISOString(),reject_reason:memo}
+        : {status:'최종반려',final_status:'반려',final_rejected_by:user.name,final_rejected_at:new Date().toISOString(),reject_reason:memo};
+      const {error}=await supabase.from('freepass_requests').update(patch).eq('id',row.id);
+      if(error) throw error;
+      await writeAuditLog(mode==='manager'?'프리패스점장반려':'프리패스최종반려','freepass_requests',row.id,user,memo);
+      alert('반려 처리되었습니다.');
+      setSelected(null);
+      load();
+    }catch(e){
+      askErrorReport({user,currentTab:'프리패스 승인',actionName:'반려',error:e});
+    }
+  }
+
+  return (
+    <div className="sectionCard freepassApprovalPanel">
+      <h3>{mode==='manager'?'점장 승인 대기':'최종 승인 대기'}</h3>
+      <p className="muted approvalListHint">승인 대기 목록을 누르면 상세 확인 후 승인/반려할 수 있습니다.</p>
+      <div className="freepassApprovalTableWrap">
+        <table className="freepassApprovalTable">
+          <thead><tr><th>신청자</th><th>매장</th><th>유형</th><th>일자</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
+          <tbody>
+            {rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}>
+              <td>{r.employee_name}</td>
+              <td>{r.employee_store}</td>
+              <td>{displayRequestType(r)} {r.use_type||''}</td>
+              <td>{r.request_date}</td>
+              <td>{r.hours}시간</td>
+              <td>{r.reason}</td>
+              <td>{r.status}</td>
+            </tr>)}
+            {!rows.length&&<tr><td colSpan="7" className="muted">승인 대기 건이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {selected&&<div className="modalBg">
+        <div className="modal freepassApprovalModal">
+          <div className="modalHead">
+            <h2>프리패스 승인 상세</h2>
+            <button onClick={()=>setSelected(null)}>닫기</button>
+          </div>
+          <div className="freepassApprovalModalBody">
+            <section className="infoGrid">
+              <p><b>신청자</b><br/>{selected.employee_name}</p>
+              <p><b>유형</b><br/>{displayRequestType(selected)} {selected.use_type||''}</p>
+              <p><b>일자</b><br/>{selected.request_date}</p>
+              <p><b>시간</b><br/>{selected.hours}시간</p>
+              <p><b>사유</b><br/>{selected.reason}</p>
+              <p><b>동의</b><br/>{selected.consent_agreed ? `동의완료 ${selected.consent_agreed_at ? formatKST(selected.consent_agreed_at) : ''}` : '-'}</p>
+            </section>
+            {selected.consent_text && <div className="freepassConsentRecord"><b>동의 문구</b><p>{selected.consent_text}</p></div>}
+            {selected.evidence_photo_data&&<div className="evidenceGrid large">{(() => { try { const arr = JSON.parse(selected.evidence_photo_data); return Array.isArray(arr) ? arr : [{data:selected.evidence_photo_data}]; } catch { return [{data:selected.evidence_photo_data}]; } })().map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview large" src={p.data || p} alt={`증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}</div>}
+          </div>
+          <div className="reviewActions stickyApprovalActions">
+            <button className="primary" onClick={()=>approve(selected)}>승인</button>
+            <button className="dangerBtn" onClick={()=>reject(selected)}>반려</button>
+          </div>
+        </div>
+      </div>}
+    </div>
+  );
 }
 
+
+
+function FreepassLogTab({ user }) {
+  const [ledger,setLedger]=useState([]);
+  const [requests,setRequests]=useState([]);
+  const [employees,setEmployees]=useState([]);
+  const [keyword,setKeyword]=useState('');
+  const [storeFilter,setStoreFilter]=useState('전체');
+  const [typeFilter,setTypeFilter]=useState('전체');
+
+  useEffect(()=>{ load(); },[]);
+
+  async function load(){
+    const [ledgerRes, requestRes, empRes] = await Promise.all([
+      supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false}),
+      supabase.from('freepass_requests').select('*').order('requested_at',{ascending:false}),
+      supabase.from('employees').select('*').order('store_name')
+    ]);
+    setLedger(ledgerRes.data || []);
+    setRequests(requestRes.data || []);
+    setEmployees(empRes.data || []);
+  }
+
+  function normalizeType(v){
+    if(v === '야근 적립') return '고객 추가 응대';
+    if(v === '휴무출근 적립' || v === '휴무 출근 적립') return '휴무 고객응대';
+    return v || '-';
+  }
+
+  const logs = useMemo(() => {
+    const ledgerLogs = (ledger || []).map(r => ({
+      id:`ledger-${r.id}`,
+      at:r.created_at,
+      store:r.employee_store,
+      employee:r.employee_name,
+      type:r.type || '-',
+      hours:Number(r.hours || 0),
+      detail:r.reason || '-',
+      source:'프리패스 이력',
+      actor:r.created_by || '-'
+    }));
+    const requestLogs = (requests || []).map(r => ({
+      id:`request-${r.id}`,
+      at:r.requested_at || r.created_at,
+      store:r.employee_store,
+      employee:r.employee_name,
+      type:`신청/${normalizeType(r.request_type)}`,
+      hours:Number(r.hours || 0),
+      detail:`${r.status || '-'} · ${r.reason || '-'}`,
+      source:'신청/승인',
+      actor:r.final_approved_by || r.manager_approved_by || r.employee_name || '-'
+    }));
+    return [...ledgerLogs, ...requestLogs].sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  }, [ledger, requests]);
+
+  const storeOptions = ['전체', ...new Set((employees||[]).map(e=>e.store_name).filter(Boolean))];
+
+  const filtered = logs.filter(r => {
+    if(storeFilter !== '전체' && r.store !== storeFilter) return false;
+    if(typeFilter !== '전체' && !String(r.type).includes(typeFilter)) return false;
+    const q = keyword.trim().toLowerCase();
+    if(!q) return true;
+    return `${r.store||''} ${r.employee||''} ${r.type||''} ${r.detail||''} ${r.actor||''}`.toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="sectionCard freepassLogTab">
+      <h3>프리패스 로그</h3>
+      <div className="freepassLogFilters">
+        <input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder="직원/매장/사유/승인자 검색" />
+        <select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}>{storeOptions.map(s=><option key={s}>{s}</option>)}</select>
+        <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}>
+          <option>전체</option>
+          <option>적립</option>
+          <option>사용</option>
+          <option>월차전환</option>
+          <option>차감</option>
+          <option>신청</option>
+        </select>
+      </div>
+      <table className="freepassLogTable">
+        <thead><tr><th>일시</th><th>매장</th><th>직원</th><th>유형</th><th>시간</th><th>내용</th><th>처리자</th></tr></thead>
+        <tbody>
+          {filtered.map(r=><tr key={r.id}>
+            <td>{formatKST(r.at)}</td>
+            <td>{r.store || '-'}</td>
+            <td>{r.employee || '-'}</td>
+            <td>{r.type}</td>
+            <td>{Number(r.hours || 0)}시간</td>
+            <td>{r.detail}</td>
+            <td>{r.actor}</td>
+          </tr>)}
+          {!filtered.length && <tr><td colSpan="7" className="muted">표시할 로그가 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function FreepassLimitSettings({ user }) {
   const [limit,setLimit]=useState(10);
