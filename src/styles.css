@@ -5167,3 +5167,174 @@ body{
     padding:0 4px !important;
   }
 }
+
+/* V29.8 프리패스 최종/점장 승인 팝업 포털 고정 보정 */
+.freepassApprovalModalBg{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:2147483000 !important;
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:center !important;
+  padding:calc(env(safe-area-inset-top, 0px) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+  background:rgba(15,23,42,.58) !important;
+  overflow:hidden !important;
+  box-sizing:border-box !important;
+}
+.freepassApprovalModalBg .freepassApprovalModal{
+  width:min(860px, calc(100vw - 24px)) !important;
+  height:calc(100vh - 20px) !important;
+  height:calc(100dvh - 20px) !important;
+  max-height:calc(100vh - 20px) !important;
+  max-height:calc(100dvh - 20px) !important;
+  margin:0 auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  box-sizing:border-box !important;
+}
+.freepassApprovalModalBg .modalHead{
+  flex:0 0 auto !important;
+  padding-bottom:10px !important;
+  margin-bottom:10px !important;
+}
+.freepassApprovalModalBg .freepassApprovalModalBody{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain !important;
+  padding:0 2px 12px !important;
+}
+.freepassApprovalModalBg .stickyApprovalActions{
+  flex:0 0 auto !important;
+  position:static !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  background:#fff !important;
+  border-top:1px solid #e5e7eb !important;
+  padding:10px 0 0 !important;
+  margin:0 !important;
+}
+.freepassApprovalModalBg .stickyApprovalActions button{
+  min-height:44px !important;
+}
+.freepassApprovalModalBg .evidenceGrid.large{
+  display:block !important;
+}
+.freepassApprovalModalBg .evidenceItem{
+  max-width:100% !important;
+  overflow:hidden !important;
+}
+.freepassApprovalModalBg .evidencePreview.large,
+.freepassApprovalModalBg .evidencePreview{
+  width:100% !important;
+  max-height:46vh !important;
+  object-fit:contain !important;
+  display:block !important;
+}
+@media(max-width:768px){
+  .freepassApprovalModalBg{
+    padding:calc(env(safe-area-inset-top, 0px) + 8px) 10px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+  }
+  .freepassApprovalModalBg .freepassApprovalModal{
+    width:calc(100vw - 20px) !important;
+    height:calc(100vh - 16px) !important;
+    height:calc(100dvh - 16px) !important;
+    max-height:calc(100vh - 16px) !important;
+    max-height:calc(100dvh - 16px) !important;
+    padding:12px !important;
+  }
+  .freepassApprovalModalBg .modalHead h2{
+    font-size:18px !important;
+  }
+  .freepassApprovalModalBg .infoGrid{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .freepassApprovalModalBg .infoGrid p{
+    font-size:12px !important;
+    padding:8px !important;
+  }
+  .freepassApprovalModalBg .freepassConsentRecord{
+    font-size:12px !important;
+    max-height:130px !important;
+    overflow-y:auto !important;
+  }
+  .freepassApprovalModalBg .evidencePreview.large,
+  .freepassApprovalModalBg .evidencePreview{
+    max-height:40vh !important;
+  }
+}
+
+
+/* =========================================================
+   V29.9 UI SYSTEM STABILIZATION
+   기존 구조 유지 + 전역 UI 규칙 통일
+   ========================================================= */
+*,*::before,*::after{box-sizing:border-box;}
+.appMain,.mainContent,.pageWrap,.freepassModule,.accessoryOrdersPage,.sectionCard{max-width:100%;}
+.sectionCard{padding:18px !important;border-radius:18px !important;overflow:visible !important;}
+.sectionCard h2,.sectionCard h3{margin-top:0 !important;margin-bottom:12px !important;}
+button,.primary,.dangerBtn,.cameraButton,.filterBar button,.moduleTabs button,.topNav button{min-height:42px !important;line-height:1.2 !important;padding:9px 14px !important;border-radius:13px !important;font-size:14px !important;}
+button.primary,button.dangerBtn,.primary,.dangerBtn{min-height:44px !important;}
+input,select,textarea{max-width:100% !important;box-sizing:border-box !important;}
+input,select{min-height:40px !important;} textarea{min-height:86px !important;}
+.moduleTabs,.filterBar.moduleTabs{gap:8px !important;}
+.moduleTabs button,.filterBar.moduleTabs button{min-height:44px !important;padding:9px 10px !important;}
+table{border-collapse:collapse !important;width:100% !important;}
+table th,table td{padding:9px 8px !important;vertical-align:middle !important;line-height:1.35 !important;}
+.tableWrap,.freepassApprovalTableWrap,.freepassLogTab,.sectionCard:has(table){max-width:100%;}
+.modalBg{position:fixed !important;inset:0 !important;z-index:9999 !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:14px !important;overflow-y:auto !important;-webkit-overflow-scrolling:touch !important;}
+.modal{width:min(860px, calc(100vw - 28px)) !important;max-height:calc(100dvh - 36px) !important;overflow:hidden !important;display:flex !important;flex-direction:column !important;margin:auto !important;}
+.modalHead{flex:0 0 auto !important;}
+.modal > .modalBody,.modal .freepassApprovalModalBody{flex:1 1 auto !important;min-height:0 !important;overflow-y:auto !important;-webkit-overflow-scrolling:touch !important;}
+.modal .reviewActions,.modal .stickyApprovalActions,.modal .modalActionRow{flex:0 0 auto !important;position:static !important;background:#fff !important;}
+.evidencePreview.large,.evidencePreview{max-width:100% !important;object-fit:contain !important;}
+.evidencePreview.large{max-height:42dvh !important;}
+.approvalEmptyText,.approvalEmptyBox{padding:12px !important;color:#64748b !important;text-align:left !important;white-space:normal !important;width:100% !important;display:block !important;}
+.approvalEmptyRow td{padding:0 !important;}
+.freepassOverviewTable{table-layout:fixed !important;min-width:0 !important;}
+.freepassOverviewTable th,.freepassOverviewTable td{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+.freepassOverviewTable th:nth-child(1),.freepassOverviewTable td:nth-child(1){width:16% !important;}
+.freepassOverviewTable th:nth-child(2),.freepassOverviewTable td:nth-child(2){width:24% !important;}
+.freepassOverviewTable th:nth-child(3),.freepassOverviewTable td:nth-child(3){width:14% !important;}
+.freepassOverviewTable th:nth-child(4),.freepassOverviewTable td:nth-child(4){width:22% !important;}
+.freepassOverviewTable th:nth-child(5),.freepassOverviewTable td:nth-child(5){width:24% !important;}
+.freepassBulkTable,.freepassResetTable{table-layout:fixed !important;min-width:0 !important;}
+.freepassBulkTable th,.freepassBulkTable td,.freepassResetTable th,.freepassResetTable td{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+.freepassBulkTable input[type="checkbox"],.freepassResetTable input[type="checkbox"]{width:22px !important;height:22px !important;min-width:22px !important;min-height:22px !important;}
+@media(max-width:768px){
+  body{overflow-x:hidden;}
+  .sectionCard{padding:14px !important;border-radius:16px !important;}
+  .sectionCard h2,.sectionCard h3{font-size:20px !important;margin-bottom:10px !important;}
+  button,.primary,.dangerBtn,.cameraButton,.filterBar button,.moduleTabs button,.topNav button{min-height:40px !important;padding:8px 10px !important;font-size:13px !important;border-radius:12px !important;}
+  .moduleTabs,.filterBar.moduleTabs{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;}
+  table,table thead,table tbody,table tr,table th,table td{display:revert !important;}
+  table{display:table !important;table-layout:fixed !important;width:100% !important;min-width:0 !important;}
+  thead{display:table-header-group !important;} tbody{display:table-row-group !important;} tr{display:table-row !important;}
+  th,td{display:table-cell !important;font-size:12px !important;padding:7px 5px !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+  table select,table input{min-height:32px !important;height:32px !important;font-size:11px !important;padding:0 5px !important;}
+  .balanceBadge{min-width:auto !important;padding:4px 6px !important;font-size:11px !important;}
+  .modalBg{padding:10px !important;align-items:center !important;justify-content:center !important;}
+  .modal{width:calc(100vw - 20px) !important;max-height:calc(100dvh - 28px) !important;border-radius:16px !important;padding:14px !important;}
+  .modal .infoGrid{grid-template-columns:1fr 1fr !important;gap:10px !important;}
+  .modal .reviewActions,.modal .stickyApprovalActions,.modal .modalActionRow{display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px !important;padding-top:10px !important;}
+  .evidencePreview.large{max-height:36dvh !important;}
+  .freepassBulkTable th:nth-child(1),.freepassBulkTable td:nth-child(1){width:10% !important;}
+  .freepassBulkTable th:nth-child(2),.freepassBulkTable td:nth-child(2){width:15% !important;}
+  .freepassBulkTable th:nth-child(3),.freepassBulkTable td:nth-child(3){width:18% !important;}
+  .freepassBulkTable th:nth-child(4),.freepassBulkTable td:nth-child(4){width:14% !important;}
+  .freepassBulkTable th:nth-child(5),.freepassBulkTable td:nth-child(5){width:20% !important;}
+  .freepassBulkTable th:nth-child(6),.freepassBulkTable td:nth-child(6){width:23% !important;}
+  .freepassResetTable th:nth-child(1),.freepassResetTable td:nth-child(1){width:12% !important;}
+  .freepassResetTable th:nth-child(2),.freepassResetTable td:nth-child(2){width:18% !important;}
+  .freepassResetTable th:nth-child(3),.freepassResetTable td:nth-child(3){width:22% !important;}
+  .freepassResetTable th:nth-child(4),.freepassResetTable td:nth-child(4){width:24% !important;}
+  .freepassResetTable th:nth-child(5),.freepassResetTable td:nth-child(5){width:24% !important;}
+}
+@media(min-width:769px){.moduleTabs button{min-height:46px !important;}.sectionCard{padding:18px 20px !important;}}

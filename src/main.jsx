@@ -1,10 +1,11 @@
 import React, { Component, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.4-20260624110431';
+const APP_BUILD_VERSION = 'v29.9-20260630074342';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1437,7 +1438,7 @@ function FreepassApprovalQueue({ user, mode }) {
         </table>
       </div>
 
-      {selected&&<div className="modalBg">
+      {selected && createPortal(<div className="modalBg freepassApprovalModalBg">
         <div className="modal freepassApprovalModal">
           <div className="modalHead">
             <h2>프리패스 승인 상세</h2>
@@ -1460,7 +1461,7 @@ function FreepassApprovalQueue({ user, mode }) {
             <button className="dangerBtn" onClick={()=>reject(selected)}>반려</button>
           </div>
         </div>
-      </div>}
+      </div>, document.body)}
     </div>
   );
 }
