@@ -5338,3 +5338,72 @@ table th,table td{padding:9px 8px !important;vertical-align:middle !important;li
   .freepassResetTable th:nth-child(5),.freepassResetTable td:nth-child(5){width:24% !important;}
 }
 @media(min-width:769px){.moduleTabs button{min-height:46px !important;}.sectionCard{padding:18px 20px !important;}}
+
+
+/* =========================================================
+   V29.10 해피콜 상세 팝업 스크롤 복구
+   - 기능/구조 변경 없음
+   - V29.9 전역 모달 CSS 영향만 제한 보정
+   ========================================================= */
+.happycallDetailModal,
+.callDetailModal,
+.callModal,
+.modal.happycallDetailModal,
+.modal.callDetailModal,
+.modal.callModal{
+  max-height:calc(100dvh - 32px) !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  display:block !important;
+}
+
+.modal:has(.happycallDetail),
+.modal:has(.callDetail),
+.modal:has(.callScript),
+.modal:has(.callHistory),
+.modal:has(.customerBasicInfo){
+  max-height:calc(100dvh - 32px) !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  display:block !important;
+}
+
+.modal:has(.happycallDetail) .modalBody,
+.modal:has(.callDetail) .modalBody,
+.modal:has(.callScript) .modalBody,
+.modal:has(.callHistory) .modalBody,
+.modal:has(.customerBasicInfo) .modalBody{
+  overflow:visible !important;
+  max-height:none !important;
+  display:block !important;
+}
+
+.modal:has(.customerBasicInfo) .modalHead,
+.modal:has(.callScript) .modalHead,
+.modal:has(.callHistory) .modalHead{
+  position:sticky !important;
+  top:0 !important;
+  background:#fff !important;
+  z-index:2 !important;
+  padding-bottom:10px !important;
+}
+
+@media(max-width:768px){
+  .happycallDetailModal,
+  .callDetailModal,
+  .callModal,
+  .modal.happycallDetailModal,
+  .modal.callDetailModal,
+  .modal.callModal,
+  .modal:has(.happycallDetail),
+  .modal:has(.callDetail),
+  .modal:has(.callScript),
+  .modal:has(.callHistory),
+  .modal:has(.customerBasicInfo){
+    width:calc(100vw - 24px) !important;
+    max-height:calc(100dvh - 28px) !important;
+    overflow-y:auto !important;
+    display:block !important;
+    padding:14px !important;
+  }
+}
