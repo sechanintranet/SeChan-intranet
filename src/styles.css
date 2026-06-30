@@ -5407,3 +5407,79 @@ table th,table td{padding:9px 8px !important;vertical-align:middle !important;li
     padding:14px !important;
   }
 }
+
+
+/* =========================================================
+   V29.11 해피콜 상세 모달 전용 스크롤 복구
+   - CallModal에 전용 class를 직접 부여
+   - 전역 .modal 규칙 영향 차단
+   - 구조는 모달 내부 wrapper만 추가
+   ========================================================= */
+.happycallModalBg{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:10000 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:12px !important;
+  overflow:hidden !important;
+}
+
+.happycallDetailModal{
+  width:min(900px, calc(100vw - 24px)) !important;
+  max-height:calc(100dvh - 28px) !important;
+  height:auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  margin:0 !important;
+  padding:18px !important;
+  border-radius:18px !important;
+}
+
+.happycallDetailModal .modalHead{
+  flex:0 0 auto !important;
+  position:static !important;
+  background:#fff !important;
+  z-index:2 !important;
+}
+
+.happycallDetailBody{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain !important;
+  padding-right:2px !important;
+  padding-bottom:12px !important;
+}
+
+.happycallDetailBody section{
+  flex:initial !important;
+}
+
+@media(max-width:768px){
+  .happycallModalBg{
+    padding:10px !important;
+    align-items:center !important;
+    overflow:hidden !important;
+  }
+  .happycallDetailModal{
+    width:calc(100vw - 20px) !important;
+    max-height:calc(100dvh - 24px) !important;
+    padding:14px !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+  }
+  .happycallDetailBody{
+    overflow-y:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    padding-bottom:16px !important;
+  }
+  .happycallDetailModal .infoGrid{
+    grid-template-columns:1fr 1fr !important;
+  }
+}

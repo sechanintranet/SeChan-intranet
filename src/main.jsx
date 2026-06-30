@@ -3373,9 +3373,10 @@ async function save() {
   }
 
   return (
-    <div className="modalBg">
-      <div className="modal">
+    <div className="modalBg happycallModalBg">
+      <div className="modal happycallDetailModal">
         <div className="modalHead"><h2>해피콜 상세</h2><div className="modalHeadBtns">{user.role === "관리자" && <button onClick={()=>setEditJoinNoOpen(!editJoinNoOpen)}>가입번호 수정</button>}<button onClick={onClose}>닫기</button></div></div>
+        <div className="happycallDetailBody">
         {editJoinNoOpen && user.role === '관리자' && (
           <section className="joinNoEditBox">
             <h3>가입번호 수정</h3>
@@ -3470,6 +3471,7 @@ async function save() {
         </section>
       </div>
     </div>
+        </div>
   );
 }
 
