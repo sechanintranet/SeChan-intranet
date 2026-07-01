@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.16-20260701071337';
+const APP_BUILD_VERSION = 'v29.19-repack-20260701084426';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2558,9 +2558,9 @@ function MainApp({ user, onLogout, onUserUpdate }) {
 
       <nav className="topNav compactNav">
         <button className={tab==='home'?'active':''} onClick={()=>setTab('home')}>홈</button>
-        <div className="compactGroup">
-          <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'happycall' ? '' : 'happycall')}>
-            해피콜 {openMenu === 'happycall' ? '▲' : '▼'}
+        <div className="compactGroup desktopHoverGroup" onMouseEnter={()=>setOpenMenu('happycall')} onMouseLeave={()=>setOpenMenu('')}>
+          <button type="button" className="compactHead" onClick={e=>e.preventDefault()}>
+            해피콜 ▲
           </button>
           {openMenu === 'happycall' && (
             <div className="compactItems">
@@ -2585,9 +2585,9 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         <button className={tab==='pushSettings'?'active':''} onClick={()=>setTab('pushSettings')}>알림 설정</button>
 
         {isAdmin && (
-          <div className="compactGroup">
-            <button type="button" className="compactHead" onClick={()=>setOpenMenu(openMenu === 'settings' ? '' : 'settings')}>
-              기본 설정 {openMenu === 'settings' ? '▲' : '▼'}
+          <div className="compactGroup desktopHoverGroup" onMouseEnter={()=>setOpenMenu('settings')} onMouseLeave={()=>setOpenMenu('')}>
+            <button type="button" className="compactHead" onClick={e=>e.preventDefault()}>
+              기본 설정 ▲
             </button>
             {openMenu === 'settings' && (
               <div className="compactItems">
@@ -3724,7 +3724,7 @@ function Employees({ user }) {
   }
 
   const storeSelect = (value, onChange) => (
-    <select value={value || ''} onChange={e => onChange(e.target.value)}>
+    <select className="employeeStoreSelect" value={value || ''} onChange={e => onChange(e.target.value)}>
       <option value="">매장 선택</option>
       {storeOptions.map(s => (
         <option key={s.id || s.name} value={s.name}>
@@ -3798,14 +3798,14 @@ function Employees({ user }) {
                   </td>
                   <td>{storeSelect(d.store_name ?? r.store_name, v => setDraft(r.id,{store_name:v}))}</td>
                   <td>
-                    <select value={d.status ?? r.status ?? '재직'} onChange={e=>setDraft(r.id,{status:e.target.value})}>
+                    <select className="employeeStatusSelect" value={d.status ?? r.status ?? '재직'} onChange={e=>setDraft(r.id,{status:e.target.value})}>
                       <option>재직</option>
                       <option>퇴사</option>
                       <option>리스트 제외</option>
                     </select>
                   </td>
                   <td>
-                    <select value={d.role ?? r.role ?? '직원'} onChange={e=>setDraft(r.id,{role:e.target.value})}>
+                    <select className="employeeRoleSelect" value={d.role ?? r.role ?? '직원'} onChange={e=>setDraft(r.id,{role:e.target.value})}>
                       <option>직원</option>
                       <option>점장</option>
                       <option>검수자</option>

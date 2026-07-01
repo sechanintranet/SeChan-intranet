@@ -6802,3 +6802,227 @@ input[type="checkbox"]{
     width:100% !important;
   }
 }
+
+
+/* =========================================================
+   V29.19 직원관리 테이블 UI 회귀 수정
+   - 드롭다운 겹침 제거
+   - 컬럼 폭/셀 내부 컨트롤 폭 재정리
+   - 기존 기능 변경 없음
+   ========================================================= */
+
+.employeeTableWrap{
+  overflow-x:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+
+.employeeTable.compactEmployeeTable{
+  width:100% !important;
+  min-width:1180px !important;
+  table-layout:fixed !important;
+}
+
+.employeeTable.compactEmployeeTable th,
+.employeeTable.compactEmployeeTable td{
+  box-sizing:border-box !important;
+  padding:8px 7px !important;
+  vertical-align:middle !important;
+  overflow:hidden !important;
+}
+
+.employeeTable.compactEmployeeTable th:nth-child(1),
+.employeeTable.compactEmployeeTable td:nth-child(1){width:90px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(2),
+.employeeTable.compactEmployeeTable td:nth-child(2){width:96px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(3),
+.employeeTable.compactEmployeeTable td:nth-child(3){width:120px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(4),
+.employeeTable.compactEmployeeTable td:nth-child(4){width:110px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(5),
+.employeeTable.compactEmployeeTable td:nth-child(5){width:112px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(6),
+.employeeTable.compactEmployeeTable td:nth-child(6){width:285px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(7),
+.employeeTable.compactEmployeeTable td:nth-child(7){width:82px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(8),
+.employeeTable.compactEmployeeTable td:nth-child(8){width:92px !important;}
+
+.employeeNameCell b{
+  display:block !important;
+  width:100% !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  font-size:13px !important;
+}
+
+.employeeTable.compactEmployeeTable select,
+.employeeTable.compactEmployeeTable input,
+.employeeTable.compactEmployeeTable button{
+  box-sizing:border-box !important;
+}
+
+.employeeStoreSelect,
+.employeeStatusSelect,
+.employeeRoleSelect,
+.happycallAssignSelect{
+  display:block !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 28px 0 10px !important;
+  border-radius:10px !important;
+  font-size:12px !important;
+  line-height:34px !important;
+  white-space:nowrap !important;
+  text-overflow:ellipsis !important;
+  overflow:hidden !important;
+}
+
+.happycallAssignSelect{
+  width:82px !important;
+  margin:0 auto !important;
+  padding-left:10px !important;
+  font-weight:800 !important;
+  text-align:left !important;
+}
+
+.passwordEdit{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 118px !important;
+  gap:6px !important;
+  align-items:center !important;
+  width:100% !important;
+}
+
+.passwordEdit input{
+  width:100% !important;
+  min-width:0 !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 10px !important;
+  font-size:12px !important;
+  border-radius:10px !important;
+}
+
+.passwordEdit button,
+.employeeTable.compactEmployeeTable td > button{
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 10px !important;
+  border-radius:10px !important;
+  font-size:12px !important;
+  white-space:nowrap !important;
+}
+
+.employeeTable.compactEmployeeTable td:nth-child(7),
+.employeeTable.compactEmployeeTable td:nth-child(8){
+  text-align:center !important;
+}
+
+.employeeBulkSaveBar{
+  margin-bottom:14px !important;
+}
+
+/* 이전 버전에서 이름 옆 토글용으로 남아있는 스타일이 셀 레이아웃에 영향 주지 않도록 무력화 */
+.employeeNameWithToggle,
+.happycallAssignToggle{
+  display:contents !important;
+}
+
+@media(max-width:768px){
+  .employeeTable.compactEmployeeTable{
+    min-width:1120px !important;
+  }
+
+  .employeeTable.compactEmployeeTable th,
+  .employeeTable.compactEmployeeTable td{
+    padding:7px 6px !important;
+  }
+}
+
+
+/* =========================================================
+   V29.19 재배포: PC 상단 메뉴 hover overlay 방식 수정
+   - 클릭 펼침 제거
+   - 화면 밀림 방지
+   - 드롭다운 버튼 크기/정렬 통일
+   - 모바일 메뉴는 기존 방식 유지
+   ========================================================= */
+
+@media (min-width:769px){
+  .topNav.compactNav{
+    overflow:visible !important;
+    align-items:flex-start !important;
+    position:relative !important;
+    z-index:30 !important;
+  }
+
+  .topNav.compactNav .compactGroup{
+    position:relative !important;
+    overflow:visible !important;
+  }
+
+  .topNav.compactNav .compactHead{
+    width:100% !important;
+    position:relative !important;
+    z-index:2 !important;
+    cursor:default !important;
+  }
+
+  .topNav.compactNav .compactItems{
+    position:absolute !important;
+    top:calc(100% + 8px) !important;
+    left:50% !important;
+    transform:translateX(-50%) !important;
+    width:136px !important;
+    min-width:136px !important;
+    max-width:136px !important;
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:6px !important;
+    padding:10px !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:14px !important;
+    background:#fff !important;
+    box-shadow:0 14px 32px rgba(15,23,42,.12) !important;
+    z-index:1000 !important;
+  }
+
+  .topNav.compactNav .compactItems button{
+    width:100% !important;
+    min-width:0 !important;
+    height:34px !important;
+    min-height:34px !important;
+    padding:0 8px !important;
+    margin:0 !important;
+    border-radius:10px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    font-size:13px !important;
+    line-height:1.15 !important;
+    white-space:nowrap !important;
+  }
+
+  .topNav.compactNav .compactItems button.active{
+    background:#111827 !important;
+    color:#fff !important;
+  }
+
+  main{
+    position:relative !important;
+    z-index:1 !important;
+  }
+}
+
+@media (max-width:768px){
+  .topNav.compactNav .compactItems{
+    position:static !important;
+    transform:none !important;
+    box-shadow:none !important;
+  }
+}
