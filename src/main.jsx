@@ -1790,12 +1790,13 @@ function FreepassStoreOverview({ user }) {
       </table>
 
       {selected && (
-        <div className="modalBg">
+        <div className="modalBg freepassHistoryModalBg">
           <div className="modal freepassHistoryModal">
             <div className="modalHead">
               <h2>{selected.name} 프리패스 이력</h2>
               <button onClick={()=>setSelected(null)}>닫기</button>
             </div>
+            <div className="freepassHistoryBody">
             <section className="infoGrid">
               <p><b>매장</b><br />{selected.store_name}</p>
               <p><b>권한</b><br />{selected.role || '직원'}</p>
@@ -1804,6 +1805,7 @@ function FreepassStoreOverview({ user }) {
             </section>
             <section>
               <h3>적립/사용/차감 이력</h3>
+              <div className="freepassHistoryTableScroll">
               <table>
                 <thead><tr><th>구분</th><th>시간</th><th>요청일시</th><th>실제일</th><th>사유</th><th>처리자</th></tr></thead>
                 <tbody>
@@ -1820,7 +1822,9 @@ function FreepassStoreOverview({ user }) {
                   {!selectedRows.length && <tr><td colSpan="6" className="muted">프리패스 이력이 없습니다.</td></tr>}
                 </tbody>
               </table>
+              </div>
             </section>
+            </div>
           </div>
         </div>
       )}
@@ -2566,6 +2570,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
               {isManager && <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>}
               {(isAdmin || isChecker) && <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>}
               {(isAdmin || isChecker) && <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>}
+              {isAdmin && <button className={tab==='assignmentStatus'?'active':''} onClick={()=>setTab('assignmentStatus')}>배정 현황</button>}
               {(isAdmin || isChecker) && <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>전체 직원 현황</button>}
               {isAdmin && <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>}
               {isAdmin && <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>}
@@ -2617,6 +2622,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         {tab === 'refused' && <RefusedCustomersViewer />}
         {tab === 'errors' && <ErrorReportsViewer user={user} />}
         {tab === 'allcalls' && <CallList user={user} mode="all" />}
+        {tab === 'assignmentStatus' && isAdmin && <HappycallAssignmentStatus user={user} />}
         {tab === 'employees' && <Employees user={user} />}
         {tab === 'stores' && <Stores user={user} />}
         {tab === 'rawupload' && <RawUpload user={user} />}
@@ -2660,6 +2666,20 @@ function diffDays(dateText, baseText = todayLocalISO()) {
   const a = new Date(String(dateText).slice(0, 10) + 'T00:00:00');
   const b = new Date(String(baseText).slice(0, 10) + 'T00:00:00');
   return Math.floor((b - a) / 86400000);
+}
+
+
+function useModalBodyScrollLock() {
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, []);
 }
 
 function formatKST(value) {
@@ -3200,6 +3220,7 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [history, setHistory] = useState([]);
   const [editJoinNoOpen, setEditJoinNoOpen] = useState(false);
   const [newJoinNo, setNewJoinNo] = useState(target.join_no || '');
+  useModalBodyScrollLock();
   const [joinNoReason, setJoinNoReason] = useState('');
 
   const rejectedInfo = useMemo(() => {
@@ -3210,19 +3231,6 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [tempAssignee, setTempAssignee] = useState(target.temporary_assignee || '');
   const [tempBusy, setTempBusy] = useState(false);
   const latestLog = target.latestLog || null;
-
-  
-  // happycall-scroll-lock-v2912-repack
-  useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    const prevTouchAction = document.body.style.touchAction;
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.touchAction = prevTouchAction;
-    };
-  }, []);
 
 useEffect(() => { loadDetail(); }, [target.id]);
   useEffect(() => {
@@ -3801,6 +3809,7 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
     hire_date: employee.hire_date || '',
     resign_date: employee.resign_date || ''
   });
+  useModalBodyScrollLock();
 
   async function saveProfile() {
     const patch = {
@@ -3817,9 +3826,10 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
   }
 
   return (
-    <div className="modalBg">
+    <div className="modalBg employeeDetailModalBg">
       <div className="modal employeeDetailModal">
         <div className="modalHead"><h2>{employee.name} 상세관리</h2><button onClick={onClose}>닫기</button></div>
+        <div className="employeeDetailBody">
 
         <section>
           <h3>입사/퇴사 정보</h3>
@@ -3832,14 +3842,16 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
         </section>
 
         <WorkHistoryInner employee={employee} stores={stores} user={user} />
+        </div>
       </div>
     </div>
   );
 }
 
 function WorkHistoryInner({ employee, stores, user }) {
+  const blankRow = () => ({ store_name: employee.store_name || '', role: employee.role || '직원', start_date: '', end_date: '' });
   const [rows, setRows] = useState([]);
-  const [form, setForm] = useState({ store_name: employee.store_name || '', role: employee.role || '직원', start_date: '', end_date: '' });
+  const [draftRows, setDraftRows] = useState([blankRow()]);
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -3856,15 +3868,17 @@ function WorkHistoryInner({ employee, stores, user }) {
     setRows(data || []);
   }
 
-  function resetForm() {
-    setEditingId(null);
-    setForm({ store_name: employee.store_name || '', role: employee.role || '직원', start_date: '', end_date: '' });
-  }
+  function addDraftRow() { setDraftRows(prev => [...prev, blankRow()]); }
+  function removeDraftRow(idx) { setDraftRows(prev => prev.length <= 1 ? [blankRow()] : prev.filter((_, i) => i !== idx)); }
+  function updateDraftRow(idx, patch) { setDraftRows(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r)); }
+  function resetEdit() { setEditingId(null); setDraftRows([blankRow()]); }
 
-  async function saveHistory() {
+  async function saveDraftRow(idx) {
+    const form = draftRows[idx];
     if (!form.store_name) return alert('매장을 선택해주세요.');
     if (!form.role) return alert('직책을 선택해주세요.');
-    if (!form.start_date) return alert('시작일을 입력해주세요.');
+    if (!form.start_date) return alert('재입사/근무 시작일을 입력해주세요.');
+    if (form.end_date && form.end_date < form.start_date) return alert('퇴사일은 시작일보다 빠를 수 없습니다.');
 
     setBusy(true);
     try {
@@ -3887,7 +3901,7 @@ function WorkHistoryInner({ employee, stores, user }) {
         await writeAuditLog('근무이력추가', 'employee_store_history', employee.id, user, `${employee.name} / ${form.store_name} / ${form.role} / ${form.start_date} ~ ${form.end_date || '현재'}`);
       }
 
-      resetForm();
+      resetEdit();
       load();
     } catch (e) {
       alert('근무이력 저장 오류: ' + e.message);
@@ -3898,70 +3912,67 @@ function WorkHistoryInner({ employee, stores, user }) {
 
   function editHistory(row) {
     setEditingId(row.id);
-    setForm({
-      store_name: row.store_name || '',
-      role: row.role || '직원',
-      start_date: row.start_date || '',
-      end_date: row.end_date || ''
-    });
+    setDraftRows([{ store_name: row.store_name || '', role: row.role || '직원', start_date: row.start_date || '', end_date: row.end_date || '' }]);
   }
 
   async function deleteHistory(row) {
     if (!confirm('이 근무이력을 삭제할까요?')) return;
-
     const { error } = await supabase.from('employee_store_history').delete().eq('id', row.id);
     if (error) return alert(error.message);
-
     await writeAuditLog('근무이력삭제', 'employee_store_history', row.id, user, `${employee.name} / ${row.store_name} / ${row.role} / ${row.start_date} ~ ${row.end_date || '현재'}`);
-    if (editingId === row.id) resetForm();
+    if (editingId === row.id) resetEdit();
     load();
   }
 
   return (
-    <section>
-      <h3>근무이력</h3>
-      <div className="historyFormSingle">
-        <select className="historyStoreSelect" value={form.store_name} onChange={e=>setForm({...form,store_name:e.target.value})}>
-          <option value="">매장 선택</option>
-          {stores.filter(s => s.name !== '관리자').map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
-        </select>
-        <select className="historyRoleSelect" value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
-          <option>직원</option>
-          <option>점장</option>
-          <option>검수자</option>
-          <option>관리자</option>
-        </select>
-        <input className="historyDateInput" type="date" value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} />
-        <span className="dateTilde">~</span>
-        <input className="historyDateInput" type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})} />
-        <button className="primary historySaveBtn" onClick={saveHistory} disabled={busy}>{editingId ? '수정 저장' : '이력 추가'}</button>
-        {editingId && <button className="historyCancelBtn" onClick={resetForm}>취소</button>}
+    <section className="rehireHistorySection">
+      <div className="sectionTitleRow">
+        <h3>재입사/퇴사 기록</h3>
+        {!editingId && <button className="smallAddBtn" type="button" onClick={addDraftRow}>+ 행 추가</button>}
       </div>
-      <p className="muted">종료일을 비워두면 현재 근무중으로 표시됩니다.</p>
+      <p className="muted">재입사일은 시작일에 입력하고, 퇴사일을 비워두면 현재 근무중으로 표시됩니다.</p>
 
-      <table className="historyTable">
-        <thead><tr><th>매장</th><th>직책</th><th>기간</th><th>관리</th></tr></thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.id}>
-              <td>{r.store_name}</td>
-              <td>{r.role}</td>
-              <td>{r.start_date} ~ {r.end_date || '현재'}</td>
-              <td>
-                <div className="historyRowActions">
-                  <button onClick={()=>editHistory(r)}>수정</button>
-                  <button className="dangerBtn" onClick={()=>deleteHistory(r)}>삭제</button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {!rows.length && <tr><td colSpan="4" className="muted">등록된 근무이력이 없습니다.</td></tr>}
-        </tbody>
-      </table>
+      <div className="rehireDraftList">
+        {draftRows.map((form, idx) => (
+          <div className="rehireDraftRow" key={idx}>
+            <select value={form.store_name} onChange={e=>updateDraftRow(idx,{store_name:e.target.value})}>
+              <option value="">매장 선택</option>
+              {stores.filter(s => s.name !== '관리자').map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
+            </select>
+            <select value={form.role} onChange={e=>updateDraftRow(idx,{role:e.target.value})}>
+              <option>직원</option>
+              <option>점장</option>
+              <option>검수자</option>
+              <option>관리자</option>
+            </select>
+            <label>재입사/시작일<input type="date" value={form.start_date} onChange={e=>updateDraftRow(idx,{start_date:e.target.value})} /></label>
+            <label>퇴사일<input type="date" value={form.end_date} onChange={e=>updateDraftRow(idx,{end_date:e.target.value})} /></label>
+            <button className="primary rehireSaveBtn" type="button" disabled={busy} onClick={()=>saveDraftRow(idx)}>{editingId ? '수정 저장' : '저장'}</button>
+            {editingId ? <button className="miniBtn" type="button" onClick={resetEdit}>취소</button> : <button className="miniDangerBtn" type="button" onClick={()=>removeDraftRow(idx)}>삭제</button>}
+          </div>
+        ))}
+      </div>
+
+      <div className="rehireHistoryTableWrap">
+        <table className="historyTable rehireHistoryTable">
+          <thead><tr><th>매장</th><th>직책</th><th>재입사/시작일</th><th>퇴사일</th><th>관리</th></tr></thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id}>
+                <td>{r.store_name}</td>
+                <td>{r.role}</td>
+                <td>{r.start_date}</td>
+                <td>{r.end_date || '현재'}</td>
+                <td><div className="historyRowActions compactActions"><button className="miniBtn" onClick={()=>editHistory(r)}>수정</button><button className="miniDangerBtn" onClick={()=>deleteHistory(r)}>삭제</button></div></td>
+              </tr>
+            ))}
+            {!rows.length && <tr><td colSpan="5" className="muted">등록된 재입사/퇴사 기록이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
-
 
 function RefusedCustomersViewer() {
   const [rows, setRows] = useState([]);
@@ -4739,6 +4750,226 @@ function EmployeePerformanceDashboard({ user, mode = 'all' }) {
   );
 }
 
+function HappycallAssignmentStatus({ user }) {
+  const [employees, setEmployees] = useState([]);
+  const [targets, setTargets] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [customersByJoinNo, setCustomersByJoinNo] = useState({});
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [targetEmployeeId, setTargetEmployeeId] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [statusFilter, setStatusFilter] = useState('미완료전체');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    try {
+      const [empData, targetData, logData, customerData] = await Promise.all([
+        fetchAllRows('employees', '*', 'name'),
+        fetchAllRows('happycall_targets', '*', 'target_date'),
+        fetchAllRows('happycall_logs', '*', 'checked_at'),
+        fetchAllRows('customers', '*', 'open_date')
+      ]);
+
+      const activeEmployees = (empData || [])
+        .filter(e => e.status === '재직' && e.store_name !== '관리자')
+        .sort((a,b)=>String(a.store_name || '').localeCompare(String(b.store_name || ''), 'ko') || String(a.name || '').localeCompare(String(b.name || ''), 'ko'));
+
+      setEmployees(activeEmployees);
+      setTargets((targetData || []).filter(t => !t.is_skipped));
+      setLogs(logData || []);
+      setCustomersByJoinNo(Object.fromEntries((customerData || []).map(c => [c.join_no, c])));
+      if (!selectedEmployee && activeEmployees.length) setSelectedEmployee(activeEmployees[0].name);
+    } catch (e) {
+      askErrorReport({ user, currentTab:'배정 현황', actionName:'배정 현황 조회', error:e });
+    }
+  }
+
+  const latestLogByTarget = useMemo(() => {
+    const map = {};
+    logs.forEach(l => {
+      const prev = map[l.target_id];
+      if (!prev || String(l.checked_at || '') > String(prev.checked_at || '')) map[l.target_id] = l;
+    });
+    return map;
+  }, [logs]);
+
+  function currentAssigneeName(t) {
+    return t.temporary_assignee || t.assigned_employee || t.assigned_employee_name || '';
+  }
+
+  const employeeCounts = useMemo(() => {
+    const map = {};
+    employees.forEach(e => { map[e.name] = { total:0, pending:0, done:0, rejected:0 }; });
+    targets.forEach(t => {
+      const name = currentAssigneeName(t);
+      if (!map[name]) map[name] = { total:0, pending:0, done:0, rejected:0 };
+      const latest = latestLogByTarget[t.id];
+      map[name].total += 1;
+      if (latest?.review_status === '반려') map[name].rejected += 1;
+      else if (latest) map[name].done += 1;
+      else map[name].pending += 1;
+    });
+    return map;
+  }, [employees, targets, latestLogByTarget]);
+
+  const selectedTargets = useMemo(() => {
+    let list = targets.filter(t => currentAssigneeName(t) === selectedEmployee);
+    if (statusFilter !== '전체') {
+      list = list.filter(t => {
+        const latest = latestLogByTarget[t.id];
+        if (statusFilter === '검수반려') return latest?.review_status === '반려';
+        if (statusFilter === '완료') return !!latest && latest.review_status !== '반려';
+        if (statusFilter === '미완료전체') return !latest || latest.review_status === '반려';
+        return true;
+      });
+    }
+    const kw = keyword.trim();
+    if (kw) {
+      list = list.filter(t => {
+        const c = customersByJoinNo[t.join_no] || {};
+        return String(t.join_no || '').includes(kw) ||
+          String(c.customer_name || c.name || t.customer_name || '').includes(kw) ||
+          String(t.assigned_store || '').includes(kw) ||
+          String(t.call_type || t.target_type || '').includes(kw);
+      });
+    }
+    return list.sort((a,b)=>String(a.target_date || '').localeCompare(String(b.target_date || '')));
+  }, [targets, selectedEmployee, statusFilter, keyword, latestLogByTarget, customersByJoinNo]);
+
+  const allSelected = selectedTargets.length > 0 && selectedTargets.every(t => selectedIds.includes(t.id));
+
+  function toggleSelected(id) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function toggleAll(checked) {
+    const ids = selectedTargets.map(t => t.id);
+    setSelectedIds(prev => checked ? Array.from(new Set([...prev, ...ids])) : prev.filter(id => !ids.includes(id)));
+  }
+
+  async function reassignSelected() {
+    if (!selectedIds.length) return alert('재배정할 고객을 선택해주세요.');
+    const targetEmp = employees.find(e => String(e.id) === String(targetEmployeeId));
+    if (!targetEmp) return alert('재배정 받을 직원을 선택해주세요.');
+    if (!confirm(`${selectedIds.length}건을 ${targetEmp.store_name} · ${targetEmp.name} 직원에게 재배정할까요?\n\n기존 담당자는 변경되고, 감사로그에 기록됩니다.`)) return;
+
+    setBusy(true);
+    try {
+      const patch = {
+        assigned_employee: targetEmp.name,
+        assigned_employee_name: targetEmp.name,
+        assigned_store: targetEmp.store_name,
+        temporary_assignee: null,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('happycall_targets').update(patch).in('id', selectedIds);
+      if (error) throw error;
+
+      await writeAuditLog('해피콜일괄재배정', 'happycall_targets', 'bulk', user, `${selectedIds.length}건 → ${targetEmp.store_name} / ${targetEmp.name}`);
+      alert(`${selectedIds.length}건이 ${targetEmp.name} 직원에게 재배정되었습니다.`);
+      setSelectedIds([]);
+      setTargetEmployeeId('');
+      load();
+    } catch (e) {
+      askErrorReport({ user, currentTab:'배정 현황', actionName:'일괄 재배정', error:e });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="assignmentStatusPage">
+      <h2>해피콜 배정 현황</h2>
+      <div className="sectionCard assignmentControlBar">
+        <select value={selectedEmployee} onChange={e=>{setSelectedEmployee(e.target.value); setSelectedIds([]);}}>
+          {employees.map(e => {
+            const c = employeeCounts[e.name] || {};
+            return <option key={e.id} value={e.name}>{e.store_name} · {e.name} · {c.total || 0}건</option>;
+          })}
+        </select>
+        <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value); setSelectedIds([]);}}>
+          <option value="미완료전체">미완료+반려</option>
+          <option value="완료">완료</option>
+          <option value="검수반려">반려</option>
+          <option value="전체">전체</option>
+        </select>
+        <input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder="가입번호/고객명/매장 검색" />
+      </div>
+
+      <div className="assignmentGrid">
+        <div className="sectionCard assignmentEmployeeList">
+          <h3>직원별 배정</h3>
+          {employees.map(e => {
+            const c = employeeCounts[e.name] || { total:0, pending:0, done:0, rejected:0 };
+            return (
+              <button key={e.id} className={selectedEmployee===e.name?'active':''} onClick={()=>{setSelectedEmployee(e.name); setSelectedIds([]);}}>
+                <b>{e.name}</b>
+                <span>{e.store_name} · {e.role || '직원'}</span>
+                <em>전체 {c.total || 0} / 미완료 {c.pending || 0} / 반려 {c.rejected || 0}</em>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="sectionCard assignmentTargetList">
+          <div className="assignmentListHead">
+            <div>
+              <h3>{selectedEmployee || '-'} 배정 고객</h3>
+              <p className="muted">선택 {selectedIds.length}건 / 표시 {selectedTargets.length}건</p>
+            </div>
+            <div className="assignmentReassignBox">
+              <select value={targetEmployeeId} onChange={e=>setTargetEmployeeId(e.target.value)}>
+                <option value="">재배정 받을 직원 선택</option>
+                {employees.filter(e => e.name !== selectedEmployee).map(e => <option key={e.id} value={e.id}>{e.store_name} · {e.name}</option>)}
+              </select>
+              <button className="primary" disabled={busy || !selectedIds.length || !targetEmployeeId} onClick={reassignSelected}>선택 재배정</button>
+            </div>
+          </div>
+
+          <div className="assignmentTableWrap">
+            <table className="assignmentStatusTable">
+              <thead>
+                <tr>
+                  <th className="checkCol"><input type="checkbox" checked={allSelected} onChange={e=>toggleAll(e.target.checked)} /></th>
+                  <th>가입번호</th>
+                  <th>고객명</th>
+                  <th>매장</th>
+                  <th>대상일</th>
+                  <th>유형</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedTargets.map(t => {
+                  const latest = latestLogByTarget[t.id];
+                  const c = customersByJoinNo[t.join_no] || {};
+                  const state = latest?.review_status === '반려' ? '반려' : latest ? '완료' : '미완료';
+                  return (
+                    <tr key={t.id}>
+                      <td className="checkCol"><input type="checkbox" checked={selectedIds.includes(t.id)} onChange={()=>toggleSelected(t.id)} /></td>
+                      <td>{formatCustomerJoinNo(t.join_no, customersByJoinNo, t.customer_name)}</td>
+                      <td>{c.customer_name || c.name || t.customer_name || '-'}</td>
+                      <td>{t.assigned_store || '-'}</td>
+                      <td>{t.target_date || '-'}</td>
+                      <td>{t.call_type || t.target_type || '-'}</td>
+                      <td>{state}</td>
+                    </tr>
+                  );
+                })}
+                {!selectedTargets.length && <tr><td colSpan="7" className="muted">표시할 배정 고객이 없습니다.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function ReviewDashboard({ user }) {
   const [targets, setTargets] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -4928,10 +5159,22 @@ function ReviewDashboard({ user }) {
         <button onClick={() => { setEmployeeFilter('전체'); setStoreFilter('전체'); setKeyword(''); }}>필터 초기화</button>
       </div>
 
-      <div className="sectionCard">
-        <table>
+      <div className="sectionCard reviewBulkBar">
+        <div className="reviewBulkInfo">
+          <b>선택 {selectedReviewIds.length}건</b>
+          <span className="muted">체크 후 선택 승인 또는 선택 반려를 눌러주세요.</span>
+        </div>
+        <div className="reviewBulkActions">
+          <button className="primary" disabled={bulkBusy || !selectedReviewIds.length} onClick={bulkApproveReviews}>선택 승인</button>
+          <button className="dangerBtn" disabled={bulkBusy || !selectedReviewIds.length} onClick={bulkRejectReviews}>선택 반려</button>
+        </div>
+      </div>
+
+      <div className="sectionCard reviewListCard">
+        <table className="reviewTable">
           <thead>
             <tr>
+              <th className="checkCol"><input type="checkbox" checked={allVisibleSelected} onChange={e=>toggleAllVisibleReviews(e.target.checked)} /></th>
               <th>가입번호</th>
               <th>담당자</th>
               <th>매장</th>
@@ -4970,6 +5213,7 @@ function ReviewModal({ item, user, onClose, onSaved }) {
   const { log, target, allLogs = [] } = item;
   const [memo, setMemo] = useState(log.review_memo || '');
   const [busy, setBusy] = useState(false);
+  useModalBodyScrollLock();
 
   const relatedLogs = useMemo(() => {
     return (allLogs || [])
@@ -5035,12 +5279,13 @@ function ReviewModal({ item, user, onClose, onSaved }) {
   }
 
   return (
-    <div className="modalBg">
-      <div className="modal">
+    <div className="modalBg reviewModalBg">
+      <div className="modal reviewDetailModal">
         <div className="modalHead">
           <h2>검수 상세</h2>
           <button onClick={onClose}>닫기</button>
         </div>
+        <div className="reviewDetailBody">
 
         <section>
           <h3>기본정보</h3>
@@ -5093,6 +5338,7 @@ function ReviewModal({ item, user, onClose, onSaved }) {
             <button className="dangerBtn" disabled={busy} onClick={reject}>반려</button>
           </div>
         </section>
+        </div>
       </div>
     </div>
   );
@@ -5385,14 +5631,9 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
     .filter(h => String(h.join_no) === String(customer.join_no))
     .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))[0];
 
-  const prevEmp = findEmp(prev?.assigned_employee);
-  if (isActive(prevEmp)) {
-    return { assigned_employee: prevEmp.name, assigned_store: prevEmp.store_name || assignStore, reason: '이전 배정자 유지' };
-  }
-
   const latestEmp = findEmp(customer.seller_name);
   if (isActive(latestEmp)) {
-    return { assigned_employee: latestEmp.name, assigned_store: latestEmp.store_name || assignStore, reason: '최신 개통 담당자 재직' };
+    return { assigned_employee: latestEmp.name, assigned_store: latestEmp.store_name || assignStore, reason: '최신/재입사 담당자 본인 재배정' };
   }
 
   const customerHistory = (customers || [])
@@ -5402,8 +5643,13 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
   for (const past of customerHistory) {
     const pastEmp = findEmp(past.seller_name);
     if (isActive(pastEmp)) {
-      return { assigned_employee: pastEmp.name, assigned_store: pastEmp.store_name || assignStore, reason: '과거 재직 담당자 승계' };
+      return { assigned_employee: pastEmp.name, assigned_store: pastEmp.store_name || assignStore, reason: '과거 담당자 재입사/재직 본인 재배정' };
     }
+  }
+
+  const prevEmp = findEmp(prev?.assigned_employee);
+  if (isActive(prevEmp)) {
+    return { assigned_employee: prevEmp.name, assigned_store: prevEmp.store_name || assignStore, reason: '이전 배정자 유지' };
   }
 
   const staff = (employees || [])

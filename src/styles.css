@@ -5858,3 +5858,432 @@ table th,table td{padding:9px 8px !important;vertical-align:middle !important;li
     -webkit-line-clamp:2 !important;
   }
 }
+
+
+/* =========================================================
+   V29.15 combined local fixes
+   - 프리패스 이력 팝업 폭/횡스크롤
+   - 해피콜 검수 일괄처리 체크박스/버튼
+   - 직원 상세 재입사 이력/팝업 스크롤
+   - 해피콜 배정 현황
+   ========================================================= */
+
+.freepassHistoryModal{
+  width:min(1180px, calc(100vw - 40px)) !important;
+  max-width:calc(100vw - 40px) !important;
+}
+.freepassHistoryTableScroll{
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  padding-bottom:4px !important;
+}
+.freepassHistoryTableScroll table{
+  min-width:860px !important;
+  table-layout:fixed !important;
+}
+.freepassHistoryTableScroll th,
+.freepassHistoryTableScroll td{
+  white-space:nowrap !important;
+}
+.freepassHistoryTableScroll .freepassReasonCell{
+  white-space:normal !important;
+}
+.freepassHistoryTableScroll th:nth-child(1),
+.freepassHistoryTableScroll td:nth-child(1){width:90px !important;}
+.freepassHistoryTableScroll th:nth-child(2),
+.freepassHistoryTableScroll td:nth-child(2){width:90px !important;}
+.freepassHistoryTableScroll th:nth-child(3),
+.freepassHistoryTableScroll td:nth-child(3){width:170px !important;}
+.freepassHistoryTableScroll th:nth-child(4),
+.freepassHistoryTableScroll td:nth-child(4){width:120px !important;}
+.freepassHistoryTableScroll th:nth-child(6),
+.freepassHistoryTableScroll td:nth-child(6){width:110px !important;}
+
+.reviewBulkBar{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  margin:12px 0 !important;
+  padding:12px 14px !important;
+  border:1px solid #e5e7eb !important;
+  background:#fff !important;
+}
+.reviewBulkInfo{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:2px !important;
+}
+.reviewBulkActions{
+  display:flex !important;
+  gap:8px !important;
+  align-items:center !important;
+  flex:0 0 auto !important;
+}
+.reviewBulkActions button{
+  min-height:36px !important;
+  height:36px !important;
+  padding:6px 12px !important;
+  font-size:13px !important;
+  border-radius:10px !important;
+}
+.reviewTable .checkCol,
+.assignmentStatusTable .checkCol{
+  width:34px !important;
+  min-width:34px !important;
+  max-width:34px !important;
+  text-align:center !important;
+}
+.reviewTable input[type="checkbox"],
+.reviewTable .checkCol input[type="checkbox"],
+.assignmentStatusTable input[type="checkbox"],
+.assignmentStatusTable .checkCol input[type="checkbox"]{
+  appearance:auto !important;
+  -webkit-appearance:checkbox !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+  max-width:16px !important;
+  max-height:16px !important;
+  margin:0 auto !important;
+  padding:0 !important;
+  vertical-align:middle !important;
+}
+
+.employeeDetailModalBg{
+  position:fixed !important;
+  inset:0 !important;
+  overflow:hidden !important;
+}
+.employeeDetailModal{
+  width:min(1120px, calc(100vw - 40px)) !important;
+  max-width:calc(100vw - 40px) !important;
+  height:calc(100dvh - 44px) !important;
+  max-height:calc(100dvh - 44px) !important;
+  overflow:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+.employeeDetailModal .modalHead{
+  flex:0 0 auto !important;
+}
+.employeeDetailBody{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  padding:0 2px 18px 0 !important;
+}
+.sectionTitleRow{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:10px !important;
+  margin-bottom:8px !important;
+}
+.sectionTitleRow h3{margin:0 !important;}
+.smallAddBtn,.rehireSaveBtn,.miniBtn,.miniDangerBtn{
+  min-height:34px !important;
+  height:34px !important;
+  padding:6px 10px !important;
+  font-size:12px !important;
+  border-radius:10px !important;
+  white-space:nowrap !important;
+}
+.rehireDraftList{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:8px !important;
+  margin:12px 0 !important;
+}
+.rehireDraftRow{
+  display:grid !important;
+  grid-template-columns:1fr 1fr 1.15fr 1.15fr 90px 70px !important;
+  gap:8px !important;
+  align-items:end !important;
+  padding:10px !important;
+  border:1px solid #e5e7eb !important;
+  border-radius:14px !important;
+  background:#fff !important;
+}
+.rehireDraftRow label{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:4px !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+  color:#334155 !important;
+}
+.rehireDraftRow input,
+.rehireDraftRow select{
+  width:100% !important;
+  min-height:36px !important;
+  height:36px !important;
+  font-size:13px !important;
+  padding:0 9px !important;
+}
+.miniBtn{background:#111 !important;color:#fff !important;border:0 !important;}
+.miniDangerBtn{background:#e02424 !important;color:#fff !important;border:0 !important;}
+.rehireHistoryTableWrap{
+  width:100% !important;
+  overflow-x:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+.rehireHistoryTable{
+  table-layout:fixed !important;
+  min-width:720px !important;
+}
+.compactActions{
+  display:flex !important;
+  gap:6px !important;
+  align-items:center !important;
+}
+
+.assignmentControlBar{
+  display:grid !important;
+  grid-template-columns:220px 160px 1fr !important;
+  gap:8px !important;
+  padding:12px !important;
+}
+.assignmentGrid{
+  display:grid !important;
+  grid-template-columns:280px 1fr !important;
+  gap:12px !important;
+  align-items:start !important;
+}
+.assignmentEmployeeList{
+  max-height:calc(100dvh - 260px) !important;
+  overflow-y:auto !important;
+}
+.assignmentEmployeeList h3{
+  margin-top:0 !important;
+}
+.assignmentEmployeeList button{
+  width:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  gap:3px !important;
+  min-height:58px !important;
+  height:auto !important;
+  padding:8px 10px !important;
+  margin-bottom:6px !important;
+  border:1px solid #e5e7eb !important;
+  background:#fff !important;
+  color:#111827 !important;
+}
+.assignmentEmployeeList button.active{
+  background:#111 !important;
+  color:#fff !important;
+}
+.assignmentEmployeeList button span,
+.assignmentEmployeeList button em{
+  font-size:12px !important;
+  font-style:normal !important;
+  opacity:.78 !important;
+}
+.assignmentListHead{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  margin-bottom:10px !important;
+}
+.assignmentListHead h3{margin:0 !important;}
+.assignmentReassignBox{
+  display:flex !important;
+  gap:8px !important;
+  align-items:center !important;
+}
+.assignmentReassignBox select{
+  min-width:220px !important;
+}
+.assignmentReassignBox button{
+  min-height:38px !important;
+  height:38px !important;
+  padding:7px 12px !important;
+  font-size:13px !important;
+}
+.assignmentTableWrap{
+  width:100% !important;
+  overflow-x:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+.assignmentStatusTable{
+  min-width:900px !important;
+  table-layout:fixed !important;
+}
+.assignmentStatusTable th,
+.assignmentStatusTable td{
+  padding:8px 6px !important;
+  font-size:13px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+@media(max-width:768px){
+  .freepassHistoryModal,
+  .employeeDetailModal{
+    width:95vw !important;
+    max-width:95vw !important;
+  }
+  .employeeDetailModal{
+    height:calc(100dvh - 24px) !important;
+    max-height:calc(100dvh - 24px) !important;
+    padding:14px !important;
+  }
+  .rehireDraftRow{
+    grid-template-columns:1fr 1fr !important;
+  }
+  .assignmentControlBar{
+    grid-template-columns:1fr !important;
+  }
+  .assignmentGrid{
+    grid-template-columns:1fr !important;
+  }
+  .assignmentEmployeeList{
+    max-height:260px !important;
+  }
+  .assignmentListHead{
+    align-items:stretch !important;
+    flex-direction:column !important;
+  }
+  .assignmentReassignBox{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+  }
+  .assignmentReassignBox select{
+    min-width:0 !important;
+  }
+  .reviewBulkBar{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+  }
+  .reviewBulkActions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+  }
+}
+
+
+/* =========================================================
+   V29.15 modal scroll regression fix
+   최근 수정으로 발생한 모달 잘림/스크롤 불가 회귀 일괄 보정
+   - 검수 상세 / 해피콜 상세 / 직원 상세 / 프리패스 이력 모달
+   - 모달은 화면 안에 고정, 내부 body만 스크롤
+   - 배경 페이지 스크롤 차단은 JS hook으로 처리
+   ========================================================= */
+
+.reviewModalBg,
+.employeeDetailModalBg,
+.freepassHistoryModalBg,
+.happycallModalBg{
+  position:fixed !important;
+  inset:0 !important;
+  overflow:hidden !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:14px !important;
+  z-index:10000 !important;
+}
+
+.reviewDetailModal,
+.employeeDetailModal,
+.freepassHistoryModal,
+.happycallDetailModal{
+  max-height:calc(100dvh - 32px) !important;
+  height:auto !important;
+  overflow:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+  margin:0 !important;
+}
+
+.reviewDetailModal{
+  width:min(1040px, calc(100vw - 40px)) !important;
+}
+
+.reviewDetailModal .modalHead,
+.employeeDetailModal .modalHead,
+.freepassHistoryModal .modalHead,
+.happycallDetailModal .modalHead{
+  flex:0 0 auto !important;
+  position:relative !important;
+  z-index:2 !important;
+  background:#fff !important;
+}
+
+.reviewDetailBody,
+.employeeDetailBody,
+.freepassHistoryBody,
+.happycallDetailBody{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain !important;
+  touch-action:pan-y !important;
+  padding-bottom:16px !important;
+}
+
+.reviewDetailBody section,
+.employeeDetailBody section,
+.freepassHistoryBody section,
+.happycallDetailBody section{
+  flex:initial !important;
+}
+
+.reviewDetailModal .actionRow,
+.reviewDetailBody .actionRow{
+  position:sticky !important;
+  bottom:0 !important;
+  background:#fff !important;
+  padding-top:10px !important;
+  border-top:1px solid #e5e7eb !important;
+}
+
+@media(max-width:768px){
+  .reviewModalBg,
+  .employeeDetailModalBg,
+  .freepassHistoryModalBg,
+  .happycallModalBg{
+    padding:10px !important;
+    align-items:center !important;
+  }
+
+  .reviewDetailModal,
+  .employeeDetailModal,
+  .freepassHistoryModal,
+  .happycallDetailModal{
+    width:95vw !important;
+    max-width:95vw !important;
+    height:calc(100dvh - 24px) !important;
+    max-height:calc(100dvh - 24px) !important;
+    padding:14px !important;
+  }
+
+  .reviewDetailBody,
+  .employeeDetailBody,
+  .freepassHistoryBody,
+  .happycallDetailBody{
+    overflow-y:auto !important;
+    touch-action:pan-y !important;
+  }
+}
+
+
+/* V29.15 검수 상세 하단 버튼 sticky 보정 */
+.reviewDetailBody .reviewActions{
+  position:sticky !important;
+  bottom:0 !important;
+  background:#fff !important;
+  padding-top:10px !important;
+  border-top:1px solid #e5e7eb !important;
+}
