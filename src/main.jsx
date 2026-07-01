@@ -3681,28 +3681,46 @@ function Employees({ user }) {
     load();
   }
 
-  async function saveEmployee(employee) {
-    const d = drafts[employee.id] || {};
-    const patch = {
-      store_name: d.store_name || employee.store_name || '',
-      status: d.status || employee.status || '재직',
-      role: d.role || employee.role || '직원',
-      happycall_assignment_enabled: d.happycall_assignment_enabled !== false
-    };
+  async function saveAllEmployees() {
+    const changed = rows.filter(employee => {
+      const d = drafts[employee.id] || {};
+      return (
+        (d.store_name || '') !== (normalizeOfficeStoreName(employee.store_name || '')) ||
+        (d.status || '재직') !== (employee.status || '재직') ||
+        (d.role || '직원') !== (employee.role || '직원') ||
+        (d.password || '') !== (employee.password || '') ||
+        (d.happycall_assignment_enabled !== false) !== (employee.happycall_assignment_enabled !== false)
+      );
+    });
 
-    if (d.password && d.password !== employee.password) patch.password = d.password;
-    if (patch.status === '퇴사' && !employee.resign_date) patch.resign_date = todayLocalISO();
+    if (!changed.length) return alert('저장할 변경사항이 없습니다.');
+    if (!confirm(`${changed.length}명의 직원 변경사항을 저장할까요?`)) return;
 
-    if (!confirm(`${employee.name} 직원 정보를 최종 저장할까요?`)) return;
+    try {
+      for (const employee of changed) {
+        const d = drafts[employee.id] || {};
+        const patch = {
+          store_name: d.store_name || employee.store_name || '',
+          status: d.status || employee.status || '재직',
+          role: d.role || employee.role || '직원',
+          happycall_assignment_enabled: d.happycall_assignment_enabled !== false
+        };
+        if (d.password && d.password !== employee.password) patch.password = d.password;
+        if (patch.status === '퇴사' && !employee.resign_date) patch.resign_date = todayLocalISO();
 
-    const { error } = await supabase.from('employees').update(patch).eq('id', employee.id);
-    if (error) return alert(error.message);
+        const { error } = await supabase.from('employees').update(patch).eq('id', employee.id);
+        if (error) throw error;
 
-    const detailParts = [formatAuditPatch(patch)];
-    if (d.password && d.password !== employee.password) detailParts.push('비밀번호: 변경됨');
-    await writeAuditLog('직원최종저장', 'employee', employee.id, user, `대상: ${employee.name} / ${detailParts.join(' / ')}`);
-    alert(`${employee.name} 직원 정보가 저장되었습니다.`);
-    load();
+        const detailParts = [formatAuditPatch(patch)];
+        if (d.password && d.password !== employee.password) detailParts.push('비밀번호: 변경됨');
+        await writeAuditLog('직원일괄저장', 'employee', employee.id, user, `대상: ${employee.name} / ${detailParts.join(' / ')}`);
+      }
+
+      alert(`${changed.length}명의 직원 정보가 저장되었습니다.`);
+      load();
+    } catch (e) {
+      alert('직원 일괄 저장 오류: ' + e.message);
+    }
   }
 
   const storeSelect = (value, onChange) => (
@@ -3747,18 +3765,23 @@ function Employees({ user }) {
         <button className="primary" onClick={add}>직원 추가</button>
       </div>
 
+      <div className="employeeBulkSaveBar">
+        <p className="muted">직원 정보 변경 후 상단의 전체 변경사항 저장 버튼을 눌러야 반영됩니다.</p>
+        <button className="primary" onClick={saveAllEmployees}>전체 변경사항 저장</button>
+      </div>
+
       <div className="sectionCard employeeTableWrap">
         <table className="employeeTable compactEmployeeTable">
           <thead>
             <tr>
               <th>이름</th>
+              <th>해피콜 배정</th>
               <th>매장</th>
               <th>상태</th>
               <th>권한</th>
               <th>비밀번호 관리</th>
               <th>상세</th>
               <th>검수매장</th>
-              <th>최종저장</th>
             </tr>
           </thead>
           <tbody>
@@ -3766,14 +3789,12 @@ function Employees({ user }) {
               const d = drafts[r.id] || {};
               return (
                 <tr key={r.id}>
-                  <td className="employeeNameCell">
-                    <div className="employeeNameWithToggle">
-                      <b>{r.name}</b>
-                      <label className={`happycallAssignToggle ${(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false ? 'on' : 'off'}`}>
-                        <input type="checkbox" checked={(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false} onChange={e=>setDraft(r.id,{happycall_assignment_enabled:e.target.checked})} />
-                        <span>{(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false ? '해피콜 ON' : '해피콜 OFF'}</span>
-                      </label>
-                    </div>
+                  <td className="employeeNameCell"><b>{r.name}</b></td>
+                  <td>
+                    <select className="happycallAssignSelect" value={(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false ? '배정' : '미배정'} onChange={e=>setDraft(r.id,{happycall_assignment_enabled:e.target.value === '배정'})}>
+                      <option>배정</option>
+                      <option>미배정</option>
+                    </select>
                   </td>
                   <td>{storeSelect(d.store_name ?? r.store_name, v => setDraft(r.id,{store_name:v}))}</td>
                   <td>
@@ -3799,7 +3820,6 @@ function Employees({ user }) {
                   </td>
                   <td><button onClick={()=>setDetailTarget(r)}>상세</button></td>
                   <td>{(d.role ?? r.role) === '검수자' || (d.role ?? r.role) === '관리자' ? <button onClick={()=>setReviewStoreTarget(r)}>설정</button> : <span className="muted">-</span>}</td>
-                  <td><button className="primary" onClick={()=>saveEmployee(r)}>최종저장</button></td>
                 </tr>
               );
             })}
@@ -4898,8 +4918,7 @@ function HappycallAssignmentStatus({ user }) {
       const patch = {
         assigned_employee: targetEmp.name,
         assigned_store: targetEmp.store_name,
-        temporary_assignee: null,
-        updated_at: new Date().toISOString()
+        temporary_assignee: null
       };
       const { error } = await supabase.from('happycall_targets').update(patch).in('id', selectedIds);
       if (error) throw error;

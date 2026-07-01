@@ -6715,3 +6715,90 @@ input[type="checkbox"]{
     width:100% !important;
   }
 }
+
+
+/* =========================================================
+   V29.18 해피콜 재배정 오류 / 직원관리 일괄 저장 UI 수정
+   ========================================================= */
+
+.employeeBulkSaveBar{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  margin:12px 0 !important;
+  padding:12px 14px !important;
+  border:1px solid #e5e7eb !important;
+  background:#fff !important;
+  border-radius:16px !important;
+}
+
+.employeeBulkSaveBar p{
+  margin:0 !important;
+}
+
+.employeeBulkSaveBar button{
+  min-height:38px !important;
+  height:38px !important;
+  padding:7px 14px !important;
+  font-size:13px !important;
+  border-radius:10px !important;
+}
+
+.happycallAssignSelect{
+  min-width:86px !important;
+  width:86px !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 8px !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+}
+
+.employeeTable.compactEmployeeTable{
+  table-layout:fixed !important;
+  min-width:1080px !important;
+}
+
+.employeeTable.compactEmployeeTable th,
+.employeeTable.compactEmployeeTable td{
+  vertical-align:middle !important;
+}
+
+.employeeTable.compactEmployeeTable th:nth-child(1),
+.employeeTable.compactEmployeeTable td:nth-child(1){width:90px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(2),
+.employeeTable.compactEmployeeTable td:nth-child(2){width:105px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(3),
+.employeeTable.compactEmployeeTable td:nth-child(3){width:130px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(4),
+.employeeTable.compactEmployeeTable td:nth-child(4){width:110px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(5),
+.employeeTable.compactEmployeeTable td:nth-child(5){width:110px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(6),
+.employeeTable.compactEmployeeTable td:nth-child(6){width:280px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(7),
+.employeeTable.compactEmployeeTable td:nth-child(7){width:80px !important;}
+.employeeTable.compactEmployeeTable th:nth-child(8),
+.employeeTable.compactEmployeeTable td:nth-child(8){width:90px !important;}
+
+.employeeNameCell b{
+  display:block !important;
+  white-space:nowrap !important;
+}
+
+.employeeNameWithToggle,
+.happycallAssignToggle{
+  all:unset;
+}
+
+@media(max-width:768px){
+  .employeeBulkSaveBar{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+  }
+
+  .employeeBulkSaveBar button{
+    width:100% !important;
+  }
+}
