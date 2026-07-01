@@ -7026,3 +7026,230 @@ input[type="checkbox"]{
     box-shadow:none !important;
   }
 }
+
+
+/* =========================================================
+   V29.20 상단 메뉴 메가패널 + 직원관리 테이블 폭 재정리
+   ========================================================= */
+
+/* PC 상단 메뉴: 알바몬형 overlay mega menu */
+@media (min-width:769px){
+  .navHoverShell{
+    position:relative !important;
+    z-index:50 !important;
+  }
+
+  .topNav.compactNav{
+    position:relative !important;
+    z-index:51 !important;
+    overflow:visible !important;
+  }
+
+  .topNav.compactNav .desktopMegaTrigger{
+    position:relative !important;
+  }
+
+  .topNav.compactNav .compactHead{
+    cursor:default !important;
+  }
+
+  .topNav.compactNav .compactHead.active{
+    background:#111827 !important;
+    color:#fff !important;
+  }
+
+  .navMegaPanel{
+    position:absolute !important;
+    top:calc(100% + 0px) !important;
+    left:0 !important;
+    right:0 !important;
+    min-height:170px !important;
+    padding:22px 0 26px !important;
+    background:#fff !important;
+    border-top:1px solid #e5e7eb !important;
+    border-bottom:1px solid #e5e7eb !important;
+    box-shadow:0 18px 32px rgba(15,23,42,.12) !important;
+    z-index:50 !important;
+  }
+
+  .navMegaInner{
+    width:min(1120px, calc(100vw - 64px)) !important;
+    margin:0 auto !important;
+    display:grid !important;
+    grid-template-columns:repeat(3, minmax(160px, 1fr)) !important;
+    gap:30px !important;
+  }
+
+  .navMegaInner.small{
+    grid-template-columns:repeat(2, minmax(180px, 240px)) !important;
+    justify-content:start !important;
+  }
+
+  .navMegaColumn{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:8px !important;
+    padding-right:22px !important;
+    border-right:1px solid #eef2f7 !important;
+  }
+
+  .navMegaColumn:last-child{
+    border-right:0 !important;
+  }
+
+  .navMegaColumn h4{
+    margin:0 0 6px !important;
+    font-size:15px !important;
+    font-weight:900 !important;
+    color:#0f172a !important;
+  }
+
+  .navMegaColumn button{
+    width:140px !important;
+    min-height:34px !important;
+    height:34px !important;
+    padding:0 10px !important;
+    border:0 !important;
+    border-radius:10px !important;
+    background:#fff !important;
+    color:#334155 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    font-size:13px !important;
+    font-weight:800 !important;
+  }
+
+  .navMegaColumn button:hover,
+  .navMegaColumn button.active{
+    background:#111827 !important;
+    color:#fff !important;
+  }
+
+  /* 이전 V29.19 개별 드롭다운 무력화 */
+  .topNav.compactNav .compactItems{
+    display:none !important;
+  }
+}
+
+/* 모바일은 기존 햄버거/기존 메뉴 유지 */
+@media(max-width:768px){
+  .navMegaPanel{
+    display:none !important;
+  }
+}
+
+/* 직원관리: 불필요한 횡스크롤 제거 목적의 폭 재설계 */
+.employeeTableWrap{
+  width:100% !important;
+  overflow-x:visible !important;
+}
+
+.employeeTable.compactEmployeeTable{
+  width:100% !important;
+  min-width:0 !important;
+  table-layout:fixed !important;
+}
+
+.employeeTable.compactEmployeeTable th,
+.employeeTable.compactEmployeeTable td{
+  padding:8px 6px !important;
+  overflow:hidden !important;
+  vertical-align:middle !important;
+}
+
+.employeeTable.compactEmployeeTable th:nth-child(1),
+.employeeTable.compactEmployeeTable td:nth-child(1){width:8% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(2),
+.employeeTable.compactEmployeeTable td:nth-child(2){width:8% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(3),
+.employeeTable.compactEmployeeTable td:nth-child(3){width:9% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(4),
+.employeeTable.compactEmployeeTable td:nth-child(4){width:8% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(5),
+.employeeTable.compactEmployeeTable td:nth-child(5){width:9% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(6),
+.employeeTable.compactEmployeeTable td:nth-child(6){width:25% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(7),
+.employeeTable.compactEmployeeTable td:nth-child(7){width:7% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(8),
+.employeeTable.compactEmployeeTable td:nth-child(8){width:7% !important;}
+
+.employeeNameCell b{
+  font-size:13px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.employeeStoreSelect,
+.employeeStatusSelect,
+.employeeRoleSelect,
+.happycallAssignSelect{
+  height:32px !important;
+  min-height:32px !important;
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  padding:0 22px 0 8px !important;
+  border-radius:9px !important;
+  font-size:12px !important;
+  line-height:32px !important;
+}
+
+.happycallAssignSelect{
+  width:78px !important;
+  margin:0 auto !important;
+  font-weight:800 !important;
+}
+
+.passwordEdit{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 108px !important;
+  gap:5px !important;
+  width:100% !important;
+}
+
+.passwordEdit input{
+  width:100% !important;
+  min-width:0 !important;
+  height:32px !important;
+  min-height:32px !important;
+  padding:0 8px !important;
+  font-size:12px !important;
+  border-radius:9px !important;
+}
+
+.passwordEdit button,
+.employeeTable.compactEmployeeTable td > button{
+  height:32px !important;
+  min-height:32px !important;
+  padding:0 9px !important;
+  border-radius:9px !important;
+  font-size:12px !important;
+  white-space:nowrap !important;
+}
+
+.employeeTable.compactEmployeeTable td:nth-child(7),
+.employeeTable.compactEmployeeTable td:nth-child(8){
+  text-align:center !important;
+}
+
+/* 폭이 좁은 화면에서는 테이블 자체가 깨지는 것보다 가로 스크롤을 허용 */
+@media(max-width:1200px){
+  .employeeTableWrap{
+    overflow-x:auto !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+
+  .employeeTable.compactEmployeeTable{
+    min-width:1040px !important;
+  }
+}
+
+@media(max-width:768px){
+  .employeeTable.compactEmployeeTable{
+    min-width:1080px !important;
+  }
+}

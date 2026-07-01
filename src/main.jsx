@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.19-repack-20260701084426';
+const APP_BUILD_VERSION = 'v29.20-20260701085959';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2556,27 +2556,13 @@ function MainApp({ user, onLogout, onUserUpdate }) {
       </header>
       <MobileSideDrawer open={mobileDrawerOpen} onClose={()=>setMobileDrawerOpen(false)} user={user} setTab={setTab} onLogout={onLogout} onPassword={()=>{setMobileDrawerOpen(false); setShowPassword(true);}} />
 
+      <div className="navHoverShell" onMouseLeave={()=>setOpenMenu('')}>
       <nav className="topNav compactNav">
         <button className={tab==='home'?'active':''} onClick={()=>setTab('home')}>홈</button>
-        <div className="compactGroup desktopHoverGroup" onMouseEnter={()=>setOpenMenu('happycall')} onMouseLeave={()=>setOpenMenu('')}>
-          <button type="button" className="compactHead" onClick={e=>e.preventDefault()}>
-            해피콜 ▲
+        <div className="compactGroup desktopMegaTrigger" onMouseEnter={()=>setOpenMenu('happycall')}>
+          <button type="button" className={`compactHead ${openMenu === 'happycall' ? 'active' : ''}`} onClick={e=>e.preventDefault()}>
+            해피콜
           </button>
-          {openMenu === 'happycall' && (
-            <div className="compactItems">
-              <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
-              {isManager && <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 현황</button>}
-              {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 리스트</button>}
-              {isManager && <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>}
-              {(isAdmin || isChecker) && <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>}
-              {(isAdmin || isChecker) && <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>}
-              {isAdmin && <button className={tab==='assignmentStatus'?'active':''} onClick={()=>setTab('assignmentStatus')}>배정 현황</button>}
-              {(isAdmin || isChecker) && <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>전체 직원 현황</button>}
-              {isAdmin && <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>}
-              {isAdmin && <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>}
-              {isAdmin && <button className={tab==='refused'?'active':''} onClick={()=>setTab('refused')}>통화 불가 고객</button>}
-            </div>
-          )}
         </div>
 
         <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>
@@ -2585,24 +2571,64 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         <button className={tab==='pushSettings'?'active':''} onClick={()=>setTab('pushSettings')}>알림 설정</button>
 
         {isAdmin && (
-          <div className="compactGroup desktopHoverGroup" onMouseEnter={()=>setOpenMenu('settings')} onMouseLeave={()=>setOpenMenu('')}>
-            <button type="button" className="compactHead" onClick={e=>e.preventDefault()}>
-              기본 설정 ▲
+          <div className="compactGroup desktopMegaTrigger" onMouseEnter={()=>setOpenMenu('settings')}>
+            <button type="button" className={`compactHead ${openMenu === 'settings' ? 'active' : ''}`} onClick={e=>e.preventDefault()}>
+              기본 설정
             </button>
-            {openMenu === 'settings' && (
-              <div className="compactItems">
-                <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
-                <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
-                <button className={tab==='audit'?'active':''} onClick={()=>setTab('audit')}>감사로그</button>
-                <button className={tab==='errors'?'active':''} onClick={()=>setTab('errors')}>오류보고</button>
-              </div>
-            )}
           </div>
         )}
 
         <button className={tab==='suggestions'?'active':''} onClick={()=>setTab('suggestions')}>건의/문의</button>
         <button className={tab==='guide'?'active':''} onClick={()=>setTab('guide')}>사용방법</button>
       </nav>
+      {(openMenu === 'happycall' || openMenu === 'settings') && (
+        <div className="navMegaPanel">
+          {openMenu === 'happycall' && (
+            <div className="navMegaInner">
+              <div className="navMegaColumn">
+                <h4>해피콜</h4>
+                <button className={tab==='mycalls'?'active':''} onClick={()=>setTab('mycalls')}>내 해피콜</button>
+                {isManager && <button className={tab==='manager'?'active':''} onClick={()=>setTab('manager')}>매장 현황</button>}
+                {isManager && <button className={tab==='storecalls'?'active':''} onClick={()=>setTab('storecalls')}>매장 리스트</button>}
+                {isManager && <button className={tab==='storePerformance'?'active':''} onClick={()=>setTab('storePerformance')}>직원별 현황</button>}
+              </div>
+              {(isAdmin || isChecker) && (
+                <div className="navMegaColumn">
+                  <h4>검수/현황</h4>
+                  <button className={tab==='review'?'active':''} onClick={()=>setTab('review')}>검수</button>
+                  <button className={tab==='allcalls'?'active':''} onClick={()=>setTab('allcalls')}>전체 해피콜</button>
+                  {isAdmin && <button className={tab==='assignmentStatus'?'active':''} onClick={()=>setTab('assignmentStatus')}>배정 현황</button>}
+                  <button className={tab==='performance'?'active':''} onClick={()=>setTab('performance')}>전체 직원 현황</button>
+                </div>
+              )}
+              {isAdmin && (
+                <div className="navMegaColumn">
+                  <h4>관리 작업</h4>
+                  <button className={tab==='rawupload'?'active':''} onClick={()=>setTab('rawupload')}>RAW 업로드</button>
+                  <button className={tab==='targetgen'?'active':''} onClick={()=>setTab('targetgen')}>해피콜 생성</button>
+                  <button className={tab==='refused'?'active':''} onClick={()=>setTab('refused')}>통화 불가 고객</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {openMenu === 'settings' && isAdmin && (
+            <div className="navMegaInner small">
+              <div className="navMegaColumn">
+                <h4>기본 설정</h4>
+                <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
+                <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
+              </div>
+              <div className="navMegaColumn">
+                <h4>기록/오류</h4>
+                <button className={tab==='audit'?'active':''} onClick={()=>setTab('audit')}>감사로그</button>
+                <button className={tab==='errors'?'active':''} onClick={()=>setTab('errors')}>오류보고</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      </div>
 
       <main>
         {tab === 'dashboard' && <Dashboard user={user} />}
