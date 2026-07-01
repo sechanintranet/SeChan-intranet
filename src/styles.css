@@ -6287,3 +6287,229 @@ table th,table td{padding:9px 8px !important;vertical-align:middle !important;li
   padding-top:10px !important;
   border-top:1px solid #e5e7eb !important;
 }
+
+
+/* =========================================================
+   V29.16 배정현황 UI / 직원별 해피콜 배정 ON-OFF / 매장 드롭다운 정리
+   ========================================================= */
+
+.employeeNameWithToggle{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  min-width:150px !important;
+}
+
+.employeeNameWithToggle b{
+  font-size:14px !important;
+  white-space:nowrap !important;
+}
+
+.happycallAssignToggle{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:4px !important;
+  padding:4px 7px !important;
+  border-radius:999px !important;
+  border:1px solid #d1d5db !important;
+  font-size:11px !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+  cursor:pointer !important;
+}
+
+.happycallAssignToggle input{
+  width:13px !important;
+  height:13px !important;
+  min-width:13px !important;
+  min-height:13px !important;
+  margin:0 !important;
+}
+
+.happycallAssignToggle.on{
+  background:#e0f2fe !important;
+  color:#075985 !important;
+  border-color:#bae6fd !important;
+}
+
+.happycallAssignToggle.off{
+  background:#f3f4f6 !important;
+  color:#6b7280 !important;
+}
+
+.assignmentControlBar{
+  grid-template-columns:260px 160px 1fr !important;
+  padding:14px !important;
+  border-radius:18px !important;
+}
+
+.assignmentGrid{
+  grid-template-columns:330px 1fr !important;
+  gap:14px !important;
+}
+
+.assignmentEmployeeList{
+  padding:14px !important;
+}
+
+.assignmentEmployeeList h3{
+  margin:0 0 10px 0 !important;
+}
+
+.assignmentEmployeeList button{
+  position:relative !important;
+  min-height:92px !important;
+  padding:12px 14px !important;
+  border-radius:14px !important;
+  margin-bottom:8px !important;
+  border:1px solid #e5e7eb !important;
+  transition:background .12s ease, border-color .12s ease, transform .12s ease !important;
+}
+
+.assignmentEmployeeList button::before{
+  content:"" !important;
+  position:absolute !important;
+  left:0 !important;
+  top:12px !important;
+  bottom:12px !important;
+  width:4px !important;
+  border-radius:0 999px 999px 0 !important;
+  background:transparent !important;
+}
+
+.assignmentEmployeeList button.active{
+  border-color:#111827 !important;
+  box-shadow:0 6px 16px rgba(15,23,42,.08) !important;
+}
+
+.assignmentEmployeeList button.active::before{
+  background:#2563eb !important;
+}
+
+.assignmentEmployeeTop{
+  width:100% !important;
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+  gap:8px !important;
+}
+
+.assignmentEmployeeTop b{
+  font-size:15px !important;
+}
+
+.assignmentEmployeeTop span{
+  font-size:12px !important;
+  opacity:.75 !important;
+  white-space:nowrap !important;
+}
+
+.assignmentEmployeeStats{
+  display:grid !important;
+  grid-template-columns:repeat(3,1fr) !important;
+  gap:6px !important;
+  width:100% !important;
+  margin-top:8px !important;
+}
+
+.assignmentEmployeeStats span{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  gap:2px !important;
+  padding:6px 4px !important;
+  border-radius:10px !important;
+  background:#f8fafc !important;
+  color:#111827 !important;
+}
+
+.assignmentEmployeeList button.active .assignmentEmployeeStats span{
+  background:rgba(255,255,255,.14) !important;
+  color:#fff !important;
+}
+
+.assignmentEmployeeStats strong{
+  font-size:16px !important;
+  line-height:1 !important;
+}
+
+.assignmentEmployeeStats small{
+  font-size:10px !important;
+  opacity:.75 !important;
+}
+
+.assignmentListHead{
+  align-items:flex-start !important;
+}
+
+.assignmentSummaryBadges{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:6px !important;
+  margin-top:8px !important;
+}
+
+.assignmentSummaryBadges span{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:4px !important;
+  padding:6px 9px !important;
+  border-radius:999px !important;
+  background:#f1f5f9 !important;
+  color:#334155 !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+}
+
+.assignmentSummaryBadges b{
+  color:#111827 !important;
+  font-size:14px !important;
+}
+
+.assignmentReassignBox{
+  flex-direction:column !important;
+  align-items:stretch !important;
+  min-width:260px !important;
+}
+
+.assignmentReassignBox select{
+  min-width:0 !important;
+  width:100% !important;
+}
+
+.assignmentReassignBox button{
+  width:100% !important;
+}
+
+.assignmentStatusTable .checkCol{
+  width:30px !important;
+  min-width:30px !important;
+  max-width:30px !important;
+}
+
+.assignmentStatusTable input[type="checkbox"]{
+  width:14px !important;
+  height:14px !important;
+  min-width:14px !important;
+  min-height:14px !important;
+}
+
+@media(max-width:768px){
+  .assignmentGrid{
+    grid-template-columns:1fr !important;
+  }
+  .assignmentControlBar{
+    grid-template-columns:1fr !important;
+  }
+  .assignmentReassignBox{
+    min-width:0 !important;
+  }
+  .assignmentEmployeeList{
+    max-height:330px !important;
+  }
+  .employeeNameWithToggle{
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    gap:4px !important;
+  }
+}

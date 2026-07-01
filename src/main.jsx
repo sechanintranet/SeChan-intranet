@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.12-repack-20260630083808';
+const APP_BUILD_VERSION = 'v29.16-20260701071337';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3622,17 +3622,18 @@ function Employees({ user }) {
     if (empError) alert(empError.message);
     if (storeError) alert(storeError.message);
 
-    const stores = [{ id: 'admin-option', name: '관리자', status: '관리용' }, ...(storeData || [])];
+    const stores = sortStoresForEmployeeDropdown(storeData || []);
     setRows(empData || []);
     setStoreOptions(stores);
 
     const nextDrafts = {};
     (empData || []).forEach(r => {
       nextDrafts[r.id] = {
-        store_name: r.store_name || '',
+        store_name: normalizeOfficeStoreName(r.store_name || ''),
         status: r.status || '재직',
         role: r.role || '직원',
-        password: r.password || ''
+        password: r.password || '',
+        happycall_assignment_enabled: r.happycall_assignment_enabled !== false
       };
     });
     setDrafts(nextDrafts);
@@ -3656,6 +3657,7 @@ function Employees({ user }) {
       status: form.status,
       password: form.password || '1234',
       role: form.role,
+      happycall_assignment_enabled: true,
       hire_date: form.hire_date || null,
       resign_date: form.status === '퇴사' ? (form.resign_date || null) : null
     };
@@ -3684,7 +3686,8 @@ function Employees({ user }) {
     const patch = {
       store_name: d.store_name || employee.store_name || '',
       status: d.status || employee.status || '재직',
-      role: d.role || employee.role || '직원'
+      role: d.role || employee.role || '직원',
+      happycall_assignment_enabled: d.happycall_assignment_enabled !== false
     };
 
     if (d.password && d.password !== employee.password) patch.password = d.password;
@@ -3707,7 +3710,7 @@ function Employees({ user }) {
       <option value="">매장 선택</option>
       {storeOptions.map(s => (
         <option key={s.id || s.name} value={s.name}>
-          {s.name}{s.status === '폐점' ? ' (폐점)' : s.status === '관리용' ? ' (자동배정 제외)' : ''}
+          {displayStoreNameForUi(s.name)}{s.status === '폐점' ? ' (폐점)' : ''}
         </option>
       ))}
     </select>
@@ -3763,7 +3766,15 @@ function Employees({ user }) {
               const d = drafts[r.id] || {};
               return (
                 <tr key={r.id}>
-                  <td className="employeeNameCell">{r.name}</td>
+                  <td className="employeeNameCell">
+                    <div className="employeeNameWithToggle">
+                      <b>{r.name}</b>
+                      <label className={`happycallAssignToggle ${(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false ? 'on' : 'off'}`}>
+                        <input type="checkbox" checked={(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false} onChange={e=>setDraft(r.id,{happycall_assignment_enabled:e.target.checked})} />
+                        <span>{(d.happycall_assignment_enabled ?? r.happycall_assignment_enabled) !== false ? '해피콜 ON' : '해피콜 OFF'}</span>
+                      </label>
+                    </div>
+                  </td>
                   <td>{storeSelect(d.store_name ?? r.store_name, v => setDraft(r.id,{store_name:v}))}</td>
                   <td>
                     <select value={d.status ?? r.status ?? '재직'} onChange={e=>setDraft(r.id,{status:e.target.value})}>
@@ -4773,15 +4784,34 @@ function HappycallAssignmentStatus({ user }) {
         fetchAllRows('customers', '*', 'open_date')
       ]);
 
-      const activeEmployees = (empData || [])
-        .filter(e => e.status === '재직' && e.store_name !== '관리자')
+      const validTargets = (targetData || []).filter(t => !t.is_skipped);
+      const assigneeNames = Array.from(new Set(validTargets.map(t => currentAssigneeName(t)).filter(Boolean)));
+      const empMap = new Map((empData || []).map(e => [e.name, { ...e, store_name: normalizeOfficeStoreName(e.store_name) }]));
+      const combinedEmployees = assigneeNames.map(name => {
+        const found = empMap.get(name);
+        return found || {
+          id: `assigned-only-${name}`,
+          name,
+          store_name: '미지정',
+          role: '배정자',
+          status: '배정 있음',
+          happycall_assignment_enabled: false,
+          assignedOnly: true
+        };
+      });
+      (empData || []).forEach(e => {
+        if (isHappycallAssignableEmployee(e) && !combinedEmployees.some(x => x.name === e.name)) {
+          combinedEmployees.push({ ...e, store_name: normalizeOfficeStoreName(e.store_name) });
+        }
+      });
+      const visibleEmployees = combinedEmployees
         .sort((a,b)=>String(a.store_name || '').localeCompare(String(b.store_name || ''), 'ko') || String(a.name || '').localeCompare(String(b.name || ''), 'ko'));
 
-      setEmployees(activeEmployees);
-      setTargets((targetData || []).filter(t => !t.is_skipped));
+      setEmployees(visibleEmployees);
+      setTargets(validTargets);
       setLogs(logData || []);
       setCustomersByJoinNo(Object.fromEntries((customerData || []).map(c => [c.join_no, c])));
-      if (!selectedEmployee && activeEmployees.length) setSelectedEmployee(activeEmployees[0].name);
+      if (!selectedEmployee && visibleEmployees.length) setSelectedEmployee(visibleEmployees[0].name);
     } catch (e) {
       askErrorReport({ user, currentTab:'배정 현황', actionName:'배정 현황 조회', error:e });
     }
@@ -4905,10 +4935,16 @@ function HappycallAssignmentStatus({ user }) {
           {employees.map(e => {
             const c = employeeCounts[e.name] || { total:0, pending:0, done:0, rejected:0 };
             return (
-              <button key={e.id} className={selectedEmployee===e.name?'active':''} onClick={()=>{setSelectedEmployee(e.name); setSelectedIds([]);}}>
-                <b>{e.name}</b>
-                <span>{e.store_name} · {e.role || '직원'}</span>
-                <em>전체 {c.total || 0} / 미완료 {c.pending || 0} / 반려 {c.rejected || 0}</em>
+              <button key={e.id || e.name} className={selectedEmployee===e.name?'active':''} onClick={()=>{setSelectedEmployee(e.name); setSelectedIds([]);}}>
+                <div className="assignmentEmployeeTop">
+                  <b>{e.name}</b>
+                  <span>{displayStoreNameForUi(e.store_name)} · {e.role || '직원'}</span>
+                </div>
+                <div className="assignmentEmployeeStats">
+                  <span><strong>{c.total || 0}</strong><small>전체</small></span>
+                  <span><strong>{c.pending || 0}</strong><small>미완료</small></span>
+                  <span><strong>{c.rejected || 0}</strong><small>반려</small></span>
+                </div>
               </button>
             );
           })}
@@ -4918,12 +4954,17 @@ function HappycallAssignmentStatus({ user }) {
           <div className="assignmentListHead">
             <div>
               <h3>{selectedEmployee || '-'} 배정 고객</h3>
-              <p className="muted">선택 {selectedIds.length}건 / 표시 {selectedTargets.length}건</p>
+              <div className="assignmentSummaryBadges">
+                <span><b>{selectedIds.length}</b>선택</span>
+                <span><b>{selectedTargets.length}</b>표시</span>
+                <span><b>{employeeCounts[selectedEmployee]?.pending || 0}</b>미완료</span>
+                <span><b>{employeeCounts[selectedEmployee]?.rejected || 0}</b>반려</span>
+              </div>
             </div>
             <div className="assignmentReassignBox">
               <select value={targetEmployeeId} onChange={e=>setTargetEmployeeId(e.target.value)}>
                 <option value="">재배정 받을 직원 선택</option>
-                {employees.filter(e => e.name !== selectedEmployee).map(e => <option key={e.id} value={e.id}>{e.store_name} · {e.name}</option>)}
+                {employees.filter(e => e.name !== selectedEmployee && isHappycallAssignableEmployee(e) && !e.assignedOnly).map(e => <option key={e.id} value={e.id}>{displayStoreNameForUi(e.store_name)} · {e.name}</option>)}
               </select>
               <button className="primary" disabled={busy || !selectedIds.length || !targetEmployeeId} onClick={reassignSelected}>선택 재배정</button>
             </div>
@@ -4952,7 +4993,7 @@ function HappycallAssignmentStatus({ user }) {
                       <td className="checkCol"><input type="checkbox" checked={selectedIds.includes(t.id)} onChange={()=>toggleSelected(t.id)} /></td>
                       <td>{formatCustomerJoinNo(t.join_no, customersByJoinNo, t.customer_name)}</td>
                       <td>{c.customer_name || c.name || t.customer_name || '-'}</td>
-                      <td>{t.assigned_store || '-'}</td>
+                      <td>{displayStoreNameForUi(t.assigned_store) || '-'}</td>
                       <td>{t.target_date || '-'}</td>
                       <td>{t.call_type || t.target_type || '-'}</td>
                       <td>{state}</td>
@@ -5616,7 +5657,7 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
     return String(v || '').trim();
   };
 
-  const isActive = e => e && e.status === '재직' && e.store_name !== '관리자';
+  const isActive = e => isHappycallAssignableEmployee(e);
   const findEmp = name => (employees || []).find(e => normName(e.name) === normName(name));
 
   const baseStore = normStore(customer.store_name || customer.raw_store_name);
@@ -5667,6 +5708,43 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
 }
 
 
+
+function displayStoreNameForUi(name) {
+  return name === '관리자' ? '사무실' : (name || '');
+}
+
+function normalizeOfficeStoreName(name) {
+  return name === '관리자' ? '사무실' : (name || '');
+}
+
+function sortStoresForEmployeeDropdown(stores = []) {
+  const normalized = (stores || [])
+    .filter(s => s && s.name)
+    .filter(s => s.name !== '관리자')
+    .map(s => ({ ...s, name: normalizeOfficeStoreName(s.name), displayName: displayStoreNameForUi(s.name) }));
+
+  if (!normalized.some(s => s.name === '사무실')) {
+    normalized.unshift({ id: 'office-option', name: '사무실', displayName: '사무실', status: '관리용' });
+  }
+
+  return normalized.sort((a,b) => {
+    const ap = a.status === '폐점' ? 1 : 0;
+    const bp = b.status === '폐점' ? 1 : 0;
+    if (ap !== bp) return ap - bp;
+    if (a.name === '사무실') return -1;
+    if (b.name === '사무실') return 1;
+    return String(a.name).localeCompare(String(b.name), 'ko');
+  });
+}
+
+function isHappycallAssignableEmployee(emp) {
+  return !!emp && emp.status === '재직' && emp.happycall_assignment_enabled !== false;
+}
+
+function employeeAssignmentEnabledValue(emp) {
+  return emp?.happycall_assignment_enabled !== false;
+}
+
 function normalizeStoreNameForAssignment(v) {
   const x = String(v || '').replace(/\s+/g, '').trim();
   if (x.includes('금촌')) return '금촌';
@@ -5712,7 +5790,7 @@ function findCustomerStoreName(customer) {
 function findCurrentStoreManager(employees, storeName) {
   const normalizedStore = normalizeStoreNameForAssignment(storeName);
   return (employees || []).find(e =>
-    e.status === '재직' &&
+    isHappycallAssignableEmployee(e) &&
     e.role === '점장' &&
     normalizeStoreNameForAssignment(e.store_name) === normalizedStore
   );
@@ -5968,7 +6046,7 @@ function TargetGenerator({ user }) {
         fetchAllRows('refused_customers', '*', 'refused_at')
       ]);
 
-      const activeEmployees = (employees || []).filter(e => e.status === '재직' && e.store_name !== '관리자');
+      const activeEmployees = (employees || []).filter(e => isHappycallAssignableEmployee(e));
       const staffByStore = {};
       activeEmployees.forEach(e => {
         const st = normalizeStore(e.store_name);
