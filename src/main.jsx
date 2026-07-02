@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.20-20260701085959';
+const APP_BUILD_VERSION = 'v29.22-20260702065800';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3771,7 +3771,7 @@ function Employees({ user }) {
         <button className={viewStatus==='퇴사'?'active':''} onClick={()=>setViewStatus('퇴사')}>퇴사자 {retiredCount}</button>
       </div>
 
-      <div className="formGrid employeeAddGrid">
+      <div className="sectionCard employeeAddCard"><div className="employeeAddTitle"><h3>직원 추가</h3><p className="muted">신규 직원을 등록합니다.</p></div><div className="formGrid employeeAddGrid">
         <input placeholder="직원명" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} />
         {storeSelect(form.store_name, v => setForm({...form,store_name:v}))}
         <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
@@ -3787,7 +3787,7 @@ function Employees({ user }) {
         </select>
         <input placeholder="초기 비밀번호" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
         <button className="primary" onClick={add}>직원 추가</button>
-      </div>
+      </div></div>
 
       <div className="employeeBulkSaveBar">
         <p className="muted">직원 정보 변경 후 상단의 전체 변경사항 저장 버튼을 눌러야 반영됩니다.</p>
@@ -3805,7 +3805,6 @@ function Employees({ user }) {
               <th>권한</th>
               <th>비밀번호</th>
               <th>상세</th>
-              <th>검수매장</th>
             </tr>
           </thead>
           <tbody>
@@ -3836,9 +3835,8 @@ function Employees({ user }) {
                       <option>관리자</option><option>최고관리자</option>
                     </select>
                   </td>
-                  <td><button className="passwordManageBtn" onClick={()=>setPasswordTarget(r)} disabled={r.status === '퇴사'}>비밀번호 관리</button></td>
-                  <td><button onClick={()=>setDetailTarget(r)}>상세</button></td>
-                  <td>{(d.role ?? r.role) === '검수자' || (d.role ?? r.role) === '관리자' ? <button onClick={()=>setReviewStoreTarget(r)}>설정</button> : <span className="muted">-</span>}</td>
+                  <td><button className="passwordManageBtn" onClick={()=>setPasswordTarget(r)} disabled={r.status === '퇴사'}>관리</button></td>
+                  <td><button className="employeeDetailBtn" onClick={()=>setDetailTarget(r)}>상세</button></td>
                 </tr>
               );
             })}
@@ -3848,7 +3846,7 @@ function Employees({ user }) {
 
       <p className="muted">입사일, 퇴사일, 근무이력은 상세 버튼에서 관리합니다. 퇴사자는 로그인할 수 없습니다.</p>
       {storeOptions.length <= 1 && <p className="error">운영 매장 목록이 없습니다. 먼저 매장관리에서 매장을 등록해주세요.</p>}
-      {detailTarget && <EmployeeDetailModal employee={detailTarget} stores={storeOptions} user={user} onClose={()=>setDetailTarget(null)} onUpdated={load} />}
+      {detailTarget && <EmployeeDetailModal employee={detailTarget} stores={storeOptions} user={user} onClose={()=>setDetailTarget(null)} onUpdated={load} onOpenReviewStore={()=>{ setReviewStoreTarget(detailTarget); setDetailTarget(null); }} />}
       {reviewStoreTarget && <ReviewStorePermissionsModal employee={reviewStoreTarget} stores={storeOptions} user={user} onClose={()=>setReviewStoreTarget(null)} />}
       {passwordTarget && <EmployeePasswordManageModal employee={passwordTarget} user={user} onClose={()=>setPasswordTarget(null)} onUpdated={load} />}
     </div>
@@ -3926,7 +3924,7 @@ function EmployeePasswordManageModal({ employee, user, onClose, onUpdated }) {
 }
 
 
-function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
+function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated, onOpenReviewStore }) {
   const [profile, setProfile] = useState({
     hire_date: employee.hire_date || '',
     resign_date: employee.resign_date || ''
@@ -3962,6 +3960,14 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated }) {
           </div>
           <p className="muted">퇴사 상태는 직원관리 메인에서 상태를 퇴사로 바꾼 뒤 최종저장하세요.</p>
         </section>
+
+        {['검수자','관리자','최고관리자'].includes(employee.role || '') && (
+          <section className="employeeDetailActionSection">
+            <h3>검수매장 설정</h3>
+            <p className="muted">검수자 또는 관리자가 확인할 매장을 설정합니다.</p>
+            <button className="primary" onClick={onOpenReviewStore}>검수매장 설정 열기</button>
+          </section>
+        )}
 
         <WorkHistoryInner employee={employee} stores={stores} user={user} />
         </div>

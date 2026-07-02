@@ -7469,3 +7469,189 @@ button.primary,
     min-width:1040px !important;
   }
 }
+
+
+/* =========================================================
+   V29.22 직원관리 UI 재설계
+   ========================================================= */
+
+.employeeAddCard{
+  padding:16px !important;
+  margin-bottom:12px !important;
+}
+
+.employeeAddTitle{
+  display:flex !important;
+  align-items:flex-end !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  margin-bottom:12px !important;
+}
+
+.employeeAddTitle h3{
+  margin:0 !important;
+  font-size:17px !important;
+}
+
+.employeeAddTitle p{
+  margin:0 !important;
+}
+
+.employeeAddGrid{
+  grid-template-columns:1.1fr 1.1fr .9fr .9fr 1fr 120px !important;
+  gap:8px !important;
+}
+
+.employeeAddGrid input,
+.employeeAddGrid select,
+.employeeAddGrid button{
+  height:36px !important;
+  min-height:36px !important;
+  border-radius:10px !important;
+  font-size:13px !important;
+}
+
+/* 리스트 상단 저장 바를 더 작고 명확하게 */
+.employeeBulkSaveBar{
+  padding:10px 14px !important;
+  margin:10px 0 12px !important;
+  border-radius:14px !important;
+}
+
+.employeeBulkSaveBar button{
+  height:36px !important;
+  min-height:36px !important;
+  padding:0 14px !important;
+}
+
+/* 직원관리 테이블: 버튼보다 정보가 먼저 보이도록 재배치 */
+.employeeTableWrap{
+  overflow-x:visible !important;
+  padding:14px !important;
+}
+
+.employeeTable.compactEmployeeTable{
+  width:100% !important;
+  min-width:0 !important;
+  table-layout:fixed !important;
+}
+
+.employeeTable.compactEmployeeTable thead th{
+  height:34px !important;
+  padding:6px 8px !important;
+  font-size:12px !important;
+  background:#f8fafc !important;
+  color:#334155 !important;
+  border-bottom:1px solid #e5e7eb !important;
+}
+
+.employeeTable.compactEmployeeTable tbody td{
+  height:44px !important;
+  padding:6px 8px !important;
+  font-size:13px !important;
+}
+
+.employeeTable.compactEmployeeTable th:nth-child(1),
+.employeeTable.compactEmployeeTable td:nth-child(1){width:13% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(2),
+.employeeTable.compactEmployeeTable td:nth-child(2){width:10% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(3),
+.employeeTable.compactEmployeeTable td:nth-child(3){width:12% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(4),
+.employeeTable.compactEmployeeTable td:nth-child(4){width:11% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(5),
+.employeeTable.compactEmployeeTable td:nth-child(5){width:11% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(6),
+.employeeTable.compactEmployeeTable td:nth-child(6){width:10% !important;}
+.employeeTable.compactEmployeeTable th:nth-child(7),
+.employeeTable.compactEmployeeTable td:nth-child(7){width:8% !important;}
+
+.employeeTable.compactEmployeeTable select,
+.employeeTable.compactEmployeeTable button{
+  height:34px !important;
+  min-height:34px !important;
+  border-radius:10px !important;
+  font-size:12px !important;
+  box-sizing:border-box !important;
+}
+
+.employeeStoreSelect,
+.employeeStatusSelect,
+.employeeRoleSelect,
+.happycallAssignSelect{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  padding:0 22px 0 10px !important;
+  background-color:#fff !important;
+}
+
+.happycallAssignSelect{
+  width:76px !important;
+  margin:0 !important;
+  font-weight:800 !important;
+}
+
+.passwordManageBtn{
+  width:72px !important;
+  background:#fff !important;
+  color:#111827 !important;
+  border:1px solid #cbd5e1 !important;
+  font-weight:900 !important;
+  padding:0 8px !important;
+}
+
+.passwordManageBtn:hover{
+  background:#f8fafc !important;
+}
+
+.employeeDetailBtn{
+  width:66px !important;
+  background:#111827 !important;
+  color:#fff !important;
+  border:0 !important;
+  font-weight:900 !important;
+  padding:0 8px !important;
+}
+
+.employeeNameCell b{
+  font-size:13px !important;
+  color:#0f172a !important;
+}
+
+.employeeDetailActionSection{
+  border:1px solid #e5e7eb !important;
+  border-radius:16px !important;
+  padding:14px !important;
+  background:#fff !important;
+}
+
+.employeeDetailActionSection h3{
+  margin-top:0 !important;
+}
+
+.employeeDetailActionSection button{
+  height:36px !important;
+  min-height:36px !important;
+  width:auto !important;
+  padding:0 14px !important;
+}
+
+/* 너무 좁은 화면에서만 가로 스크롤 허용 */
+@media(max-width:1180px){
+  .employeeTableWrap{
+    overflow-x:auto !important;
+  }
+  .employeeTable.compactEmployeeTable{
+    min-width:920px !important;
+  }
+}
+
+@media(max-width:768px){
+  .employeeAddGrid{
+    grid-template-columns:1fr !important;
+  }
+  .employeeTable.compactEmployeeTable{
+    min-width:940px !important;
+  }
+}
