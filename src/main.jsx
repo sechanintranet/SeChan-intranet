@@ -1082,7 +1082,12 @@ function FreepassRequestForm({ user }) {
         request_type:requestType, use_type:requestType==='사용'?useType:null,
         request_date:requestDate, use_start_time:useStartTime||null, hours:Number(effectiveHours ?? hours),
         reason, evidence_photo_data:(requestType==='야근 적립'||requestType==='휴무출근 적립')?JSON.stringify(photoItems):null,
-        status:user.role==='점장'?'최종승인대기':'점장승인대기', manager_status:user.role==='점장'?'본인점장자동승인':'대기', final_status:'대기', requested_at:new Date().toISOString(), manager_approved_by:user.role==='점장'?user.name:null, manager_approved_at:user.role==='점장'?new Date().toISOString():null
+        status:(user.role==='점장'||user.role==='관리자'||user.role==='검수자'||normalizeOfficeStoreName(user.store_name)==='사무실')?'최종승인대기':'점장승인대기',
+        manager_status:(user.role==='점장'||user.role==='관리자'||user.role==='검수자'||normalizeOfficeStoreName(user.store_name)==='사무실')?'점장승인생략':'대기',
+        final_status:'대기',
+        requested_at:new Date().toISOString(),
+        manager_approved_by:(user.role==='점장'||user.role==='관리자'||user.role==='검수자'||normalizeOfficeStoreName(user.store_name)==='사무실')?user.name:null,
+        manager_approved_at:(user.role==='점장'||user.role==='관리자'||user.role==='검수자'||normalizeOfficeStoreName(user.store_name)==='사무실')?new Date().toISOString():null
       });
       if(error) throw error;
       await writeAuditLog('프리패스신청','freepass_requests',user.name,user,`${requestType} ${hours}시간 / ${reason}`);
@@ -1471,7 +1476,7 @@ function FreepassApprovalQueue({ user, mode }) {
             <h2>프리패스 승인 상세</h2>
             <button onClick={()=>setSelected(null)}>닫기</button>
           </div>
-          <div className="freepassApprovalModalBody">
+          <div className="freepassApprovalModalBody compactApprovalBody">
             <section className="infoGrid">
               <p><b>신청자</b><br/>{selected.employee_name}</p>
               <p><b>유형</b><br/>{displayRequestType(selected)} {selected.use_type||''}</p>
@@ -1483,7 +1488,7 @@ function FreepassApprovalQueue({ user, mode }) {
             {selected.consent_text && <div className="freepassConsentRecord"><b>동의 문구</b><p>{selected.consent_text}</p></div>}
             {selected.evidence_photo_data&&<div className="evidenceGrid large">{(() => { try { const arr = JSON.parse(selected.evidence_photo_data); return Array.isArray(arr) ? arr : [{data:selected.evidence_photo_data}]; } catch { return [{data:selected.evidence_photo_data}]; } })().map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview large" src={p.data || p} alt={`증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}</div>}
           </div>
-          <div className="reviewActions stickyApprovalActions">
+          <div className="reviewActions stickyApprovalActions freepassApprovalActions">
             <button className="primary" onClick={()=>approve(selected)}>승인</button>
             <button className="dangerBtn" onClick={()=>reject(selected)}>반려</button>
           </div>
@@ -1648,6 +1653,9 @@ function FreepassAdminAdjust({ user }) {
   const [reason,setReason]=useState('');
   const [bulkRows,setBulkRows]=useState({});
   const [bulkReason,setBulkReason]=useState('');
+  const [bulkType,setBulkType]=useState('적립');
+  const [bulkHours,setBulkHours]=useState(1);
+  const [bulkIndividual,setBulkIndividual]=useState(false);
   const [busy,setBusy]=useState(false);
 
   useEffect(()=>{ load(); },[]);
@@ -1657,7 +1665,7 @@ function FreepassAdminAdjust({ user }) {
     const sorted=sortEmployeesForLogin(data||[]);
     setEmployees(sorted);
     const initial={};
-    sorted.forEach(e=>{ initial[e.id||e.name]={checked:false,type:'적립',hours:0}; });
+    sorted.forEach(e=>{ initial[e.id||e.name]={checked:false,type:'적립',hours:''}; });
     setBulkRows(initial);
   }
 
@@ -1686,13 +1694,15 @@ function FreepassAdminAdjust({ user }) {
   async function saveBulk(){
     if(!isSuperAdmin(user)) return alert('최고관리자만 일괄 조정할 수 있습니다.');
     if(!bulkReason.trim()) return alert('일괄 처리 사유를 입력해주세요.');
-    const selected=employees.map(emp=>({emp,row:bulkRows[emp.id||emp.name]||{}})).filter(x=>x.row.checked&&Number(x.row.hours||0)>0);
-    if(!selected.length) return alert('일괄 처리할 직원을 선택하고 시간을 입력해주세요.');
-    if(!confirm(`${selected.length}명 프리패스를 일괄 처리합니다.\n진행할까요?`)) return;
+    if(!bulkIndividual && Number(bulkHours||0)<=0) return alert('공통 시간을 입력해주세요.');
+    const selected=employees.map(emp=>({emp,row:bulkRows[emp.id||emp.name]||{}})).filter(x=>x.row.checked && (!bulkIndividual || Number(x.row.hours||0)>0));
+    if(!selected.length) return alert('일괄 처리할 직원을 선택해주세요.');
+    if(!confirm(`${selected.length}명 프리패스를 ${bulkIndividual ? '개별 시간' : `${bulkType} ${bulkHours}시간`} 기준으로 일괄 처리합니다.\n진행할까요?`)) return;
     setBusy(true);
     try{
       const rows=selected.map(({emp,row})=>{
-        const t=row.type||'적립'; const h=Math.abs(Number(row.hours||0));
+        const t=bulkIndividual ? (row.type||bulkType||'적립') : bulkType;
+        const h=Math.abs(Number(bulkIndividual ? row.hours : bulkHours));
         return {employee_id:emp.id||null,employee_name:emp.name,employee_store:emp.store_name||'',type:t,hours:t==='차감'?-h:h,reason:bulkReason,effective_date:todayLocalISO(),created_by:user.name};
       });
       const {error}=await supabase.from('freepass_ledger').insert(rows);
@@ -1700,7 +1710,7 @@ function FreepassAdminAdjust({ user }) {
       await writeAuditLog('프리패스일괄조정','freepass_ledger','bulk',user,`${rows.length}명 / ${bulkReason}`);
       alert(`일괄 처리 완료: ${rows.length}명`);
       setBulkReason('');
-      const reset={}; employees.forEach(e=>{reset[e.id||e.name]={checked:false,type:'적립',hours:0};});
+      const reset={}; employees.forEach(e=>{reset[e.id||e.name]={checked:false,type:bulkType,hours:''};});
       setBulkRows(reset);
     }catch(e){ askErrorReport({user,currentTab:'프리패스',actionName:'일괄 조정',error:e}); }
     finally{ setBusy(false); }
@@ -1725,21 +1735,37 @@ function FreepassAdminAdjust({ user }) {
       <div className="sectionCard">
         <h3>전직원 일괄 적립/차감</h3>
         <p className="muted">직원을 체크하고 지급/차감 시간과 사유를 입력하면 한 번에 처리됩니다. 직원 순서는 로그인 화면과 동일합니다.</p>
-        <div className="bulkActions">
-          <button type="button" onClick={()=>selectAllBulk(true)}>전체 선택</button>
-          <button type="button" onClick={()=>selectAllBulk(false)}>전체 해제</button>
+        <div className="bulkControlPanel">
+          <div className="bulkActions">
+            <button type="button" onClick={()=>selectAllBulk(true)}>전체 선택</button>
+            <button type="button" onClick={()=>selectAllBulk(false)}>전체 해제</button>
+          </div>
+          <div className="bulkCommonInputs">
+            <label>공통 구분
+              <select value={bulkType} onChange={e=>setBulkType(e.target.value)}><option>적립</option><option>차감</option></select>
+            </label>
+            <label>공통 시간
+              <input type="number" min="1" step="1" value={bulkHours} onChange={e=>setBulkHours(e.target.value)} />
+            </label>
+            <label className="bulkIndividualToggle">
+              <input type="checkbox" checked={bulkIndividual} onChange={e=>setBulkIndividual(e.target.checked)} />
+              직원별 개별 시간 사용
+            </label>
+          </div>
         </div>
         <textarea value={bulkReason} onChange={e=>setBulkReason(e.target.value)} placeholder="일괄 처리 사유 입력" />
         <table className="freepassBulkTable compactFreepassTable">
-          <thead><tr><th>선택</th><th>매장</th><th>직원</th><th>권한</th><th>구분</th><th>시간</th></tr></thead>
+          <thead><tr><th>선택</th><th>매장</th><th>직원</th><th>권한</th>{bulkIndividual && <><th>구분</th><th>시간</th></>}</tr></thead>
           <tbody>
             {employees.map(emp=>{
               const key=emp.id||emp.name; const row=bulkRows[key]||{};
               return <tr key={key}>
                 <td><input type="checkbox" checked={!!row.checked} onChange={e=>updateBulkRow(key,{checked:e.target.checked})}/></td>
                 <td>{emp.store_name}</td><td>{emp.name}</td><td>{emp.role||'직원'}</td>
-                <td><select value={row.type||'적립'} onChange={e=>updateBulkRow(key,{type:e.target.value})}><option>적립</option><option>차감</option></select></td>
-                <td><input type="number" min="0" step="1" value={row.hours??0} onChange={e=>updateBulkRow(key,{hours:e.target.value})}/></td>
+                {bulkIndividual && <>
+                  <td><select value={row.type||bulkType} onChange={e=>updateBulkRow(key,{type:e.target.value})}><option>적립</option><option>차감</option></select></td>
+                  <td><input type="number" min="0" step="1" value={row.hours??''} placeholder={String(bulkHours)} onChange={e=>updateBulkRow(key,{hours:e.target.value})}/></td>
+                </>}
               </tr>
             })}
           </tbody>

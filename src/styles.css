@@ -7762,3 +7762,404 @@ button.primary,
   font-size:13px !important;
   font-weight:800 !important;
 }
+
+
+/* =========================================================
+   V29.25 프리패스 모바일 UI/UX 재작업
+   ========================================================= */
+
+/* 공통 로딩: 글자 잘림/스켈레톤 겹침 방지 */
+.loadingState{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:54px !important;
+  padding:14px 12px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  white-space:normal !important;
+  word-break:keep-all !important;
+  overflow:visible !important;
+  background:#f8fafc !important;
+  color:#334155 !important;
+  border-radius:12px !important;
+  font-size:14px !important;
+  font-weight:800 !important;
+}
+
+/* 일괄 조정 공통 시간 UX */
+.bulkControlPanel{
+  display:grid !important;
+  grid-template-columns:auto 1fr !important;
+  gap:12px !important;
+  align-items:center !important;
+  margin:12px 0 !important;
+}
+
+.bulkCommonInputs{
+  display:grid !important;
+  grid-template-columns:140px 120px auto !important;
+  gap:10px !important;
+  align-items:end !important;
+}
+
+.bulkCommonInputs label{
+  font-size:12px !important;
+  font-weight:800 !important;
+  color:#334155 !important;
+}
+
+.bulkCommonInputs select,
+.bulkCommonInputs input{
+  width:100% !important;
+  height:36px !important;
+  min-height:36px !important;
+  border-radius:10px !important;
+  margin-top:4px !important;
+}
+
+.bulkIndividualToggle{
+  height:36px !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  padding:0 10px !important;
+  border:1px solid #e5e7eb !important;
+  border-radius:10px !important;
+  background:#fff !important;
+}
+
+.bulkIndividualToggle input{
+  width:18px !important;
+  height:18px !important;
+  margin:0 !important;
+}
+
+/* 전체현황 테이블 밀도/여백 */
+.freepassStoreOverviewCard{
+  overflow:hidden !important;
+}
+
+.freepassOverviewTable{
+  width:100% !important;
+  table-layout:fixed !important;
+}
+
+.freepassOverviewTable th,
+.freepassOverviewTable td{
+  vertical-align:middle !important;
+}
+
+.freepassOverviewTable td:nth-child(2){
+  font-weight:700 !important;
+}
+
+.freepassOverviewTable .balanceBadge{
+  font-weight:800 !important;
+}
+
+/* 승인 상세 팝업 PC/모바일 공통: 빈 공간 축소 */
+.freepassApprovalModal{
+  width:min(640px, calc(100vw - 36px)) !important;
+  max-width:calc(100vw - 36px) !important;
+  max-height:min(620px, calc(100dvh - 32px)) !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+}
+
+.freepassApprovalModal .modalHead{
+  flex:0 0 auto !important;
+}
+
+.compactApprovalBody{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  padding-bottom:10px !important;
+}
+
+.compactApprovalBody .infoGrid{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:12px 18px !important;
+}
+
+.compactApprovalBody .infoGrid p{
+  margin:0 !important;
+}
+
+.freepassApprovalActions{
+  flex:0 0 auto !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  padding-top:10px !important;
+  border-top:1px solid #e5e7eb !important;
+}
+
+.freepassApprovalActions button{
+  height:44px !important;
+  min-height:44px !important;
+  border-radius:12px !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+  padding:0 10px !important;
+}
+
+/* 모바일 프리패스 전용 */
+@media(max-width:768px){
+  .freepassModule{
+    padding:0 !important;
+  }
+
+  .freepassModule > h2{
+    margin:0 0 18px !important;
+  }
+
+  .freepassModule .moduleTabs{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+    margin-bottom:18px !important;
+  }
+
+  .freepassModule .moduleTabs button{
+    height:48px !important;
+    min-height:48px !important;
+    padding:0 8px !important;
+    border-radius:12px !important;
+    font-size:15px !important;
+    line-height:1.15 !important;
+  }
+
+  .freepassModule .sectionCard{
+    padding:16px 14px !important;
+    border-radius:18px !important;
+  }
+
+  .freepassStoreOverviewCard h3,
+  .freepassApprovalPanel h3{
+    margin-top:0 !important;
+    font-size:23px !important;
+  }
+
+  .freepassStoreOverviewCard > .muted,
+  .approvalListHint{
+    margin-bottom:12px !important;
+    font-size:14px !important;
+    line-height:1.45 !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable{
+    display:table !important;
+    min-width:0 !important;
+    width:100% !important;
+    table-layout:fixed !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable thead,
+  .freepassOverviewTable.compactFreepassTable tbody,
+  .freepassOverviewTable.compactFreepassTable tr{
+    display:table-header-group !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable tbody{
+    display:table-row-group !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable tr{
+    display:table-row !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable th,
+  .freepassOverviewTable.compactFreepassTable td{
+    display:table-cell !important;
+    padding:9px 5px !important;
+    font-size:13px !important;
+    text-align:center !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable th:nth-child(1),
+  .freepassOverviewTable.compactFreepassTable td:nth-child(1),
+  .freepassOverviewTable.compactFreepassTable th:nth-child(3),
+  .freepassOverviewTable.compactFreepassTable td:nth-child(3){
+    display:none !important;
+  }
+
+  .freepassOverviewTable.compactFreepassTable th:nth-child(2),
+  .freepassOverviewTable.compactFreepassTable td:nth-child(2){width:34% !important;text-align:left !important;padding-left:8px !important;}
+  .freepassOverviewTable.compactFreepassTable th:nth-child(4),
+  .freepassOverviewTable.compactFreepassTable td:nth-child(4){width:32% !important;}
+  .freepassOverviewTable.compactFreepassTable th:nth-child(5),
+  .freepassOverviewTable.compactFreepassTable td:nth-child(5){width:34% !important;}
+
+  .freepassOverviewTable.compactFreepassTable td:nth-child(2){
+    font-weight:800 !important;
+  }
+
+  .freepassApprovalTableWrap{
+    overflow-x:visible !important;
+  }
+
+  .freepassApprovalTable{
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  .freepassApprovalTable thead{
+    display:none !important;
+  }
+
+  .freepassApprovalTable,
+  .freepassApprovalTable tbody,
+  .freepassApprovalTable tr,
+  .freepassApprovalTable td{
+    display:block !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow{
+    position:relative !important;
+    min-height:96px !important;
+    padding:14px 14px 12px !important;
+    margin:0 0 10px !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:16px !important;
+    background:#fff !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td{
+    border:0 !important;
+    padding:0 !important;
+    font-size:13px !important;
+    line-height:1.35 !important;
+    white-space:normal !important;
+    overflow:visible !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(1){
+    font-size:17px !important;
+    font-weight:900 !important;
+    margin-bottom:4px !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(2){
+    color:#64748b !important;
+    font-weight:700 !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(3){
+    max-width:68% !important;
+    margin-top:8px !important;
+    font-weight:800 !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(4){
+    color:#475569 !important;
+    margin-top:4px !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(5){
+    position:absolute !important;
+    right:14px !important;
+    top:18px !important;
+    font-weight:900 !important;
+    color:#2563eb !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(6){
+    max-width:72% !important;
+    color:#334155 !important;
+    margin-top:4px !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+  }
+
+  .freepassApprovalTable tr.clickableRow td:nth-child(7){
+    position:absolute !important;
+    right:14px !important;
+    bottom:12px !important;
+    color:#64748b !important;
+    font-size:12px !important;
+    font-weight:800 !important;
+  }
+
+  .freepassApprovalModal{
+    width:94vw !important;
+    max-width:94vw !important;
+    max-height:58dvh !important;
+    min-height:0 !important;
+    border-radius:18px !important;
+  }
+
+  .freepassApprovalModal .modalHead{
+    padding:16px !important;
+  }
+
+  .freepassApprovalModal .modalHead h2{
+    font-size:22px !important;
+  }
+
+  .freepassApprovalModal .modalHead button{
+    height:44px !important;
+    min-height:44px !important;
+    padding:0 18px !important;
+  }
+
+  .compactApprovalBody{
+    padding:14px 16px !important;
+  }
+
+  .compactApprovalBody .infoGrid{
+    grid-template-columns:1fr 1fr !important;
+    gap:14px 18px !important;
+  }
+
+  .compactApprovalBody .infoGrid p{
+    font-size:15px !important;
+  }
+
+  .freepassApprovalActions{
+    padding:12px 16px 16px !important;
+  }
+
+  .bulkControlPanel{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+  }
+
+  .bulkActions{
+    display:flex !important;
+    gap:10px !important;
+    flex-wrap:wrap !important;
+  }
+
+  .bulkActions button{
+    height:42px !important;
+    min-height:42px !important;
+    padding:0 14px !important;
+    border-radius:12px !important;
+  }
+
+  .bulkCommonInputs{
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+  }
+
+  .bulkIndividualToggle{
+    grid-column:1 / -1 !important;
+  }
+
+  .freepassBulkTable.compactFreepassTable{
+    min-width:620px !important;
+  }
+}
