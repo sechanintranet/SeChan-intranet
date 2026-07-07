@@ -8342,3 +8342,375 @@ select{
     padding:12px !important;
   }
 }
+
+
+/* =========================================================
+   V29.28 QA 안정화 릴리스
+   목적: 부분 수정 누적이 아닌 공통 UI 시스템 기준 정리
+   ========================================================= */
+
+/* 공통 로딩: 한 줄, 낮은 높이, 글자 잘림 방지 */
+.inlineLoadingState{
+  width:100% !important;
+  max-width:100% !important;
+  min-height:38px !important;
+  padding:8px 10px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:8px !important;
+  color:#64748b !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  line-height:1.25 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  background:#f8fafc !important;
+  border:1px solid #eef2f7 !important;
+  border-radius:10px !important;
+}
+
+.loadingDot{
+  width:8px !important;
+  height:8px !important;
+  min-width:8px !important;
+  border-radius:50% !important;
+  background:#2563eb !important;
+  animation:loadingPulse .9s ease-in-out infinite alternate !important;
+}
+
+@keyframes loadingPulse{
+  from{opacity:.35; transform:scale(.85);}
+  to{opacity:1; transform:scale(1);}
+}
+
+.loadingState{
+  min-height:38px !important;
+  padding:8px 10px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  line-height:1.25 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  justify-content:flex-start !important;
+}
+
+/* 테이블/카드 공통 여백: 과도한 열 공백 방지 */
+.sectionCard{
+  padding:16px !important;
+}
+
+.sectionCard table{
+  width:100% !important;
+}
+
+.sectionCard table th,
+.sectionCard table td{
+  padding-left:8px !important;
+  padding-right:8px !important;
+  vertical-align:middle !important;
+}
+
+.compactFreepassTable,
+.freepassLogTable,
+.freepassApprovalTable,
+.freepassBulkTable,
+.freepassOverviewTable{
+  table-layout:fixed !important;
+}
+
+/* select 글자 하단 잘림 방지 */
+select{
+  min-height:38px !important;
+  height:38px !important;
+  line-height:normal !important;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  font-size:13px !important;
+  box-sizing:border-box !important;
+}
+
+/* 승인 상세 팝업: 승인/반려 버튼 완전 동일화 */
+.freepassApprovalModal{
+  display:flex !important;
+  flex-direction:column !important;
+  width:min(620px, calc(100vw - 32px)) !important;
+  max-height:min(620px, calc(100dvh - 32px)) !important;
+  overflow:hidden !important;
+}
+
+.freepassApprovalModal .modalHead{
+  flex:0 0 auto !important;
+}
+
+.freepassApprovalModalBody{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+
+.freepassApprovalActions{
+  flex:0 0 auto !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  align-items:stretch !important;
+  padding:12px 16px 16px !important;
+  border-top:1px solid #e5e7eb !important;
+}
+
+.freepassApprovalActions button,
+.freepassApprovalActions .primary,
+.freepassApprovalActions .dangerBtn{
+  height:46px !important;
+  min-height:46px !important;
+  max-height:46px !important;
+  width:100% !important;
+  padding:0 12px !important;
+  border-radius:12px !important;
+  margin:0 !important;
+  line-height:1 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+}
+
+/* 휴무 고객응대/적립 요청 상세 모달: 잘림 방지 */
+.accrualDetailModal{
+  display:flex !important;
+  flex-direction:column !important;
+  width:min(720px, calc(100vw - 32px)) !important;
+  max-height:calc(100dvh - 28px) !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+
+.accrualDetailModal .photoCaptureBox{
+  position:relative !important;
+  margin-bottom:16px !important;
+}
+
+.accrualDetailModal .photoCaptureBox button,
+.accrualDetailModal .photoCaptureBox .primary{
+  width:100% !important;
+  min-height:44px !important;
+}
+
+/* 건의/문의: 리스트는 카드형, 상세는 팝업 */
+.suggestionListCard{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:10px !important;
+}
+
+.suggestionCardItem{
+  width:100% !important;
+  min-height:74px !important;
+  display:grid !important;
+  grid-template-columns:110px 1fr auto !important;
+  grid-template-areas:
+    "date title status"
+    "date meta status" !important;
+  gap:4px 12px !important;
+  align-items:center !important;
+  text-align:left !important;
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  border-radius:14px !important;
+  padding:12px !important;
+  color:#0f172a !important;
+}
+
+.suggestionDate{grid-area:date;color:#64748b;font-size:13px;font-weight:700;}
+.suggestionCardItem strong{grid-area:title;font-size:15px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.suggestionMeta{grid-area:meta;color:#64748b;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.suggestionStatus{grid-area:status;justify-self:end;background:#eef2ff;color:#1d4ed8;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;white-space:nowrap;}
+.suggestionStatus.접수{background:#fff7ed;color:#9a3412;}
+.suggestionStatus.반영완료{background:#dcfce7;color:#166534;}
+.suggestionStatus.보류{background:#fee2e2;color:#991b1b;}
+
+.suggestionDetailModal{
+  display:flex !important;
+  flex-direction:column !important;
+  width:min(680px, calc(100vw - 32px)) !important;
+  max-height:calc(100dvh - 32px) !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+
+.suggestionAdminEdit{
+  display:grid !important;
+  gap:10px !important;
+}
+
+.suggestionAdminEdit select,
+.suggestionAdminEdit textarea,
+.suggestionAdminEdit button{
+  width:100% !important;
+}
+
+/* 모바일 핵심 QA 보정 */
+@media(max-width:768px){
+  .appShell,
+  main{
+    padding-left:10px !important;
+    padding-right:10px !important;
+  }
+
+  .sectionCard{
+    padding:14px 12px !important;
+    border-radius:16px !important;
+  }
+
+  select,
+  input,
+  textarea{
+    min-height:42px !important;
+    height:42px !important;
+    font-size:15px !important;
+    line-height:normal !important;
+  }
+
+  select{
+    padding-left:10px !important;
+    padding-right:26px !important;
+    text-align-last:center;
+  }
+
+  .sectionCard table th,
+  .sectionCard table td{
+    padding-left:6px !important;
+    padding-right:6px !important;
+  }
+
+  /* 프리패스 이력: 모바일에서 카드형 리스트로 전환 */
+  .freepassHistoryModal{
+    width:94vw !important;
+    max-width:94vw !important;
+    max-height:calc(100dvh - 32px) !important;
+  }
+
+  .freepassHistoryTableScroll{
+    overflow-x:visible !important;
+  }
+
+  .freepassHistoryTableScroll table,
+  .freepassHistoryTableScroll thead,
+  .freepassHistoryTableScroll tbody,
+  .freepassHistoryTableScroll tr,
+  .freepassHistoryTableScroll td{
+    display:block !important;
+    width:100% !important;
+  }
+
+  .freepassHistoryTableScroll thead{
+    display:none !important;
+  }
+
+  .freepassHistoryTableScroll tr{
+    border:1px solid #e5e7eb !important;
+    border-radius:14px !important;
+    padding:10px !important;
+    margin-bottom:8px !important;
+    background:#fff !important;
+  }
+
+  .freepassHistoryTableScroll td{
+    border:0 !important;
+    padding:4px 0 !important;
+    font-size:13px !important;
+    white-space:normal !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+  }
+
+  .freepassHistoryTableScroll td::before{
+    content:attr(data-label);
+    display:inline-block;
+    width:70px;
+    color:#64748b;
+    font-size:12px;
+    font-weight:800;
+  }
+
+  .freepassHistoryTableScroll td:nth-child(1),
+  .freepassHistoryTableScroll td:nth-child(2){
+    display:inline-block !important;
+    width:auto !important;
+    margin-right:10px !important;
+    font-weight:900 !important;
+  }
+
+  .freepassHistoryTableScroll td:nth-child(1)::before,
+  .freepassHistoryTableScroll td:nth-child(2)::before{
+    display:none !important;
+  }
+
+  /* 관리자 조정: 기본 화면은 선택/매장/직원 중심, 개별 옵션은 별도 체크 시 노출 */
+  .freepassBulkTable.compactFreepassTable{
+    min-width:0 !important;
+    width:100% !important;
+    table-layout:fixed !important;
+  }
+
+  .freepassBulkTable.compactFreepassTable th,
+  .freepassBulkTable.compactFreepassTable td{
+    padding:8px 6px !important;
+    font-size:14px !important;
+    text-align:center !important;
+  }
+
+  .freepassBulkTable.compactFreepassTable th:nth-child(1),
+  .freepassBulkTable.compactFreepassTable td:nth-child(1){width:18% !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(2),
+  .freepassBulkTable.compactFreepassTable td:nth-child(2){width:36% !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(3),
+  .freepassBulkTable.compactFreepassTable td:nth-child(3){width:46% !important;}
+
+  .freepassBulkTable.compactFreepassTable th:nth-child(n+4),
+  .freepassBulkTable.compactFreepassTable td:nth-child(n+4){
+    display:none !important;
+  }
+
+  .freepassApprovalModal{
+    width:94vw !important;
+    max-width:94vw !important;
+    max-height:62dvh !important;
+  }
+
+  .accrualDetailModal{
+    width:94vw !important;
+    max-width:94vw !important;
+    max-height:calc(100dvh - 26px) !important;
+    border-radius:18px !important;
+  }
+
+  .accrualDetailModal .infoGrid{
+    grid-template-columns:1fr 1fr !important;
+    gap:14px !important;
+  }
+
+  .accrualDetailModal .evidencePreview{
+    max-height:260px !important;
+    object-fit:contain !important;
+  }
+
+  .suggestionCardItem{
+    grid-template-columns:1fr auto !important;
+    grid-template-areas:
+      "title status"
+      "meta status"
+      "date status" !important;
+    min-height:78px !important;
+    padding:12px !important;
+  }
+
+  .suggestionDate{
+    font-size:12px !important;
+  }
+}

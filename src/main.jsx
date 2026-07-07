@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.23-20260703043549';
+const APP_BUILD_VERSION = 'v29.28-20260707074545';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -845,8 +845,17 @@ function freepassConsentSnapshot(user, requestType, earnType) {
 }
 
 function FreepassModule({ user }) {
-  const defaultTab = isSuperAdmin(user) ? '점장 승인' : '내 프리패스';
+  const requestedFreepassTab = (() => {
+    try { return localStorage.getItem('sechan_freepass_initial_tab') || ''; } catch { return ''; }
+  })();
+  const defaultTab = requestedFreepassTab || (isSuperAdmin(user) ? '점장 승인' : '내 프리패스');
   const [tab, setTab] = useState(defaultTab);
+
+  useEffect(() => {
+    if (requestedFreepassTab) {
+      try { localStorage.removeItem('sechan_freepass_initial_tab'); } catch {}
+    }
+  }, []);
 
   const tabs = [];
   if (!isSuperAdmin(user)) tabs.push('내 프리패스', '사용 신청', '적립 요청');
@@ -1313,7 +1322,7 @@ function AccrualRequestTab({ user }) {
         </table>
       </div>
 
-      {selected && <div className="modalBg"><div className="modal">
+      {selected && <div className="modalBg"><div className="modal accrualDetailModal">
         <div className="modalHead"><h2>적립 요청 상세</h2><button onClick={()=>{setSelected(null);setEndPhoto(null);setEndHours(1);}}>닫기</button></div>
         <section className="infoGrid">
           <p><b>접수 날짜·시각</b><br />{formatKST(selected.requested_at || selected.created_at)}</p>
@@ -1464,7 +1473,7 @@ function FreepassApprovalQueue({ user, mode }) {
               <td>{r.reason}</td>
               <td>{r.status}</td>
             </tr>)}
-            {loading&&<tr className="approvalEmptyRow"><td colSpan="7"><div className="loadingState">승인 대기 목록을 불러오는 중입니다...</div></td></tr>}
+            {loading&&<tr className="approvalEmptyRow"><td colSpan="7"><InlineLoadingState label="승인 대기 목록을 불러오는 중입니다" /></td></tr>}
             {!loading&&!rows.length&&<tr className="approvalEmptyRow"><td colSpan="7"><div className="approvalEmptyText">승인 대기 건이 없습니다.</div></td></tr>}
           </tbody>
         </table>
@@ -1595,7 +1604,7 @@ function FreepassLogTab({ user }) {
       <table className="freepassLogTable">
         <thead><tr><th>유형</th><th>시간</th><th>요청일시</th><th>실제일</th><th>매장</th><th>직원</th><th>내용</th><th>처리자</th></tr></thead>
         <tbody>
-          {loading && <tr><td colSpan="9"><InlineLoadingState label="프리패스 로그를 불러오는 중입니다" /></td></tr>}
+          {loading && <tr><td colSpan="8"><InlineLoadingState label="프리패스 로그를 불러오는 중입니다" /></td></tr>}
             {!loading && filtered.map(r=><tr key={r.id}>
             <td>{r.type}</td>
             <td>{freepassLedgerSignedHours(r)}시간</td>
@@ -1606,7 +1615,7 @@ function FreepassLogTab({ user }) {
             <td className="freepassReasonCell">{r.detail}</td>
             <td>{r.actor}</td>
           </tr>)}
-          {!filtered.length && <tr><td colSpan="8" className="muted">표시할 로그가 없습니다.</td></tr>}
+          {!loading && !filtered.length && <tr><td colSpan="8" className="muted">표시할 로그가 없습니다.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -2504,8 +2513,8 @@ function HomeDashboard({ user, setTab }) {
     {title:'해피콜 검수', value:reviewCount, desc:'확인 필요', tab:'review', show:isAdminLike(user)},
     {title:'내 프리패스', value:freepassMine, desc:'진행 중 신청', tab:'freepass', show:true},
     {title:'악세사리 주문', value:0, desc:'주문 관리', tab:'accessories', show:true},
-    {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', show:user.role==='점장'||isAdminLike(user)},
-    {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', show:isSuperAdmin(user)},
+    {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', freepassTab:'점장 승인', show:user.role==='점장'||isAdminLike(user)},
+    {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', freepassTab:'최종 승인', show:isSuperAdmin(user)},
     {title:'건의/문의', value:suggestions, desc:'진행 중', tab:'suggestions', show:true},
     {title:'오류보고', value:errors, desc:'미해결', tab:'errors', show:isAdminLike(user)},
   ].filter(c=>c.show);
@@ -2522,7 +2531,12 @@ function HomeDashboard({ user, setTab }) {
 
       <div className="dashboardGrid">
         {cards.map(c=>(
-          <button key={c.title} className="dashboardCard" onClick={()=>setTab(c.tab)}>
+          <button key={c.title} className="dashboardCard" onClick={()=>{
+            if (c.freepassTab) {
+              try { localStorage.setItem('sechan_freepass_initial_tab', c.freepassTab); } catch {}
+            }
+            setTab(c.tab);
+          }}>
             <span>{c.title}</span>
             <strong>{c.value}</strong>
             <em>{c.desc}</em>
@@ -4338,9 +4352,9 @@ function SuggestionsPage({ user }) {
 
   return (
     <div>
-      <h2>{user.role === '관리자' ? '건의/문의 관리' : '건의/문의 사항'}</h2>
+      <h2>{isAdminLike(user) ? '건의/문의 관리' : '건의/문의 사항'}</h2>
 
-      {user.role !== '관리자' && (
+      {!isAdminLike(user) && (
         <div className="sectionCard suggestionWriteBox">
           <select value={category} onChange={e=>setCategory(e.target.value)}>
             <option>기능추가</option>
@@ -4363,51 +4377,31 @@ function SuggestionsPage({ user }) {
           <option>반영완료</option>
           <option>보류</option>
         </select>
-        <input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder={user.role === '관리자' ? '작성자/매장/제목/내용 검색' : '검색'} />
+        <input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder={isAdminLike(user) ? '작성자/매장/제목/내용 검색' : '검색'} />
         <button onClick={()=>{setStatusFilter('전체'); setKeyword('');}}>초기화</button>
       </div>
 
-      <div className="sectionCard">
-        <table>
-          <thead>
-            <tr>
-              <th>일시</th>
-              {user.role === '관리자' && <th>작성자</th>}
-              {user.role === '관리자' && <th>매장/권한</th>}
-              <th>구분</th>
-              <th>제목/내용</th>
-              <th>상태</th>
-              <th>관리자 코멘트</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(r => (
-              <tr key={r.id} className={user.role === '관리자' ? 'clickableRow' : ''} onClick={() => user.role === '관리자' && setSelected(r)}>
-                <td>{formatKST(r.created_at)}</td>
-                {user.role === '관리자' && <td>{r.requester_name}</td>}
-                {user.role === '관리자' && <td>{r.requester_store} / {r.requester_role}</td>}
-                <td>{r.category}</td>
-                <td className="suggestionContentCell">
-                  <b>{r.title}</b>
-                  <p>{r.content}</p>
-                </td>
-                <td>{r.status || '접수'}</td>
-                <td className="suggestionCommentCell">
-                  <p>{r.admin_comment || '아직 관리자 코멘트가 없습니다.'}</p>
-                </td>
-              </tr>
-            ))}
-            {!filtered.length && <tr><td colSpan={user.role === '관리자' ? 7 : 5} className="muted">건의/문의 내역이 없습니다.</td></tr>}
-          </tbody>
-        </table>
+      <div className="sectionCard suggestionListCard">
+        {loading && <InlineLoadingState label="건의/문의 내역을 불러오는 중입니다" />}
+        {!loading && !filtered.length && <div className="emptyState">건의/문의 내역이 없습니다.</div>}
+        {!loading && filtered.map(r => (
+          <button key={r.id} type="button" className="suggestionCardItem" onClick={() => setSelected(r)}>
+            <span className="suggestionDate">{formatKST(r.created_at)}</span>
+            <strong>{r.title}</strong>
+            <span className="suggestionMeta">
+              {isAdminLike(user) ? `${r.requester_name || '-'} · ${r.requester_store || '-'}` : r.category}
+            </span>
+            <span className={`suggestionStatus ${String(r.status || '접수').replace(/\s/g,'')}`}>{r.status || '접수'}</span>
+          </button>
+        ))}
       </div>
 
-      {selected && <SuggestionAdminModal row={selected} onClose={() => setSelected(null)} onSave={updateSuggestion} />}
+      {selected && <SuggestionAdminModal row={selected} user={user} onClose={() => setSelected(null)} onSave={updateSuggestion} />}
     </div>
   );
 }
 
-function SuggestionAdminModal({ row, onClose, onSave }) {
+function SuggestionAdminModal({ row, user, onClose, onSave }) {
   const [status, setStatus] = useState(row.status || '접수');
   const [comment, setComment] = useState(row.admin_comment || '');
 
@@ -4434,18 +4428,26 @@ function SuggestionAdminModal({ row, onClose, onSave }) {
           <pre className="suggestionFullText">{row.content}</pre>
         </section>
 
-        <section>
-          <h3>관리자 처리</h3>
-          <select value={status} onChange={e=>setStatus(e.target.value)}>
-            <option>접수</option>
-            <option>확인중</option>
-            <option>반영예정</option>
-            <option>반영완료</option>
-            <option>보류</option>
-          </select>
-          <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="관리자 코멘트 입력" />
-          <button className="primary" onClick={() => onSave(row, { status, admin_comment: comment })}>저장</button>
-        </section>
+        {isAdminLike(user) ? (
+          <section className="suggestionAdminEdit">
+            <h3>관리자 처리</h3>
+            <select value={status} onChange={e=>setStatus(e.target.value)}>
+              <option>접수</option>
+              <option>확인중</option>
+              <option>반영예정</option>
+              <option>반영완료</option>
+              <option>보류</option>
+            </select>
+            <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="관리자 코멘트 입력" />
+            <button className="primary" onClick={() => onSave(row, { status, admin_comment: comment })}>처리 내용 저장</button>
+          </section>
+        ) : (
+          <section>
+            <h3>처리 내역</h3>
+            <p><b>상태</b><br />{row.status || '접수'}</p>
+            <p><b>관리자 코멘트</b><br />{row.admin_comment || '아직 관리자 코멘트가 없습니다.'}</p>
+          </section>
+        )}
       </div>
     </div>
   );
