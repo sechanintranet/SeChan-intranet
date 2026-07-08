@@ -9236,3 +9236,130 @@ select{
     white-space:normal !important;
   }
 }
+
+/* V29.35 Sechan UI Design System v1: mobile density + no avoidable horizontal scroll */
+:root{
+  --sc-space-page-x:16px;
+  --sc-card-pad-x:16px;
+  --sc-card-pad-y:12px;
+  --sc-card-gap:8px;
+  --sc-control-h:44px;
+  --sc-radius-card:16px;
+  --sc-radius-control:12px;
+}
+html,body,#root{max-width:100% !important;overflow-x:hidden !important;}
+.app main{max-width:1180px;width:100%;overflow-x:hidden;}
+.sectionCard{max-width:100% !important;}
+@media(max-width:768px){
+  .app main{padding-left:var(--sc-space-page-x) !important;padding-right:var(--sc-space-page-x) !important;overflow-x:hidden !important;}
+  .sectionCard{padding:16px !important;overflow-x:hidden !important;}
+  .mobileCardList{gap:8px !important;overflow:hidden !important;}
+  .mobileInfoCard{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    padding:var(--sc-card-pad-y) var(--sc-card-pad-x) !important;
+    border-radius:var(--sc-radius-card) !important;
+    overflow:hidden !important;
+  }
+  .mobileInfoCardMain{
+    align-items:center !important;
+    gap:10px !important;
+    min-width:0 !important;
+  }
+  .mobileInfoCardMain>div{
+    flex:1 1 auto !important;
+    min-width:0 !important;
+    gap:2px !important;
+  }
+  .mobileInfoCard strong{font-size:16px !important;line-height:1.22 !important;}
+  .mobileInfoCard p{font-size:13px !important;line-height:1.25 !important;color:#64748b !important;font-weight:800 !important;}
+  .mobileInfoCard span{font-size:12px !important;line-height:1.25 !important;color:#64748b !important;}
+  .mobileInfoCard em.requestStatusBadge{
+    max-width:74px !important;
+    min-width:0 !important;
+    padding:4px 8px !important;
+    font-size:11px !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+  .mobileInfoCardExtra{
+    margin-top:9px !important;
+    padding-top:8px !important;
+  }
+  .mobileInfoCardMetricRow{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    gap:10px !important;
+    width:100% !important;
+    min-width:0 !important;
+  }
+  .mobileInfoCardMetricRow span{
+    display:block !important;
+    flex:1 1 auto !important;
+    min-width:0 !important;
+    font-size:12px !important;
+    color:#64748b !important;
+    font-weight:800 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+  .mobileInfoCardMetricRow .balanceBadge{
+    flex:0 0 auto !important;
+    min-width:0 !important;
+    max-width:112px !important;
+    padding:4px 10px !important;
+    font-size:12px !important;
+    line-height:1.15 !important;
+    white-space:nowrap !important;
+  }
+  .freepassMobileOverviewList .mobileInfoCardMain{display:block !important;}
+  .freepassMobileOverviewList .mobileInfoCardMain>div{display:flex !important;}
+  .freepassMobileOverviewList .mobileInfoCardExtra{border-top:0 !important;margin-top:8px !important;padding-top:0 !important;}
+  .freepassMobileLogList .mobileInfoCard{padding-top:11px !important;padding-bottom:11px !important;}
+  .freepassMobileLogList .mobileInfoCardMain{align-items:center !important;}
+  .freepassMobileLogList .mobileInfoCard span{display:none !important;}
+  .freepassMobileLogList .mobileInfoCard span:first-child{display:block !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+  .freepassMobileLogList .mobileInfoCard p{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+  .freepassLogFilters{grid-template-columns:1fr !important;gap:8px !important;overflow:hidden !important;}
+  .freepassLogFilters input,.freepassLogFilters select{height:var(--sc-control-h) !important;min-height:var(--sc-control-h) !important;}
+  .bulkControlPanel,.bulkCommonInputs{max-width:100% !important;overflow:hidden !important;}
+  .bulkCommonInputs{display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px !important;align-items:end !important;}
+  .bulkCommonInputs .bulkIndividualToggle{grid-column:1 / -1 !important;min-width:0 !important;width:100% !important;}
+  .freepassBulkTable.compactFreepassTable{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    table-layout:fixed !important;
+    display:table !important;
+    overflow:visible !important;
+  }
+  .freepassBulkTable.compactFreepassTable thead{display:table-header-group !important;}
+  .freepassBulkTable.compactFreepassTable tbody{display:table-row-group !important;}
+  .freepassBulkTable.compactFreepassTable tr{display:table-row !important;width:auto !important;border:0 !important;padding:0 !important;margin:0 !important;}
+  .freepassBulkTable.compactFreepassTable th,
+  .freepassBulkTable.compactFreepassTable td{
+    display:table-cell !important;
+    padding:8px 4px !important;
+    border-bottom:1px solid #eef2f7 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    font-size:12px !important;
+    vertical-align:middle !important;
+  }
+  .freepassBulkTable.compactFreepassTable td::before{content:none !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(1),
+  .freepassBulkTable.compactFreepassTable td:nth-child(1){width:42px !important;text-align:center !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(2),
+  .freepassBulkTable.compactFreepassTable td:nth-child(2){width:72px !important;text-align:center !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(3),
+  .freepassBulkTable.compactFreepassTable td:nth-child(3){width:auto !important;text-align:left !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(4),
+  .freepassBulkTable.compactFreepassTable td:nth-child(4){display:none !important;}
+  .freepassBulkTable.compactFreepassTable input[type="checkbox"]{width:22px !important;height:22px !important;margin:0 auto !important;}
+  .freepassBulkTable.compactFreepassTable select,
+  .freepassBulkTable.compactFreepassTable input[type="number"]{max-width:100% !important;min-width:0 !important;height:36px !important;font-size:12px !important;}
+}

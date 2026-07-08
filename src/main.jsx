@@ -5,11 +5,45 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.34-20260708173500';
+const APP_BUILD_VERSION = 'v29.35-20260708182500';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
+function isTransientFetchError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('load failed') || message.includes('failed to fetch') || message.includes('networkerror') || message.includes('network error') || message.includes('fetch');
+}
+
+async function runSupabaseWithRetry(action, label = '요청', retries = 2) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const result = await action();
+      if (result?.error) throw result.error;
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientFetchError(error) || attempt === retries) break;
+      await new Promise(resolve => setTimeout(resolve, 550 * (attempt + 1)));
+    }
+  }
+  throw lastError || new Error(`${label} 실패`);
+}
+
+function getBrowserSaveGuide(error) {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isKakaoInApp = /KAKAOTALK|Kakao/i.test(ua);
+  const msg = String(error?.message || error || '');
+  if (isKakaoInApp && isTransientFetchError(error)) {
+    return new Error(`${msg}
+
+카카오톡 인앱브라우저에서 일시적으로 저장 통신이 끊겼습니다. 같은 화면에서 다시 저장을 눌러주세요. 반복되면 우측 상단 메뉴에서 외부 브라우저로 열어 진행해주세요.`);
+  }
+  return error;
+}
+
 
 async function fetchAllRows(tableName, selectText = '*', orderColumn = null) {
   const pageSize = 1000;
@@ -1796,10 +1830,10 @@ function FreepassLogTab({ user }) {
           <MobileInfoCard
             key={r.id}
             title={`${r.employee || '-'} · ${r.type}`}
-            subtitle={`${r.store || '-'} · ${freepassLedgerSignedHours(r)}시간`}
-            meta={[r.requestedAt || formatKST(r.at), r.actualDate || '-', r.detail]}
-            status={r.source}
-            badgeClass="finalWaiting"
+            subtitle={`${r.store || '-'} · ${freepassLedgerSignedHours(r)}시간 · ${r.requestedAt || formatKST(r.at)}`}
+            meta={[r.detail]}
+            status={r.source === '신청/승인' ? '신청' : '이력'}
+            badgeClass={r.source === '신청/승인' ? 'waiting' : 'finalWaiting'}
           />
         ))}
         {!loading && !filtered.length && <EmptyStateText>표시할 로그가 없습니다.</EmptyStateText>}
@@ -2058,11 +2092,13 @@ function FreepassStoreOverview({ user }) {
               key={emp.id || emp.name}
               title={emp.name}
               subtitle={`${emp.store_name || '-'} · ${emp.role || '직원'}`}
-              meta={[`잔여 ${balance}시간`, `이번달 사용 ${used}시간`]}
-              status={`${balance}시간`}
-              badgeClass={balance < 0 ? 'rejected' : balance === 0 ? 'waiting' : 'finalWaiting'}
               onClick={() => setSelected(emp)}
-            />
+            >
+              <div className="mobileInfoCardMetricRow">
+                <span>이번달 사용 {used}시간</span>
+                <em className={`balanceBadge ${balance < 0 ? 'negative' : balance === 0 ? 'zero' : 'positive'}`}>잔여 {balance}시간</em>
+              </div>
+            </MobileInfoCard>
           );
         })}
         {!loading && !rows.length && <EmptyStateText>표시할 직원이 없습니다.</EmptyStateText>}
@@ -3710,54 +3746,54 @@ async function save() {
       let saveError = null;
       const existingPending = latestLog && (latestLog.review_status || '검수대기') === '검수대기' ? latestLog : null;
       if (existingPending) {
-        const { error } = await supabase.from('happycall_logs').update({
+        const { error } = await runSupabaseWithRetry(() => supabase.from('happycall_logs').update({
           ...payload,
           checked_at: new Date().toISOString()
-        }).eq('id', existingPending.id);
+        }).eq('id', existingPending.id), '해피콜 로그 수정');
         saveError = error;
       } else {
-        const { error } = await supabase.from('happycall_logs').insert({
+        const { error } = await runSupabaseWithRetry(() => supabase.from('happycall_logs').insert({
           ...payload,
           parent_log_id: latestLog?.review_status === '반려' ? latestLog.id : null,
           review_round: latestLog?.review_status === '반려' ? (Number(latestLog.review_round || 1) + 1) : 1
-        });
+        }), '해피콜 로그 저장');
         saveError = error;
       }
       if (saveError) throw saveError;
 
       if (shouldExcludeUnavailable(detail)) {
-        await supabase.from('refused_customers').upsert({
+        await runSupabaseWithRetry(() => supabase.from('refused_customers').upsert({
           join_no: target.join_no,
           target_id: target.id,
           refused_by: user.name,
           refused_at: new Date().toISOString(),
           memo: memo || detail || '통화 불가',
           legal_rep_join_no: null
-        }, { onConflict: 'join_no' });
+        }, { onConflict: 'join_no' }), '통화불가 고객 저장');
 
-        await supabase.from('happycall_targets')
+        await runSupabaseWithRetry(() => supabase.from('happycall_targets')
           .update({ is_skipped: true, skip_reason: `통화 불가 처리: ${detail}` })
           .eq('join_no', target.join_no)
           .neq('id', target.id)
           .is('is_skipped', false)
-          .not('call_type', 'in', '(D+95,D+185,d95,d185,D95,D185)');
+          .not('call_type', 'in', '(D+95,D+185,d95,d185,D95,D185)'), '중복 해피콜 스킵 처리');
       } else {
-        await supabase.from('refused_customers').delete().eq('join_no', target.join_no);
+        await runSupabaseWithRetry(() => supabase.from('refused_customers').delete().eq('join_no', target.join_no), '통화불가 고객 해제');
       }
 
       if (typeof rejectedInfo !== 'undefined' && rejectedInfo?.id) {
-        await supabase.from('happycall_logs').update({
+        await runSupabaseWithRetry(() => supabase.from('happycall_logs').update({
           review_status: '재처리완료'
-        }).eq('id', rejectedInfo.id);
+        }).eq('id', rejectedInfo.id), '반려건 재처리 상태 저장');
       }
 
       if (detail === '불만사항있음') {
-        await supabase.from('voc_logs').insert({
+        await runSupabaseWithRetry(() => supabase.from('voc_logs').insert({
           target_id: target.id,
           join_no: target.join_no,
           customer_issue: memo,
           status: '미처리'
-        });
+        }), 'VOC 저장');
       }
 
       await writeAuditLog('해피콜저장', 'happycall_target', target.id, user, `${target.join_no} / ${result} / ${detail}`);
@@ -3765,7 +3801,7 @@ async function save() {
       onSaved();
       onClose();
     } catch (e) {
-      askErrorReport({ user, currentTab: '해피콜 상세', actionName: '해피콜 저장', joinNo: target.join_no, error: e });
+      askErrorReport({ user, currentTab: '해피콜 상세', actionName: '해피콜 저장', joinNo: target.join_no, error: getBrowserSaveGuide(e) });
     }
   }
 
