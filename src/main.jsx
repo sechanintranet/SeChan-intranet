@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.29-20260708143000';
+const APP_BUILD_VERSION = 'v29.30-20260708150500';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -693,6 +693,15 @@ function UpdateNotice({ user }) {
   const [nextVersion, setNextVersion] = useState('');
   const [changes, setChanges] = useState([]);
 
+  function getDismissedUpdateVersion() {
+    try { return localStorage.getItem('sechan_dismissed_update_version') || ''; } catch { return ''; }
+  }
+
+  function dismissUpdateNotice(version) {
+    try { if (version) localStorage.setItem('sechan_dismissed_update_version', version); } catch {}
+    setHasUpdate(false);
+  }
+
   useEffect(() => {
     let alive = true;
     let timer;
@@ -733,12 +742,24 @@ function UpdateNotice({ user }) {
         const data = await res.json();
         if (!alive) return;
 
-        if (data.version && data.version !== APP_BUILD_VERSION) {
-          setNextVersion(data.version);
-          // latestChanges only: 누적 변경내역이 아니라 이번 배포 변경분만 표시
-          setChanges(filterChangesByRole(data.latestChanges || data.changes || []));
-          setHasUpdate(true);
+        if (!data.version || data.version === APP_BUILD_VERSION) {
+          setNextVersion('');
+          setChanges([]);
+          setHasUpdate(false);
+          return;
         }
+
+        if (getDismissedUpdateVersion() === data.version) {
+          setNextVersion(data.version);
+          setChanges([]);
+          setHasUpdate(false);
+          return;
+        }
+
+        setNextVersion(data.version);
+        // latestChanges only: 누적 변경내역이 아니라 이번 배포 변경분만 표시
+        setChanges(filterChangesByRole(data.latestChanges || data.changes || []));
+        setHasUpdate(true);
       } catch (e) {}
     }
 
@@ -773,6 +794,7 @@ function UpdateNotice({ user }) {
       }
     } catch (e) {}
 
+    dismissUpdateNotice(nextVersion);
     window.location.replace(`${window.location.origin}${window.location.pathname}?app_refresh=${Date.now()}`);
   }
 
@@ -794,7 +816,10 @@ function UpdateNotice({ user }) {
         )}
 
         <p className="muted">현재 버전: {APP_BUILD_VERSION}<br />최신 버전: {nextVersion}</p>
-        <button className="primary" onClick={forceRefresh}>강제 새로고침</button>
+        <div className="updateNoticeActions">
+          <button className="primary" onClick={forceRefresh}>새로고침 후 적용</button>
+          <button type="button" onClick={() => dismissUpdateNotice(nextVersion)}>이번에는 닫기</button>
+        </div>
       </div>
     </div>
   );

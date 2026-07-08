@@ -8830,3 +8830,23 @@ select{
     grid-template-columns:1fr !important;
   }
 }
+
+/* V29.30 update notice duplicate popup hotfix */
+.updateNoticeActions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+  margin-top:14px;
+}
+.updateNoticeActions button{
+  width:100%;
+  min-height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.updateNoticeActions button:not(.primary){
+  background:#f3f4f6;
+  color:#111827;
+  border:1px solid #e5e7eb;
+}
