@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.30-20260708150500';
+const APP_BUILD_VERSION = 'v29.31-20260708153000';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -786,16 +786,8 @@ function UpdateNotice({ user }) {
     };
   }, [user?.role]);
 
-  async function forceRefresh() {
-    try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(key => caches.delete(key)));
-      }
-    } catch (e) {}
-
+  function confirmUpdateNotice() {
     dismissUpdateNotice(nextVersion);
-    window.location.replace(`${window.location.origin}${window.location.pathname}?app_refresh=${Date.now()}`);
   }
 
   if (!hasUpdate) return null;
@@ -816,9 +808,8 @@ function UpdateNotice({ user }) {
         )}
 
         <p className="muted">현재 버전: {APP_BUILD_VERSION}<br />최신 버전: {nextVersion}</p>
-        <div className="updateNoticeActions">
-          <button className="primary" onClick={forceRefresh}>새로고침 후 적용</button>
-          <button type="button" onClick={() => dismissUpdateNotice(nextVersion)}>이번에는 닫기</button>
+        <div className="updateNoticeActions singleAction">
+          <button className="primary" onClick={confirmUpdateNotice}>확인</button>
         </div>
       </div>
     </div>
@@ -4135,10 +4126,10 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated, onOpe
 
         <section>
           <h3>입사/퇴사 정보</h3>
-          <div className="formGrid compact">
-            <label>입사일<input className="dateInputWide" type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
-            <label>퇴사일<input className="dateInputWide" type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
-            <label>퇴근시간<input className="dateInputWide" type="time" value={profile.end_time} onChange={e=>setProfile({...profile,end_time:e.target.value})} /></label>
+          <div className="employeeProfileGrid">
+            <label>입사일<input type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
+            <label>퇴사일<input type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
+            <label>퇴근시간<input type="time" value={profile.end_time} onChange={e=>setProfile({...profile,end_time:e.target.value})} /></label>
             <button className="primary detailSaveBtn" onClick={saveProfile}>상세 저장</button>
           </div>
           <p className="muted">퇴사 상태는 직원관리 메인에서 상태를 퇴사로 바꾼 뒤 최종저장하세요. 퇴근시간은 오후 프리패스 신청 마감 계산에 사용됩니다.</p>
