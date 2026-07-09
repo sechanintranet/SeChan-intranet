@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.34-rollback-baseline';
+const APP_BUILD_VERSION = 'V29.36';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -744,44 +744,28 @@ function askErrorReport({ user, currentTab = '', actionName = '', joinNo = '', e
   if (ok) saveErrorReport({ user, currentTab, actionName, joinNo, error });
 }
 
-function UpdateNotice({ user }) {
+function parseVersionNumber(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/v?\s*(\d+)\s*[\.-]\s*(\d+)/i);
+  if (!match) return null;
+  return Number(match[1]) * 1000 + Number(match[2]);
+}
+
+function isNewerVersion(latest, current) {
+  const latestNum = parseVersionNumber(latest);
+  const currentNum = parseVersionNumber(current);
+  if (latestNum === null || currentNum === null) return latest && latest !== current;
+  return latestNum > currentNum;
+}
+
+function UpdateNotice({ user, currentTab }) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [nextVersion, setNextVersion] = useState('');
-  const [changes, setChanges] = useState([]);
-
-  function getDismissedUpdateVersion() {
-    try { return localStorage.getItem('sechan_dismissed_update_version') || ''; } catch { return ''; }
-  }
-
-  function dismissUpdateNotice(version) {
-    try { if (version) localStorage.setItem('sechan_dismissed_update_version', version); } catch {}
-    setHasUpdate(false);
-  }
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     let alive = true;
     let timer;
-
-    function visibleRolesForUser(role) {
-      if (isSuperAdmin(user)) return ['직원', '점장', '검수자', '관리자', '최고관리자'];
-      if (role === '관리자') return ['직원', '점장', '검수자', '관리자'];
-      if (role === '점장') return ['직원', '점장'];
-      if (role === '검수자') return ['직원', '검수자'];
-      return ['직원'];
-    }
-
-    function filterChangesByRole(rawChanges) {
-      const role = user?.role || '직원';
-      const allowed = visibleRolesForUser(role);
-      if (!Array.isArray(rawChanges)) return [];
-      return rawChanges
-        .map(item => {
-          if (typeof item === 'string') return item;
-          if (item && Array.isArray(item.roles) && item.roles.some(r => allowed.includes(r))) return item.text;
-          return null;
-        })
-        .filter(Boolean);
-    }
 
     async function checkVersion() {
       try {
@@ -798,24 +782,14 @@ function UpdateNotice({ user }) {
         const data = await res.json();
         if (!alive) return;
 
-        if (!data.version || data.version === APP_BUILD_VERSION) {
+        const latestVersion = data?.version || '';
+        if (isNewerVersion(latestVersion, APP_BUILD_VERSION)) {
+          setNextVersion(latestVersion);
+          setHasUpdate(true);
+        } else {
           setNextVersion('');
-          setChanges([]);
           setHasUpdate(false);
-          return;
         }
-
-        if (getDismissedUpdateVersion() === data.version) {
-          setNextVersion(data.version);
-          setChanges([]);
-          setHasUpdate(false);
-          return;
-        }
-
-        setNextVersion(data.version);
-        // latestChanges only: 누적 변경내역이 아니라 이번 배포 변경분만 표시
-        setChanges(filterChangesByRole(data.latestChanges || data.changes || []));
-        setHasUpdate(true);
       } catch (e) {}
     }
 
@@ -824,12 +798,14 @@ function UpdateNotice({ user }) {
     }
 
     checkVersion();
-    timer = setInterval(checkVersion, 30 * 1000);
+    timer = setInterval(checkVersion, 2 * 60 * 1000);
     document.addEventListener('visibilitychange', handleVisible);
     window.addEventListener('focus', checkVersion);
     window.addEventListener('pageshow', checkVersion);
     window.addEventListener('online', checkVersion);
-    window.addEventListener('touchstart', checkVersion, { passive: true, once: true });
+    window.addEventListener('popstate', checkVersion);
+    window.addEventListener('hashchange', checkVersion);
+    window.addEventListener('click', checkVersion, { passive: true });
 
     return () => {
       alive = false;
@@ -838,34 +814,38 @@ function UpdateNotice({ user }) {
       window.removeEventListener('focus', checkVersion);
       window.removeEventListener('pageshow', checkVersion);
       window.removeEventListener('online', checkVersion);
-      window.removeEventListener('touchstart', checkVersion);
+      window.removeEventListener('popstate', checkVersion);
+      window.removeEventListener('hashchange', checkVersion);
+      window.removeEventListener('click', checkVersion);
     };
-  }, [user?.role]);
+  }, [user?.role, currentTab]);
 
-  function confirmUpdateNotice() {
-    dismissUpdateNotice(nextVersion);
+  async function forceUpdateRefresh() {
+    if (updating) return;
+    setUpdating(true);
+    try {
+      try { localStorage.removeItem('sechan_dismissed_update_version'); } catch {}
+      try { sessionStorage.clear(); } catch {}
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+      }
+    } catch (e) {}
+
+    const base = `${window.location.origin}${window.location.pathname}`;
+    window.location.replace(`${base}?app_refresh=${Date.now()}&target=${encodeURIComponent(nextVersion || 'latest')}`);
   }
 
   if (!hasUpdate) return null;
 
   return (
-    <div className="updateNoticeBg">
-      <div className="updateNoticeBox">
-        <h2>업데이트 내용이 있습니다</h2>
-        <p>새로운 버전이 배포되었습니다. 최신 기능과 오류 수정을 반영하려면 새로고침이 필요합니다.</p>
-
-        {changes.length > 0 && (
-          <div className="updateChangeBox">
-            <h3>이번 수정 내용</h3>
-            <ul>
-              {changes.map((item, idx) => <li key={idx}>{item}</li>)}
-            </ul>
-          </div>
-        )}
-
+    <div className="updateNoticeBg mandatoryUpdateBg">
+      <div className="updateNoticeBox mandatoryUpdateBox">
+        <h2>새로운 버전이 있습니다</h2>
+        <p>안정적인 사용을 위해 최신 버전으로 새로고침해야 합니다.</p>
         <p className="muted">현재 버전: {APP_BUILD_VERSION}<br />최신 버전: {nextVersion}</p>
         <div className="updateNoticeActions singleAction">
-          <button className="primary" onClick={confirmUpdateNotice}>확인</button>
+          <button className="primary" onClick={forceUpdateRefresh} disabled={updating}>{updating ? '새로고침 중...' : '최신 버전으로 새로고침'}</button>
         </div>
       </div>
     </div>
@@ -2839,7 +2819,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
   return (
     <div className="app">
       <AutoLogoutGuard onLogout={onLogout} />
-      <UpdateNotice user={user} />
+      <UpdateNotice user={user} currentTab={tab} />
       <header>
         <div>
           <h1>세찬컴퍼니 인트라넷</h1>
