@@ -5,7 +5,35 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.36-20260709013000';
+const APP_BUILD_VERSION = 'v29.37-20260709014000';
+
+
+function parseAppVersion(versionText) {
+  const text = String(versionText || '').trim();
+  const match = text.match(/v?(\d+)\.(\d+)(?:-(\d+))?/i);
+  if (!match) return null;
+  return {
+    major: Number(match[1] || 0),
+    minor: Number(match[2] || 0),
+    build: Number(match[3] || 0),
+    raw: text
+  };
+}
+
+function compareAppVersion(a, b) {
+  const va = parseAppVersion(a);
+  const vb = parseAppVersion(b);
+  if (!va || !vb) return String(a || '').localeCompare(String(b || ''));
+  if (va.major !== vb.major) return va.major - vb.major;
+  if (va.minor !== vb.minor) return va.minor - vb.minor;
+  return va.build - vb.build;
+}
+
+function isNewerVersion(remoteVersion, currentVersion) {
+  if (!remoteVersion || !currentVersion) return false;
+  return compareAppVersion(remoteVersion, currentVersion) > 0;
+}
+
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -727,11 +755,18 @@ function UpdateNotice({ user }) {
         const data = await res.json();
         if (!alive) return;
 
-        if (data.version && data.version !== APP_BUILD_VERSION) {
-          setNextVersion(data.version);
+        const remoteVersion = data.version || '';
+        // V29.37: 버전 팝업은 원격 version.json이 현재 앱보다 '진짜 최신'일 때만 표시한다.
+        // 캐시/구버전 version.json 때문에 v29.28 같은 낮은 버전이 내려와도 팝업을 띄우지 않는다.
+        if (isNewerVersion(remoteVersion, APP_BUILD_VERSION)) {
+          setNextVersion(remoteVersion);
           // latestChanges only: 누적 변경내역이 아니라 이번 배포 변경분만 표시
           setChanges(filterChangesByRole(data.latestChanges || data.changes || []));
           setHasUpdate(true);
+        } else {
+          setHasUpdate(false);
+          setNextVersion('');
+          setChanges([]);
         }
       } catch (e) {}
     }
