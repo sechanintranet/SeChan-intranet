@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
-const APP_BUILD_VERSION = 'v29.37-20260709014000';
+const APP_BUILD_VERSION = 'v29.38-20260709021000';
 
 
 function parseAppVersion(versionText) {
@@ -33,7 +33,6 @@ function isNewerVersion(remoteVersion, currentVersion) {
   if (!remoteVersion || !currentVersion) return false;
   return compareAppVersion(remoteVersion, currentVersion) > 0;
 }
-
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -756,8 +755,8 @@ function UpdateNotice({ user }) {
         if (!alive) return;
 
         const remoteVersion = data.version || '';
-        // V29.37: 버전 팝업은 원격 version.json이 현재 앱보다 '진짜 최신'일 때만 표시한다.
-        // 캐시/구버전 version.json 때문에 v29.28 같은 낮은 버전이 내려와도 팝업을 띄우지 않는다.
+        // V29.38: 원격 version.json이 현재 앱보다 진짜 최신일 때만 업데이트 팝업 표시.
+        // 낮은 버전/캐시된 version.json이 내려와도 팝업을 띄우지 않는다.
         if (isNewerVersion(remoteVersion, APP_BUILD_VERSION)) {
           setNextVersion(remoteVersion);
           // latestChanges only: 누적 변경내역이 아니라 이번 배포 변경분만 표시
