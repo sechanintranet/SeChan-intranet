@@ -3429,6 +3429,9 @@ function CallList({ user, mode, readOnly = false }) {
   return (
     <div>
       <h2>{title}</h2>
+      {loading ? (
+        <div className="sectionCard pageLoadingPanel"><InlineLoadingState /></div>
+      ) : (<>
       <div className="stats">
         <Card title="전체 대상" value={stats.total} />
         <Card title="전체 완료율" value={`${stats.rate}%`} />
@@ -3479,6 +3482,7 @@ function CallList({ user, mode, readOnly = false }) {
       </div>
       {selected && <CallModal target={selected} user={user} onClose={()=>setSelected(null)} onSaved={load} readOnly={readOnly} />}
       {bulkTempOpen && <BulkTempAssignModal user={user} targets={targets} latestLogByTarget={latestLogByTarget} onClose={()=>setBulkTempOpen(false)} onSaved={load} />}
+      </>)}
     </div>
   );
 }
@@ -5941,6 +5945,9 @@ function ReviewDashboard({ user }) {
   return (
     <div>
       <h2>검수</h2>
+      {loading ? (
+        <div className="sectionCard pageLoadingPanel"><InlineLoadingState /></div>
+      ) : (<>
 
       <div className="stats">
         <Card title="전체 완료건" value={stats.total} />
@@ -6007,12 +6014,13 @@ function ReviewDashboard({ user }) {
                 <td>{target.target_date}</td>
               </tr>
             ))}
-            {!reviewRows.length && <tr><td colSpan="9" className="muted">조건에 맞는 검수 건이 없습니다.</td></tr>}
+            {!loading && !reviewRows.length && <tr><td colSpan="9"><EmptyStateText>조건에 맞는 검수 건이 없습니다.</EmptyStateText></td></tr>}
           </tbody>
         </table>
       </div>
 
       {selected && <ReviewModal item={selected} user={user} onClose={()=>setSelected(null)} onSaved={load} />}
+      </>)}
     </div>
   );
 }
@@ -7142,6 +7150,8 @@ function ManagerStoreDashboard({ user }) {
       setLogs(allLogs || []);
     } catch (e) {
       alert('매장 현황 조회 오류: ' + e.message);
+    } finally {
+      setLoading(false);
     }
   }
   const latestLogByTarget = useMemo(() => {
@@ -7172,6 +7182,9 @@ function ManagerStoreDashboard({ user }) {
   return (
     <div>
       <h2>{user.store_name} 해피콜 현황</h2>
+      {loading ? (
+        <div className="sectionCard pageLoadingPanel"><InlineLoadingState /></div>
+      ) : (<>
       <div className="stats">
         <Card title="전체 대상" value={stats.total} />
         <Card title="완료" value={stats.done} />
@@ -7195,6 +7208,7 @@ function ManagerStoreDashboard({ user }) {
         <tbody>{targets.map(t => { const log = latestLogByTarget[t.id]; return <tr key={t.id} onClick={()=>setSelected({ ...t, latestLog: latestLogByTarget[t.id] || null })} className="clickableRow"><td>{t.join_no}</td><td>{t.assigned_employee}</td><td>{callTypeLabel(t.call_type)}</td><td>{t.target_date}</td><td>{log ? '완료' : '미완료'}</td><td>{log ? `${log.call_result} / ${log.call_detail}` : '-'}</td></tr> })}</tbody></table>
       </div>
       {selected && <CallModal target={selected} user={user} onClose={() => setSelected(null)} onSaved={load} readOnly={true} />}
+      </>)}
     </div>
   );
 }
@@ -7219,6 +7233,8 @@ function ManagerStoreDashboardV6({ user }) {
       setLogs(allLogs || []);
     } catch (e) {
       alert('매장 현황 조회 오류: ' + e.message);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -7260,6 +7276,9 @@ function ManagerStoreDashboardV6({ user }) {
   return (
     <div>
       <h2>{user.store_name} 해피콜 현황</h2>
+      {loading ? (
+        <div className="sectionCard pageLoadingPanel"><InlineLoadingState /></div>
+      ) : (<>
       <div className="stats">
         <Card title="전체 대상" value={stats.total} />
         <Card title="전체 완료율" value={`${stats.rate}%`} />
@@ -7316,6 +7335,7 @@ function ManagerStoreDashboardV6({ user }) {
         </table>
       </div>
       {selected && <CallModal target={selected} user={user} onClose={()=>setSelected(null)} onSaved={load} readOnly={true} />}
+      </>)}
     </div>
   );
 }
