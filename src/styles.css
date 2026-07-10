@@ -9536,3 +9536,70 @@ body.modal-open{
     white-space:nowrap !important;
   }
 }
+
+/* =========================================================
+   V29.39 모바일 관리자 조정/직원상세 정렬 보정
+   대상 화면만 한정 적용
+   ========================================================= */
+@media(max-width:768px){
+  /* 관리자 조정: 직원 목록 표를 사유 입력칸과 같은 폭 안에 맞춤 */
+  .freepassBulkTable.compactFreepassTable{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    table-layout:fixed !important;
+  }
+  .freepassBulkTable.compactFreepassTable th,
+  .freepassBulkTable.compactFreepassTable td{
+    box-sizing:border-box !important;
+    padding:10px 6px !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    vertical-align:middle !important;
+  }
+  .freepassBulkTable.compactFreepassTable th:nth-child(1),
+  .freepassBulkTable.compactFreepassTable td:nth-child(1){width:16% !important;text-align:center !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(2),
+  .freepassBulkTable.compactFreepassTable td:nth-child(2){width:25% !important;text-align:center !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(3),
+  .freepassBulkTable.compactFreepassTable td:nth-child(3){width:34% !important;text-align:center !important;}
+  .freepassBulkTable.compactFreepassTable th:nth-child(4),
+  .freepassBulkTable.compactFreepassTable td:nth-child(4){width:25% !important;text-align:center !important;}
+
+  /* 직원관리 상세: 날짜/시간 값이 입력 박스의 세로 중앙에 오도록 고정 */
+  .employeeProfileGrid input[type="date"],
+  .employeeProfileGrid input[type="time"]{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    height:42px !important;
+    min-height:42px !important;
+    max-height:42px !important;
+    padding-top:0 !important;
+    padding-bottom:0 !important;
+    line-height:42px !important;
+    text-align:center !important;
+  }
+  .employeeProfileGrid input[type="date"]::-webkit-date-and-time-value,
+  .employeeProfileGrid input[type="time"]::-webkit-date-and-time-value{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-height:42px !important;
+    height:42px !important;
+    line-height:42px !important;
+    text-align:center !important;
+    margin:0 !important;
+    padding:0 !important;
+  }
+  .employeeProfileGrid input[type="date"]::-webkit-datetime-edit,
+  .employeeProfileGrid input[type="time"]::-webkit-datetime-edit{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-height:42px !important;
+    line-height:42px !important;
+    padding:0 !important;
+  }
+}
