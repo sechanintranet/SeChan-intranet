@@ -2777,12 +2777,12 @@ function HomeDashboard({ user, setTab }) {
     try{
       const today = todayLocalISO ? todayLocalISO() : new Date().toISOString().slice(0,10);
 
-      const {data:mine}=await supabase.from('happycall_targets').select('id,status,assigned_to,assigned_employee,target_date').eq('assigned_employee',user.name);
-      setHappyCount((mine||[]).filter(r => !['통화 완료','최종완료','완료'].includes(r.status)).length);
+      const {data:mine}=await supabase.from('happycall_targets').select('id,status,assigned_to,assigned_employee,target_date,assigned_store,is_skipped').eq('assigned_employee',user.name);
+      setHappyCount((mine||[]).filter(isVisibleHappycallTarget).filter(r => !['통화 완료','최종완료','완료'].includes(r.status)).length);
 
       if(isAdminLike(user)){
-        const {data:rv}=await supabase.from('happycall_targets').select('id,review_status,status').in('review_status',['검수대기','반려','대기']);
-        setReviewCount((rv||[]).length);
+        const {data:rv}=await supabase.from('happycall_targets').select('id,review_status,status,assigned_store,is_skipped').in('review_status',['검수대기','반려','대기']);
+        setReviewCount((rv||[]).filter(isVisibleHappycallTarget).length);
       }
 
       const {data:fp}=await supabase.from('freepass_requests').select('id,status,employee_name,employee_store').eq('employee_name',user.name);
@@ -3312,7 +3312,7 @@ function Dashboard({ user }) {
     try {
       const allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
       const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
-      let visible = (allTargets || []).filter(t => !t.is_skipped);
+      let visible = (allTargets || []).filter(isVisibleHappycallTarget);
       if (user?.role === '점장') visible = visible.filter(t => t.assigned_store === user.store_name);
       setTargets(visible);
       setLogs(allLogs || []);
@@ -3387,7 +3387,7 @@ function CallList({ user, mode, readOnly = false }) {
     setLoading(true);
     try {
       let allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
-      let visible = (allTargets || []).filter(t => !t.is_skipped);
+      let visible = (allTargets || []).filter(isVisibleHappycallTarget);
       if (mode === 'mine') {
         visible = visible.filter(t => {
           if (t.temporary_assignee) return t.temporary_assignee === user.name;
@@ -5191,7 +5191,7 @@ function EmployeePerformanceDashboard({ user, mode = 'all' }) {
       const allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
       const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
 
-      let visible = (allTargets || []).filter(t => !t.is_skipped);
+      let visible = (allTargets || []).filter(isVisibleHappycallTarget);
       if (mode === 'store') visible = visible.filter(t => t.assigned_store === user.store_name);
 
       setTargets(visible);
@@ -5519,7 +5519,7 @@ function HappycallAssignmentStatus({ user }) {
         fetchAllRows('customers', '*', 'open_date')
       ]);
 
-      const validTargets = (targetData || []).filter(t => !t.is_skipped);
+      const validTargets = (targetData || []).filter(isVisibleHappycallTarget);
       const normalizedEmployees = (empData || []).map(e => ({ ...e, store_name: normalizeOfficeStoreName(e.store_name) }));
       const permanentAssignedNames = new Set(validTargets.map(t => t.assigned_employee).filter(Boolean));
       const currentHappycallNames = new Set(validTargets.map(t => currentAssigneeName(t)).filter(Boolean));
@@ -5895,7 +5895,7 @@ function ReviewDashboard({ user }) {
       const customers = await fetchAllRows('customers', '*', 'open_date');
       setCustomersByJoinNo(Object.fromEntries((customers || []).map(c => [c.join_no, c])));
 
-      let visibleTargets = (allTargets || []).filter(t => !t.is_skipped);
+      let visibleTargets = (allTargets || []).filter(isVisibleHappycallTarget);
       if (user.role === '검수자') {
         const { data: permissions, error: permError } = await supabase
           .from('reviewer_store_permissions')
@@ -6634,6 +6634,10 @@ function isHappycallExcludedStore(storeName) {
   return HAPPY_CALL_EXCLUDED_STORES.has(normalized);
 }
 
+function isVisibleHappycallTarget(target) {
+  return !!target && !target.is_skipped && !isHappycallExcludedStore(target.assigned_store);
+}
+
 function isHappycallExcludedCustomer(customer = {}) {
   return isHappycallExcludedStore(customer.store_name) ||
     isHappycallExcludedStore(customer.raw_store_name);
@@ -7266,7 +7270,7 @@ function ManagerStoreDashboard({ user }) {
     try {
       const allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
       const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
-      setTargets((allTargets || []).filter(t => !t.is_skipped && t.assigned_store === user.store_name));
+      setTargets((allTargets || []).filter(t => isVisibleHappycallTarget(t) && t.assigned_store === user.store_name));
       setLogs(allLogs || []);
     } catch (e) {
       alert('매장 현황 조회 오류: ' + e.message);
@@ -7349,7 +7353,7 @@ function ManagerStoreDashboardV6({ user }) {
     try {
       const allTargets = await fetchAllRows('happycall_targets', '*', 'target_date');
       const allLogs = await fetchAllRows('happycall_logs', '*', 'checked_at');
-      setTargets((allTargets || []).filter(t => !t.is_skipped && t.assigned_store === user.store_name));
+      setTargets((allTargets || []).filter(t => isVisibleHappycallTarget(t) && t.assigned_store === user.store_name));
       setLogs(allLogs || []);
     } catch (e) {
       alert('매장 현황 조회 오류: ' + e.message);
