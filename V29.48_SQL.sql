@@ -11,6 +11,22 @@ create index if not exists happycall_targets_scheduled_date_idx
   on public.happycall_targets (scheduled_date)
   where scheduled_date is not null;
 
+alter table public.happycall_targets
+  drop constraint if exists happycall_targets_call_type_check;
+
+alter table public.happycall_targets
+  add constraint happycall_targets_call_type_check
+  check (call_type = any (array[
+    'MONTHLY_DAY'::text,
+    'D_PLUS_1'::text,
+    'D_PLUS_7'::text,
+    'D_PLUS_13'::text,
+    'D_PLUS_93'::text,
+    'D_PLUS_183'::text,
+    'D_PLUS_95'::text,
+    'D_PLUS_185'::text
+  ]));
+
 with pending_legacy as (
   select
     t.id,
