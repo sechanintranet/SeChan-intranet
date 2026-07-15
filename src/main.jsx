@@ -3489,7 +3489,7 @@ function CallList({ user, mode, readOnly = false }) {
               <div>
                 <b>{formatCustomerJoinNo(t.join_no, customersByJoinNo, t.customer_name)}</b>
                 <p>{t.assigned_store} · {t.temporary_assignee ? `${t.assigned_employee} → 임시 ${t.temporary_assignee}` : t.assigned_employee} · {callTypeLabel(t.call_type)}</p>
-                <p className="muted">{t.scheduled_date ? `원 대상일 ${t.original_target_date || t.target_date} · 처리 예정일 ${t.scheduled_date}` : `대상일 ${t.target_date}`} / {t.skip_reason || t.assign_reason || ''}</p>
+                <p className="muted">{t.scheduled_date ? `원 대상일 ${t.original_target_date || t.target_date} · 처리 예정일 ${t.scheduled_date}` : `대상일 ${t.target_date}`} / {currentHappycallTerm(t.skip_reason || t.assign_reason)}</p>
                 {log?.review_status === '반려' && <p className="rejectReason">반려사유: {log.review_memo || '반려 사유 없음'}</p>}
               </div>
               {log?.review_status === '반려' ? <span className="badge rejected">반려</span> : <StatusBadge target={t} log={log} />}
@@ -3515,6 +3515,12 @@ function callTypeLabel(type) {
     D_PLUS_95: 'D+95',
     D_PLUS_185: 'D+185'
   })[type] || type;
+}
+
+function currentHappycallTerm(value) {
+  return String(value || '')
+    .replaceAll('D+95', 'D+93')
+    .replaceAll('D+185', 'D+183');
 }
 
 
@@ -3951,7 +3957,7 @@ async function save() {
             <p><b>담당자</b><br />{target.assigned_employee}</p>
           </div>
         </section>
-        <section><h3>배정 사유</h3><p className="reason">{target.assign_reason || target.skip_reason || '배정 사유 없음'}</p></section>
+        <section><h3>배정 사유</h3><p className="reason">{currentHappycallTerm(target.assign_reason || target.skip_reason) || '배정 사유 없음'}</p></section>
         {canReschedule && (
           <section className="scheduleEditSection">
             <h3>D+93 / D+183 실제 처리 예정일</h3>
@@ -7248,7 +7254,7 @@ function TargetGenerator({ user }) {
                   <td>{callTypeLabel(r.call_type)}</td>
                   <td>{r.assigned_store}</td>
                   <td>{r.assigned_employee || '배정불가'}</td>
-                  <td>{r.skip_reason}</td>
+                  <td>{currentHappycallTerm(r.skip_reason)}</td>
                 </tr>
               ))}
             </tbody>
