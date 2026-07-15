@@ -5,8 +5,13 @@ import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 import { createClientUuid, runNetworkMutation } from './networkMutation.js';
+import {
+  isActiveEmployeeSession,
+  resolveJichukRetiredSellerRule,
+  sanitizeStoredEmployee
+} from './stage1Rules.js';
 
-const APP_BUILD_VERSION = 'V29.49';
+const APP_BUILD_VERSION = 'V29.50';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -31,6 +36,23 @@ async function fetchAllRows(tableName, selectText = '*', orderColumn = null) {
 
     if (rows.length < pageSize) break;
     from += pageSize;
+  }
+
+  return allRows;
+}
+
+async function fetchRowsByIds(tableName, ids, selectText = '*', chunkSize = 100) {
+  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
+  const allRows = [];
+
+  for (let index = 0; index < uniqueIds.length; index += chunkSize) {
+    const chunk = uniqueIds.slice(index, index + chunkSize);
+    const { data, error } = await supabase
+      .from(tableName)
+      .select(selectText)
+      .in('id', chunk);
+    if (error) throw error;
+    allRows.push(...(data || []));
   }
 
   return allRows;
@@ -209,11 +231,76 @@ function App() {
   useEffect(() => { applyMobileTableLabels(); });
 
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('happycall_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('happycall_user');
+      return saved ? sanitizeStoredEmployee(JSON.parse(saved)) : null;
+    } catch {
+      localStorage.removeItem('happycall_user');
+      return null;
+    }
   });
+  const [sessionChecking, setSessionChecking] = useState(() => Boolean(user));
+  const invalidSessionNotified = useRef(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSessionChecking(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function validateEmploymentSession() {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, store_name, status, role, hire_date, resign_date, end_time, happycall_assignment_enabled')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (error) {
+        console.warn('employee session validation failed', error);
+        setSessionChecking(false);
+        return;
+      }
+
+      if (!isActiveEmployeeSession(data)) {
+        localStorage.removeItem('happycall_user');
+        setUser(null);
+        setSessionChecking(false);
+        if (!invalidSessionNotified.current) {
+          invalidSessionNotified.current = true;
+          alert('퇴사 처리되어 인트라넷 접속이 종료되었습니다.');
+        }
+        return;
+      }
+
+      const safeEmployee = sanitizeStoredEmployee(data);
+      localStorage.setItem('happycall_user', JSON.stringify(safeEmployee));
+      setUser(safeEmployee);
+      setSessionChecking(false);
+    }
+
+    const handleFocus = () => validateEmploymentSession();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') validateEmploymentSession();
+    };
+
+    validateEmploymentSession();
+    const intervalId = window.setInterval(validateEmploymentSession, 30 * 1000);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [user?.id]);
 
   if (!supabaseUrl || !supabaseAnonKey) return <EnvMissing />;
+  if (sessionChecking) return <div className="page center"><div className="loginCard"><InlineLoadingState label="접속 권한 확인 중" /></div></div>;
   if (!user) return <Login onLogin={setUser} />;
 
   return (
@@ -221,8 +308,9 @@ function App() {
       <MainApp
         user={user}
         onUserUpdate={(nextUser) => {
-          localStorage.setItem('happycall_user', JSON.stringify(nextUser));
-          setUser(nextUser);
+          const safeEmployee = sanitizeStoredEmployee(nextUser);
+          localStorage.setItem('happycall_user', JSON.stringify(safeEmployee));
+          setUser(safeEmployee);
         }}
         onLogout={() => {
           localStorage.removeItem('happycall_user');
@@ -291,14 +379,25 @@ function Login({ onLogin }) {
     setEmployees(sortEmployeesForLogin(data || []));
   }
 
-  function login() {
+  async function login() {
     setErr('');
     const emp = employees.find(e => e.name === name);
     if (!emp) return setErr('직원을 선택해주세요.');
-    if (emp.status !== '재직') return setErr('퇴사 처리된 직원입니다. 관리자에게 문의하세요.');
-    if ((emp.password || '') !== password) return setErr('비밀번호가 맞지 않습니다.');
-    localStorage.setItem('happycall_user', JSON.stringify(emp));
-    onLogin(emp);
+
+    const { data: latestEmployee, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('id', emp.id)
+      .maybeSingle();
+    if (error) return setErr('접속 권한을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    if (!isActiveEmployeeSession(latestEmployee)) {
+      await loadEmployees();
+      return setErr('퇴사 처리된 직원입니다. 관리자에게 문의하세요.');
+    }
+    if ((latestEmployee.password || '') !== password) return setErr('비밀번호가 맞지 않습니다.');
+    const safeEmployee = sanitizeStoredEmployee(latestEmployee);
+    localStorage.setItem('happycall_user', JSON.stringify(safeEmployee));
+    onLogin(safeEmployee);
   }
 
   return (
@@ -327,20 +426,38 @@ function PasswordChangeModal({ user, onClose, onUserUpdate }) {
   const [busy, setBusy] = useState(false);
 
   async function changePassword() {
-    if ((user.password || '') !== current) return alert('현재 비밀번호가 맞지 않습니다.');
     if (next.length < 4) return alert('새 비밀번호는 4자리 이상으로 입력해주세요.');
     if (next !== confirmPw) return alert('새 비밀번호 확인이 일치하지 않습니다.');
 
     setBusy(true);
-    const { error } = await supabase.from('employees').update({ password: next }).eq('id', user.id);
-    setBusy(false);
-    if (error) return alert(error.message);
+    try {
+      const { data: latestEmployee, error: lookupError } = await supabase
+        .from('employees')
+        .select('id, password, status')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!isActiveEmployeeSession(latestEmployee)) {
+        alert('퇴사 처리된 직원은 비밀번호를 변경할 수 없습니다.');
+        return;
+      }
+      if ((latestEmployee.password || '') !== current) {
+        alert('현재 비밀번호가 맞지 않습니다.');
+        return;
+      }
 
-    const nextUser = { ...user, password: next };
-    onUserUpdate(nextUser);
-    await writeAuditLog('비밀번호변경', 'employee', user.id, user, `${user.name} 비밀번호 변경`);
-    alert('비밀번호가 변경되었습니다.');
-    onClose();
+      const { error } = await supabase.from('employees').update({ password: next }).eq('id', user.id);
+      if (error) throw error;
+
+      onUserUpdate(user);
+      await writeAuditLog('비밀번호변경', 'employee', user.id, user, `${user.name} 비밀번호 변경`);
+      alert('비밀번호가 변경되었습니다.');
+      onClose();
+    } catch (error) {
+      alert('비밀번호 변경 오류: ' + (error?.message || error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -380,6 +497,9 @@ async function saveErrorReport({ user, currentTab = '', actionName = '', joinNo 
       alert('이미 접수된 오류입니다.\n\n동일 오류는 1분 이내 다시 접수되지 않습니다.');
       return;
     }
+
+    // 같은 오류가 여러 탭에서 동시에 접수돼도 다음 요청을 즉시 차단한다.
+    markErrorReportedNow(errorHash, user?.name);
 
     // 접수 상태의 동일 오류가 있으면 새로 만들지 않고 발생횟수만 증가
     const { data: existing, error: findError } = await supabase
@@ -452,6 +572,7 @@ async function saveErrorReport({ user, currentTab = '', actionName = '', joinNo 
     markErrorReportedNow(errorHash, user?.name);
     alert('오류 보고가 접수되었습니다.');
   } catch (e) {
+    clearErrorReportedMark(errorHash, user?.name);
     alert('오류 보고 저장 실패: ' + e.message);
   } finally {
     pendingErrorReportKeys.delete(pendingKey);
@@ -816,6 +937,9 @@ function wasErrorReportedWithinOneMinute(hash, userName) {
 }
 function markErrorReportedNow(hash, userName) {
   try { localStorage.setItem(getErrorThrottleKey(hash, userName), String(Date.now())); } catch {}
+}
+function clearErrorReportedMark(hash, userName) {
+  try { localStorage.removeItem(getErrorThrottleKey(hash, userName)); } catch {}
 }
 function askErrorReport({ user, currentTab = '', actionName = '', joinNo = '', error }) {
   const message = error?.message || String(error || '알 수 없는 오류');
@@ -2691,11 +2815,11 @@ function statusOptionsFor(row){
             <div className="accessoryItemsHead"><h4>주문 품목</h4><button type="button" onClick={addItem}>품목 추가</button></div>
             {newOrder.items.map((item,idx)=>(
               <div className="accessoryItemRow v287" key={idx}>
-                <input value={item.model_name} onChange={e=>updateItem(idx,{model_name:e.target.value})} placeholder="모델명 예) 아이폰 17 프로맥스" />
-                <select value={item.category} onChange={e=>updateItem(idx,{category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select>
-                <input value={item.item_name} onChange={e=>updateItem(idx,{item_name:e.target.value})} placeholder="예) 투명 케이스 / 다이어리 케이스(레드)" />
-                <input type="number" value={item.price} onChange={e=>updateItem(idx,{price:e.target.value})} placeholder="원가" />
-                <button type="button" className="tinyDeleteBtn" onClick={()=>removeItem(idx)} disabled={newOrder.items.length<=1}>삭제</button>
+                <input aria-label={`${idx + 1}번 품목 모델명`} value={item.model_name} onChange={e=>updateItem(idx,{model_name:e.target.value})} placeholder="모델명 예) 아이폰 17 프로맥스" />
+                <select aria-label={`${idx + 1}번 품목 카테고리`} value={item.category} onChange={e=>updateItem(idx,{category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select>
+                <input aria-label={`${idx + 1}번 품목명`} value={item.item_name} onChange={e=>updateItem(idx,{item_name:e.target.value})} placeholder="예) 투명 케이스 / 다이어리 케이스(레드)" />
+                <input aria-label={`${idx + 1}번 품목 원가`} type="number" value={item.price} onChange={e=>updateItem(idx,{price:e.target.value})} placeholder="원가" />
+                <button aria-label={`${idx + 1}번 품목 삭제`} type="button" className="tinyDeleteBtn" onClick={()=>removeItem(idx)} disabled={newOrder.items.length<=1}>삭제</button>
               </div>
             ))}
             <div className="accessoryOrderTotal"><span>주문 원가 합계</span><strong>{formatKRW(orderTotal)}</strong><span>고객 수납 예정</span><strong>{newOrder.payment_type === '무료제공' ? '무료제공' : `${newOrder.payment_type} · ${formatKRW(paymentAmount)}`}</strong></div>
@@ -2713,11 +2837,11 @@ function statusOptionsFor(row){
           <button className={active==='returned'?'active':''} onClick={()=>setActive('returned')}>반품 <b>{counts.returned}</b></button>
         </div>
         <div className="accessoryFilters">
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="주문번호/고객명/모델명/품목 검색" />
-          {scope==='all' && <select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}><option value="">전체 매장</option>{storeOptions.map(s=><option key={s}>{s}</option>)}</select>}
-          {scope !== 'mine' && <select value={employeeFilter} onChange={e=>setEmployeeFilter(e.target.value)}><option value="">전체 담당자</option>{employeeOptions.map(n=><option key={n}>{n}</option>)}</select>}
-          {scope !== 'mine' && <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}><option value="">전체 카테고리</option>{categories.map(c=><option key={c}>{c}</option>)}</select>}
-          {scope !== 'mine' && <select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">전체 경로</option>{orderSources.map(c=><option key={c}>{c}</option>)}</select>}
+          <input aria-label="악세사리 주문 검색" value={search} onChange={e=>setSearch(e.target.value)} placeholder="주문번호/고객명/모델명/품목 검색" />
+          {scope==='all' && <select aria-label="매장 필터" value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}><option value="">전체 매장</option>{storeOptions.map(s=><option key={s}>{s}</option>)}</select>}
+          {scope !== 'mine' && <select aria-label="담당자 필터" value={employeeFilter} onChange={e=>setEmployeeFilter(e.target.value)}><option value="">전체 담당자</option>{employeeOptions.map(n=><option key={n}>{n}</option>)}</select>}
+          {scope !== 'mine' && <select aria-label="카테고리 필터" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}><option value="">전체 카테고리</option>{categories.map(c=><option key={c}>{c}</option>)}</select>}
+          {scope !== 'mine' && <select aria-label="주문 경로 필터" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">전체 경로</option>{orderSources.map(c=><option key={c}>{c}</option>)}</select>}
         </div>
         <div className="accessoryOrderList">
           {filtered.map(row=>{
@@ -2789,12 +2913,43 @@ function HomeDashboard({ user, setTab }) {
     try{
       const today = todayLocalISO ? todayLocalISO() : new Date().toISOString().slice(0,10);
 
-      const {data:mine}=await supabase.from('happycall_targets').select('id,status,assigned_to,assigned_employee,target_date,assigned_store,is_skipped').eq('assigned_employee',user.name);
-      setHappyCount((mine||[]).filter(isVisibleHappycallTarget).filter(r => !['통화 완료','최종완료','완료'].includes(r.status)).length);
+      const [{data:mine,error:mineError},{data:mineLogs,error:mineLogsError}] = await Promise.all([
+        supabase.from('happycall_targets').select('id,assigned_employee,target_date,scheduled_date,assigned_store,is_skipped').eq('assigned_employee',user.name),
+        supabase.from('happycall_logs').select('target_id,employee_name').eq('employee_name',user.name)
+      ]);
+      if (mineError) throw mineError;
+      if (mineLogsError) throw mineLogsError;
+      const completedTargetIds = new Set((mineLogs||[]).map(log=>log.target_id));
+      setHappyCount((mine||[])
+        .filter(isVisibleHappycallTarget)
+        .filter(target => !completedTargetIds.has(target.id) && !isFutureScheduledTarget(target))
+        .length);
 
       if(isAdminLike(user)){
-        const {data:rv}=await supabase.from('happycall_targets').select('id,review_status,status,assigned_store,is_skipped').in('review_status',['검수대기','반려','대기']);
-        setReviewCount((rv||[]).filter(isVisibleHappycallTarget).length);
+        const {data:reviewLogs,error:reviewLogsError}=await supabase
+          .from('happycall_logs')
+          .select('id,target_id,review_status,checked_at')
+          .in('review_status',['검수대기','반려','대기']);
+        if (reviewLogsError) throw reviewLogsError;
+
+        const latestReviewByTarget = {};
+        (reviewLogs||[]).forEach(log => {
+          const previous = latestReviewByTarget[log.target_id];
+          if (!previous || String(log.checked_at||'').localeCompare(String(previous.checked_at||'')) > 0) {
+            latestReviewByTarget[log.target_id] = log;
+          }
+        });
+        const reviewTargetIds = Object.keys(latestReviewByTarget);
+        if (!reviewTargetIds.length) {
+          setReviewCount(0);
+        } else {
+          const reviewTargets = await fetchRowsByIds(
+            'happycall_targets',
+            reviewTargetIds,
+            'id,assigned_store,is_skipped'
+          );
+          setReviewCount((reviewTargets||[]).filter(isVisibleHappycallTarget).length);
+        }
       }
 
       const {data:fp}=await supabase.from('freepass_requests').select('id,status,employee_name,employee_store').eq('employee_name',user.name);
@@ -4155,7 +4310,7 @@ function ReviewStorePermissionsModal({ employee, stores, user, onClose }) {
 function Employees({ user }) {
   const [rows, setRows] = useState([]);
   const [storeOptions, setStoreOptions] = useState([]);
-  const [form, setForm] = useState({ name:'', store_name:'금촌', status:'재직', password:'1234', role:'직원', hire_date:'', resign_date:'', end_time:'20:00' });
+  const [form, setForm] = useState({ name:'', store_name:'금촌', status:'재직', password:'', role:'직원', hire_date:'', resign_date:'', end_time:'20:00' });
   const [viewStatus, setViewStatus] = useState('재직');
   const [drafts, setDrafts] = useState({});
   const [detailTarget, setDetailTarget] = useState(null);
@@ -4204,12 +4359,13 @@ function Employees({ user }) {
   async function add() {
     if (!form.name.trim()) return alert('직원명을 입력해주세요.');
     if (!form.store_name) return alert('매장을 선택해주세요.');
+    if (String(form.password || '').length < 4) return alert('초기 비밀번호를 4자리 이상 입력해주세요.');
 
     const payload = {
       name: form.name,
       store_name: form.store_name,
       status: form.status,
-      password: form.password || '1234',
+      password: form.password,
       role: form.role,
       happycall_assignment_enabled: true,
       hire_date: form.hire_date || null,
@@ -4221,7 +4377,7 @@ function Employees({ user }) {
     if (error) return alert(error.message);
 
     await writeAuditLog('직원추가', 'employee', form.name, user, `${form.name} / ${form.store_name} / ${form.role}`);
-    setForm({ name:'', store_name: storeOptions[0]?.name || '금촌', status:'재직', password:'1234', role:'직원', hire_date:'', resign_date:'', end_time:'20:00' });
+    setForm({ name:'', store_name: storeOptions[0]?.name || '금촌', status:'재직', password:'', role:'직원', hire_date:'', resign_date:'', end_time:'20:00' });
     load();
   }
 
@@ -4313,7 +4469,7 @@ function Employees({ user }) {
           <option>검수자</option>
           <option>관리자</option><option>최고관리자</option>
         </select>
-        <input placeholder="초기 비밀번호" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
+        <input type="password" autoComplete="new-password" aria-label="초기 비밀번호" placeholder="초기 비밀번호 4자리 이상" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
         <input type="time" value={form.end_time} onChange={e=>setForm({...form,end_time:e.target.value})} title="프리패스 오후 사용 제한 기준 퇴근시간" />
         <button className="primary" onClick={add}>직원 추가</button>
       </div></div>
@@ -6561,15 +6717,19 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
   };
 
   const isActive = e => isHappycallAssignableEmployee(e);
-  const findEmp = name => (employees || []).find(e => normName(e.name) === normName(name));
+  const findEmp = name => {
+    const matches = (employees || []).filter(e => normName(e.name) === normName(name));
+    return matches.find(isActive) || matches.find(e => e.status === '재직') || matches[0];
+  };
 
   const baseStore = normStore(customer.store_name || customer.raw_store_name);
   const storeRow = (stores || []).find(s => normStore(s.name) === baseStore);
-  let assignStore = storeRow?.status === '폐점' && storeRow?.successor_store ? normStore(storeRow.successor_store) : baseStore;
+  let assignStore = baseStore === '지축'
+    ? '지축'
+    : (storeRow?.status === '폐점' && storeRow?.successor_store ? normStore(storeRow.successor_store) : baseStore);
 
   if (assignStore === '합정') assignStore = '능곡';
   if (assignStore === '고양') assignStore = '화정';
-  if (assignStore === '지축') assignStore = '금촌';
 
   const prev = (histories || [])
     .filter(h => String(h.join_no) === String(customer.join_no))
@@ -6578,6 +6738,18 @@ function resolveAssigneeV8Compact(customer, customers, employees, stores, histor
   const latestEmp = findEmp(customer.seller_name);
   if (isActive(latestEmp)) {
     return { assigned_employee: latestEmp.name, assigned_store: latestEmp.store_name || assignStore, reason: '최신/재입사 담당자 본인 재배정' };
+  }
+
+  const jichukAssignment = resolveJichukRetiredSellerRule({
+    customerStore: baseStore,
+    sellerName: customer.seller_name,
+    employees
+  });
+  if (jichukAssignment) {
+    return {
+      ...jichukAssignment,
+      assigned_employee: jichukAssignment.assigned_employee || '배정불가'
+    };
   }
 
   const customerHistory = (customers || [])
@@ -6623,7 +6795,7 @@ function normalizeOfficeStoreName(name) {
 function sortStoresForEmployeeDropdown(stores = []) {
   const normalized = (stores || [])
     .filter(s => s && s.name)
-    .filter(s => s.name !== '관리자')
+    .filter(s => s.name !== '관리자' && s.name !== '임지하')
     .map(s => ({ ...s, name: normalizeOfficeStoreName(s.name), displayName: displayStoreNameForUi(s.name) }));
 
   if (!normalized.some(s => s.name === '사무실')) {
@@ -6738,7 +6910,8 @@ function resolveD95D185Assignee({ customer, employees, employeeHistories }) {
   const storeName = findCustomerStoreName(customer);
   const joinDate = customer.open_date || customer.join_date || customer.contract_date || customer.date || customer['개통일자'] || customer['가입일자'] || '';
 
-  const seller = (employees || []).find(e => e.name === sellerName);
+  const matchingSellers = (employees || []).filter(e => e.name === sellerName);
+  const seller = matchingSellers.find(isActiveEmployee) || matchingSellers[0];
   if (isActiveEmployee(seller)) {
     return {
       assigned_store: normalizeStoreNameForAssignment(seller.store_name || storeName),
@@ -6746,6 +6919,14 @@ function resolveD95D185Assignee({ customer, employees, employeeHistories }) {
       reason: 'D+93/D+183 재직 판매자 본인 배정'
     };
   }
+
+
+  const jichukAssignment = resolveJichukRetiredSellerRule({
+    customerStore: storeName,
+    sellerName,
+    employees
+  });
+  if (jichukAssignment) return jichukAssignment;
 
   const historical = findHistoricalManager({
     histories: employeeHistories,
@@ -6922,7 +7103,7 @@ function TargetGenerator({ user }) {
     if (s && s.status === '폐점' && s.successor_store) return normalizeStore(s.successor_store);
     if (normalizeStore(storeName) === '합정') return '능곡';
     if (normalizeStore(storeName) === '고양') return '화정';
-    if (normalizeStore(storeName) === '지축') return '임지하';
+    if (normalizeStore(storeName) === '지축') return '지축';
     return normalizeStore(storeName);
   }
 
@@ -7014,7 +7195,7 @@ function TargetGenerator({ user }) {
           if (plusDate === targetDate || isSaturdayD1MondayCorrection) {
             const a = isD95D185Type(p.type)
               ? resolveD95D185Assignee({ customer: c, employees: employees || [], employeeHistories: employeeHistories || [] })
-              : decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, {});
+              : decideAssignment(c, employees || [], stores || [], historyMap, staffByStore, {});
             if (isHappycallExcludedStore(a.assigned_store)) return;
             rows.push({
               join_no: c.join_no,
@@ -7042,7 +7223,7 @@ function TargetGenerator({ user }) {
         if (!isSameOddEvenMonth(c.open_date, targetDate)) return;
         if (dPlusJoinNosThisMonth.has(c.join_no)) return;
 
-        const a = decideAssignment(c, activeEmployees, stores || [], historyMap, staffByStore, counter);
+        const a = decideAssignment(c, employees || [], stores || [], historyMap, staffByStore, counter);
         if (isHappycallExcludedStore(a.assigned_store)) return;
         rows.push({
           join_no: c.join_no,

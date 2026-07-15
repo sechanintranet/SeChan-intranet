@@ -9681,3 +9681,34 @@ td > .inlineLoadingState,
   .pageLoadingPanel{min-height:84px !important;padding:14px !important;}
   .inlineLoadingState{min-height:52px !important;padding:10px 12px !important;}
 }
+
+/* =========================================================
+   V29.50 1단계 안정화
+   - PC 상단 메뉴 한 줄 유지
+   - 모바일 홀수 카드/탭의 빈 공간 제거
+   ========================================================= */
+@media(min-width:769px){
+  .topNav.compactNav{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:8px !important;
+  }
+  .topNav.compactNav > button,
+  .topNav.compactNav > .compactGroup{
+    flex:1 1 0 !important;
+    min-width:0 !important;
+  }
+  .topNav.compactNav > button,
+  .topNav.compactNav .compactHead{
+    padding-left:8px !important;
+    padding-right:8px !important;
+    white-space:nowrap !important;
+  }
+}
+
+@media(max-width:768px){
+  .dashboardGrid > .dashboardCard:last-child:nth-child(odd),
+  .freepassModule > .moduleTabs > button:last-child:nth-child(odd){
+    grid-column:1 / -1 !important;
+  }
+}
