@@ -1,15 +1,18 @@
-import React, { Component, useEffect, useMemo, useState } from 'react';
+import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
+import { createClientUuid, runNetworkMutation } from './networkMutation.js';
 
-const APP_BUILD_VERSION = 'V29.48';
+const APP_BUILD_VERSION = 'V29.49';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
+const pendingErrorReportKeys = new Set();
 
 async function fetchAllRows(tableName, selectText = '*', orderColumn = null) {
   const pageSize = 1000;
@@ -363,6 +366,13 @@ function PasswordChangeModal({ user, onClose, onUserUpdate }) {
 async function saveErrorReport({ user, currentTab = '', actionName = '', joinNo = '', error }) {
   const message = error?.message || String(error || '알 수 없는 오류');
   const errorHash = createErrorFingerprint({ currentTab, actionName, joinNo, error });
+  const pendingKey = getErrorThrottleKey(errorHash, user?.name);
+
+  if (pendingErrorReportKeys.has(pendingKey)) {
+    alert('동일한 오류를 이미 접수 중입니다.');
+    return;
+  }
+  pendingErrorReportKeys.add(pendingKey);
 
   try {
     // 동일 직원/동일 오류는 1분 이내 재전송 차단
@@ -443,6 +453,8 @@ async function saveErrorReport({ user, currentTab = '', actionName = '', joinNo 
     alert('오류 보고가 접수되었습니다.');
   } catch (e) {
     alert('오류 보고 저장 실패: ' + e.message);
+  } finally {
+    pendingErrorReportKeys.delete(pendingKey);
   }
 }
 
@@ -3694,6 +3706,11 @@ function CallModal({ target, user, onClose, onSaved, readOnly = false }) {
   const [scheduledDate, setScheduledDate] = useState(target.scheduled_date || target.target_date || todayLocalISO());
   const [scheduleReason, setScheduleReason] = useState(target.scheduled_change_reason || '');
   const [scheduleBusy, setScheduleBusy] = useState(false);
+  const scheduleBusyRef = useRef(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const saveBusyRef = useRef(false);
+  const saveOperationIdRef = useRef(null);
+  const vocOperationIdRef = useRef(null);
   const latestLog = target.latestLog || null;
 
 useEffect(() => { loadDetail(); }, [target.id]);
@@ -3734,6 +3751,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
   const canReschedule = !latestLog && !readOnly && isD95D185Type(target.call_type) && activeAssignee === user.name;
 
   async function saveScheduledDate(reset = false) {
+    if (scheduleBusyRef.current) return;
     if (!canReschedule) return alert('본인에게 배정된 D+93 / D+183 미완료 건만 처리 예정일을 변경할 수 있습니다.');
     const baseDate = target.original_target_date || target.target_date;
     const nextDate = reset ? null : scheduledDate;
@@ -3742,6 +3760,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
     if (!reset && !scheduleReason.trim()) return alert('처리 예정일 변경 사유를 입력해주세요.');
     if (!confirm(reset ? `처리 예정일을 원 대상일 ${baseDate}로 되돌릴까요?` : `실제 처리 예정일을 ${nextDate}로 변경할까요?`)) return;
 
+    scheduleBusyRef.current = true;
     setScheduleBusy(true);
     try {
       const payload = reset ? {
@@ -3755,8 +3774,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
         scheduled_changed_at: new Date().toISOString(),
         scheduled_change_reason: scheduleReason.trim()
       };
-      const { error } = await supabase.from('happycall_targets').update(payload).eq('id', target.id);
-      if (error) throw error;
+      await runNetworkMutation(() => supabase.from('happycall_targets').update(payload).eq('id', target.id));
       await writeAuditLog('해피콜처리예정일변경', 'happycall_targets', target.id, user, `${callTypeLabel(target.call_type)} / ${baseDate} → ${nextDate || baseDate} / ${payload.scheduled_change_reason}`);
       alert(reset ? '원 대상일로 되돌렸습니다.' : '처리 예정일이 변경되었습니다. 지정일 전에는 미완료로 집계되지 않습니다.');
       onSaved();
@@ -3764,6 +3782,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
     } catch (e) {
       askErrorReport({ user, currentTab: '해피콜 상세', actionName: '처리 예정일 변경', joinNo: target.join_no, error: e });
     } finally {
+      scheduleBusyRef.current = false;
       setScheduleBusy(false);
     }
   }
@@ -3853,6 +3872,10 @@ async function save() {
       }
     }
 
+    if (saveBusyRef.current) return;
+    saveBusyRef.current = true;
+    setSaveBusy(true);
+
     try {
       const payload = {
         target_id: target.id,
@@ -3868,65 +3891,70 @@ async function save() {
         minor_birth_date: isMinorChecked ? minorBirthDate : null
       };
 
-      let saveError = null;
       const existingPending = latestLog && (latestLog.review_status || '검수대기') === '검수대기' ? latestLog : null;
       if (existingPending) {
-        const { error } = await supabase.from('happycall_logs').update({
+        await runNetworkMutation(() => supabase.from('happycall_logs').update({
           ...payload,
           checked_at: new Date().toISOString()
-        }).eq('id', existingPending.id);
-        saveError = error;
+        }).eq('id', existingPending.id));
       } else {
-        const { error } = await supabase.from('happycall_logs').insert({
+        if (!saveOperationIdRef.current) saveOperationIdRef.current = createClientUuid();
+        await runNetworkMutation(() => supabase.from('happycall_logs').upsert({
+          id: saveOperationIdRef.current,
           ...payload,
           parent_log_id: latestLog?.review_status === '반려' ? latestLog.id : null,
           review_round: latestLog?.review_status === '반려' ? (Number(latestLog.review_round || 1) + 1) : 1
-        });
-        saveError = error;
+        }, { onConflict: 'id' }));
       }
-      if (saveError) throw saveError;
 
       if (shouldExcludeUnavailable(result)) {
-        await supabase.from('refused_customers').upsert({
+        await runNetworkMutation(() => supabase.from('refused_customers').upsert({
           join_no: target.join_no,
           target_id: target.id,
           refused_by: user.name,
           refused_at: new Date().toISOString(),
           memo: memo || detail || '통화 불가',
           legal_rep_join_no: null
-        }, { onConflict: 'join_no' });
+        }, { onConflict: 'join_no' }));
 
-        await supabase.from('happycall_targets')
+        await runNetworkMutation(() => supabase.from('happycall_targets')
           .update({ is_skipped: true, skip_reason: `통화 불가 처리: ${detail}` })
           .eq('join_no', target.join_no)
           .neq('id', target.id)
           .is('is_skipped', false)
-          .not('call_type', 'in', '(D_PLUS_93,D_PLUS_183,D_PLUS_95,D_PLUS_185)');
+          .not('call_type', 'in', '(D_PLUS_93,D_PLUS_183,D_PLUS_95,D_PLUS_185)'));
       } else {
-        await supabase.from('refused_customers').delete().eq('join_no', target.join_no);
+        await runNetworkMutation(() => supabase.from('refused_customers').delete().eq('join_no', target.join_no));
       }
 
       if (typeof rejectedInfo !== 'undefined' && rejectedInfo?.id) {
-        await supabase.from('happycall_logs').update({
+        await runNetworkMutation(() => supabase.from('happycall_logs').update({
           review_status: '재처리완료'
-        }).eq('id', rejectedInfo.id);
+        }).eq('id', rejectedInfo.id));
       }
 
       if (detail === '불만사항있음') {
-        await supabase.from('voc_logs').insert({
+        if (!vocOperationIdRef.current) vocOperationIdRef.current = createClientUuid();
+        await runNetworkMutation(() => supabase.from('voc_logs').upsert({
+          id: vocOperationIdRef.current,
           target_id: target.id,
           join_no: target.join_no,
           customer_issue: memo,
           status: '미처리'
-        });
+        }, { onConflict: 'id' }));
       }
 
       await writeAuditLog('해피콜저장', 'happycall_target', target.id, user, `${target.join_no} / ${result} / ${detail}`);
+      saveOperationIdRef.current = null;
+      vocOperationIdRef.current = null;
       alert('저장되었습니다. 검수 대기 상태로 등록되었습니다.');
       onSaved();
       onClose();
     } catch (e) {
       askErrorReport({ user, currentTab: '해피콜 상세', actionName: '해피콜 저장', joinNo: target.join_no, error: e });
+    } finally {
+      saveBusyRef.current = false;
+      setSaveBusy(false);
     }
   }
 
@@ -3964,7 +3992,7 @@ async function save() {
             <div className="scheduleEditBox">
               <label>처리 예정일<input type="date" min={todayLocalISO()} value={scheduledDate} onChange={e=>setScheduledDate(e.target.value)} /></label>
               <label>변경 사유<input value={scheduleReason} onChange={e=>setScheduleReason(e.target.value)} placeholder="예: 고객 요청으로 5일 뒤 처리" /></label>
-              <button className="primary" disabled={scheduleBusy} onClick={()=>saveScheduledDate(false)}>처리 예정일 저장</button>
+              <button className="primary" disabled={scheduleBusy} onClick={()=>saveScheduledDate(false)}>{scheduleBusy ? '저장 중' : '처리 예정일 저장'}</button>
               {target.scheduled_date && <button disabled={scheduleBusy} onClick={()=>saveScheduledDate(true)}>원 대상일로 되돌리기</button>}
             </div>
             <p className="muted">지정일 전에는 미완료·완료율에 포함되지 않으며, 처리 예정 목록에는 계속 표시됩니다.</p>
@@ -4036,7 +4064,7 @@ async function save() {
                 </div>
               )}
               <textarea className={detail === '불만사항있음' || detail === '고객사정' || detail === '사고 발생건' ? 'requiredInput' : ''} value={memo} onChange={e => setMemo(e.target.value)} placeholder={detail === '불만사항있음' || detail === '고객사정' || detail === '사고 발생건' ? '작성 필수 · 메모 입력' : '메모 입력'} />
-              <button className="primary" onClick={save}>저장</button>
+              <button className="primary" disabled={saveBusy} onClick={save}>{saveBusy ? '저장 중' : '저장'}</button>
             </>
           )}
         </section>
