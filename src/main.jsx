@@ -11,7 +11,7 @@ import {
   sanitizeStoredEmployee
 } from './stage1Rules.js';
 
-const APP_BUILD_VERSION = 'V29.52';
+const APP_BUILD_VERSION = 'V29.53';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1497,6 +1497,8 @@ function AccrualRequestTab({ user }) {
   const [endHours,setEndHours]=useState(1);
   const [selected,setSelected]=useState(null);
   const [busy,setBusy]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [noticeOpen,setNoticeOpen]=useState(false);
 
   useEffect(()=>{ load(); },[]);
 
@@ -1507,13 +1509,22 @@ function AccrualRequestTab({ user }) {
   }
 
   async function load(){
-    const {data}=await supabase
-      .from('freepass_requests')
-      .select('*')
-      .eq('employee_name', user.name)
-      .in('request_type', ['고객 추가 응대','휴무 고객응대','야근 적립','휴무출근 적립'])
-      .order('requested_at', { ascending:false });
-    setRows(data||[]);
+    setLoading(true);
+    try{
+      const {data,error}=await supabase
+        .from('freepass_requests')
+        .select('*')
+        .eq('employee_name', user.name)
+        .in('request_type', ['고객 추가 응대','휴무 고객응대','야근 적립','휴무출근 적립'])
+        .order('requested_at', { ascending:false });
+      if(error) throw error;
+      setRows(data||[]);
+    }catch(e){
+      setRows([]);
+      askErrorReport({user,currentTab:'프리패스 적립 요청',actionName:'적립 요청 신청현황 조회',error:e});
+    }finally{
+      setLoading(false);
+    }
   }
 
   function confirmConsent(requestType){
@@ -1623,49 +1634,57 @@ function AccrualRequestTab({ user }) {
 
   return (
     <div>
-      <div className="sectionCard accrualCard">
-        <h3>프리패스 적립 요청</h3>
-        <div className="freepassConsentNotice">
-          <b>안내</b>
-          <p>업무시간 외 고객응대 및 업무수행은 원칙적으로 금지됩니다. 프리패스 적립은 회사의 연장근로 지시 또는 휴일근로 지시에 따른 수당 신청이 아닌 복지제도 신청입니다.</p>
+      <div className="sectionCard accrualCard accrualRequestCard">
+        <div className="accrualSectionHead">
+          <div><span className="accrualEyebrow">프리패스</span><h3>적립 요청</h3></div>
+          <span className="accrualFlowHint">위에서부터 순서대로 입력하세요</span>
         </div>
-        <div className="filterBar moduleTabs">
+        <div className={`freepassConsentNotice accrualNotice ${noticeOpen?'open':''}`}>
+          <div><b>신청 전 확인</b><p>회사 지시에 따른 수당 신청이 아닌 프리패스 복지 적립 요청입니다.</p></div>
+          <button type="button" className="accrualNoticeToggle" onClick={()=>setNoticeOpen(v=>!v)}>{noticeOpen?'접기':'자세히 보기'}</button>
+          {noticeOpen && <p className="accrualNoticeDetail">업무시간 외 고객응대 및 업무수행은 원칙적으로 금지됩니다. 프리패스 적립은 회사의 연장근로 지시 또는 휴일근로 지시에 따른 수당 신청이 아닌 복지제도 신청입니다.</p>}
+        </div>
+        <div className="accrualTypeTabs" aria-label="적립 요청 유형 선택">
           <button className={mode==='고객 추가 응대'?'active':''} onClick={()=>setMode('고객 추가 응대')}>고객 추가 응대</button>
           <button className={mode==='휴무 고객응대'?'active':''} onClick={()=>setMode('휴무 고객응대')}>휴무 고객응대</button>
         </div>
 
         {mode==='고객 추가 응대' && <>
-          <div className="formGrid compactFormGrid">
+          <div className="accrualStepTitle"><span>1</span><div><b>신청 정보</b><small>응대 날짜와 적립 시간을 선택하세요.</small></div></div>
+          <div className="formGrid compactFormGrid accrualCompactFields">
             <label>응대 발생일<input type="date" value={nightDate} onChange={e=>setNightDate(e.target.value)} /></label>
             <label>복지 적립 시간<select value={nightHours} onChange={e=>setNightHours(Number(e.target.value))}><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></select></label>
           </div>
-          <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="고객 응대 내용을 작성해주세요. 예) 퇴근 후 기존 고객 기기변경 상담, 인터넷 개통 고객 추가 응대" />
-          <div className="photoCaptureBox">
-            <label className="cameraButton">사진 촬영<input type="file" accept="image/*" capture="environment" onChange={e=>addNightPhoto(e.target.files?.[0])} /></label>
+          <label className="accrualReasonField"><span>고객 응대 내용</span><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="예) 퇴근 후 기존 고객 기기변경 상담" /></label>
+          <div className="accrualStepTitle"><span>2</span><div><b>사진 촬영 및 신청</b><small>현장에서 촬영한 사진이 있어야 신청할 수 있습니다.</small></div></div>
+          <div className={`photoCaptureBox accrualPhotoStep ${photoItems.length?'complete':''}`}>
+            <div className="accrualPhotoStatus"><b>{photoItems.length?'사진 촬영 완료':'사진이 필요합니다'}</b><span>{photoItems.length?'사진을 확인한 뒤 신청하세요.':'아래 버튼을 눌러 사진을 촬영하세요.'}</span></div>
+            <label className="cameraButton">{photoItems.length?'사진 다시 촬영':'사진 촬영'}<input type="file" accept="image/*" capture="environment" onChange={e=>addNightPhoto(e.target.files?.[0])} /></label>
             <div className="evidenceGrid">
               {photoItems.map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview" src={p.data} alt="고객 추가 응대 증빙" /><p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p><button type="button" onClick={()=>setPhotoItems([])}>삭제/재촬영</button></div>)}
             </div>
-            <button className="primary" disabled={busy || !photoItems.length} onClick={submitNight}>{photoItems.length ? '동의 후 적립 요청' : '사진 촬영 후 활성화'}</button>
+            <button className="primary accrualSubmitButton" disabled={busy || !photoItems.length} onClick={submitNight}>{photoItems.length ? '동의 후 적립 요청' : '사진 촬영 후 신청 가능'}</button>
           </div>
         </>}
 
         {mode==='휴무 고객응대' && <>
-          <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="휴무 중 고객 응대 내용을 작성해주세요. 예) 휴무일 기존 고객 상담, 가족결합 안내, 긴급 개통 지원" />
-          <div className="photoCaptureBox">
-            <p className="muted">1단계 응대 시작 사진 임시저장 → 2단계 응대 종료 사진 등록 시 적립 시간 선택 → 동의 후 최종 승인 요청 순서로 진행됩니다.</p>
-            <div className="buttonRow">
-              <label className="cameraButton">응대 시작 사진 촬영<input type="file" accept="image/*" capture="environment" onChange={e=>capturePhoto(e.target.files?.[0], setStartPhoto, '응대 시작')} /></label>
-              <button className="primary" disabled={busy || !startPhoto} onClick={saveStartDraft}>{startPhoto ? '1차 임시저장' : '촬영 후 임시저장 가능'}</button>
-            </div>
+          <div className="accrualProgressSteps"><span className="active">1 시작 사진</span><span>2 종료 사진</span><span>3 최종 신청</span></div>
+          <div className="accrualStepTitle"><span>1</span><div><b>응대 시작 기록</b><small>내용 작성 후 시작 사진을 촬영해 임시저장하세요.</small></div></div>
+          <label className="accrualReasonField"><span>고객 응대 내용</span><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="예) 휴무일 기존 고객 상담 또는 긴급 개통 지원" /></label>
+          <div className={`photoCaptureBox accrualPhotoStep ${startPhoto?'complete':''}`}>
+            <div className="accrualPhotoStatus"><b>{startPhoto?'시작 사진 촬영 완료':'시작 사진이 필요합니다'}</b><span>{startPhoto?'임시저장하면 신청현황에서 종료할 수 있습니다.':'응대를 시작할 때 현장에서 촬영하세요.'}</span></div>
+            <label className="cameraButton">{startPhoto?'시작 사진 다시 촬영':'시작 사진 촬영'}<input type="file" accept="image/*" capture="environment" onChange={e=>capturePhoto(e.target.files?.[0], setStartPhoto, '응대 시작')} /></label>
             {startPhoto && <div className="evidenceItem"><img className="evidencePreview" src={startPhoto.data} alt="응대 시작 사진" /><p>촬영일시: {freepassPhotoTimeLabel(startPhoto.captured_at)}</p><button type="button" onClick={()=>setStartPhoto(null)}>삭제/재촬영</button></div>}
+            <button className="primary accrualSubmitButton" disabled={busy || !startPhoto} onClick={saveStartDraft}>{startPhoto ? '시작 기록 임시저장' : '사진 촬영 후 저장 가능'}</button>
           </div>
         </>}
       </div>
 
-      <div className="sectionCard">
-        <h3>적립 요청 신청현황</h3>
-        <p className="muted">휴무 고객응대 임시저장 건은 해당 행을 눌러 응대 종료 사진과 적립 시간을 추가하면 최종 신청됩니다.</p>
-        <table>
+      <div className="sectionCard accrualHistoryCard">
+        <div className="accrualSectionHead"><div><span className="accrualEyebrow">나의 신청</span><h3>적립 요청 신청현황</h3></div></div>
+        <p className="accrualHistoryHelp">휴무 고객응대의 <b>종료 사진 등록 필요</b> 카드를 누르면 최종 신청을 이어갈 수 있습니다.</p>
+        {loading && <div className="inlineLoadingState"><span className="loadingDot"></span>로딩 중</div>}
+        {!loading && rows.length > 0 && <table className="accrualDesktopTable">
           <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>응대 발생일</th><th>시간</th><th>내용</th><th>동의</th><th>상태</th></tr></thead>
           <tbody>
             {rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}>
@@ -1677,9 +1696,20 @@ function AccrualRequestTab({ user }) {
               <td>{r.consent_agreed ? '동의완료' : '-'}</td>
               <td><span className={`requestStatusBadge ${pushStatusClass(r.status)}`}>{pushStatusLabel(r.status)}</span></td>
             </tr>)}
-            {!rows.length && <tr><td colSpan="7" className="muted">적립 요청 내역이 없습니다.</td></tr>}
           </tbody>
-        </table>
+        </table>}
+        {!loading && rows.length > 0 && <div className="accrualMobileList">
+          {rows.map(r=>{
+            const draft = normalizeAccrualType(r.request_type)==='휴무 고객응대' && r.status==='임시저장';
+            return <button type="button" key={r.id} className={`accrualHistoryItem ${draft?'needsAction':''}`} onClick={()=>setSelected(r)}>
+              <div className="accrualHistoryTop"><strong>{normalizeAccrualType(r.request_type)}</strong><span className={`requestStatusBadge ${pushStatusClass(r.status)}`}>{draft?'종료 사진 등록 필요':pushStatusLabel(r.status)}</span></div>
+              <div className="accrualHistoryMeta"><span>{r.request_date || '-'}</span><span>{Number(r.hours||0) ? `${r.hours}시간` : '시간 미정'}</span></div>
+              <p>{r.reason || '응대 내용 없음'}</p>
+              <small>접수 {formatKST(r.requested_at || r.created_at)}</small>
+            </button>;
+          })}
+        </div>}
+        {!loading && !rows.length && <div className="accrualEmptyState">적립 요청 내역이 없습니다.</div>}
       </div>
 
       {selected && <div className="modalBg"><div className="modal accrualDetailModal">

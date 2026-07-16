@@ -38,6 +38,395 @@ button:disabled{opacity:.55;cursor:not-allowed}
   padding-top: 10px;
   padding-bottom: 10px;
 }
+
+/* =========================================================
+   V29.53 프리패스 적립 요청: 모바일 신청 흐름·카드형 현황
+   ========================================================= */
+.accrualRequestCard,
+.accrualHistoryCard{
+  overflow:hidden;
+}
+.accrualSectionHead{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+.accrualSectionHead h3{
+  margin:2px 0 0 !important;
+}
+.accrualEyebrow{
+  display:block;
+  color:#2563eb;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+.accrualFlowHint{
+  color:#64748b;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.accrualNotice{
+  display:grid !important;
+  grid-template-columns:1fr auto;
+  gap:4px 12px;
+  align-items:center;
+  padding:12px 14px !important;
+  margin-bottom:14px !important;
+}
+.accrualNotice > div p{
+  margin:3px 0 0 !important;
+}
+.accrualNoticeToggle{
+  min-height:34px !important;
+  padding:6px 10px !important;
+  border:1px solid #bfdbfe !important;
+  border-radius:10px !important;
+  background:#fff !important;
+  color:#1d4ed8 !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  white-space:nowrap;
+}
+.accrualNoticeDetail{
+  grid-column:1 / -1;
+  margin:8px 0 0 !important;
+  padding-top:10px;
+  border-top:1px solid #dbeafe;
+}
+.accrualTypeTabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:18px;
+  padding:4px;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#f8fafc;
+}
+.accrualTypeTabs button{
+  min-height:46px;
+  border:0;
+  border-radius:11px;
+  background:transparent;
+  color:#475569;
+  font-weight:900;
+}
+.accrualTypeTabs button.active{
+  background:#111827;
+  color:#fff;
+  box-shadow:0 4px 12px rgba(15,23,42,.14);
+}
+.accrualStepTitle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:16px 0 10px;
+}
+.accrualStepTitle > span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+  border-radius:50%;
+  background:#111827;
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+}
+.accrualStepTitle > div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.accrualStepTitle b{
+  font-size:15px;
+}
+.accrualStepTitle small{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.35;
+}
+.accrualCompactFields{
+  grid-template-columns:1fr 1fr !important;
+  margin-bottom:12px !important;
+}
+.accrualReasonField{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:14px;
+  color:#0f172a;
+  font-size:14px;
+  font-weight:900;
+}
+.accrualReasonField textarea{
+  width:100%;
+  min-height:96px !important;
+  height:auto !important;
+  padding:12px 14px !important;
+  line-height:1.5 !important;
+  resize:vertical;
+}
+.accrualPhotoStep{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px 14px;
+  align-items:center;
+  margin:0 !important;
+  padding:14px !important;
+  border-style:solid !important;
+  border-color:#dbe3ee !important;
+  background:#f8fafc !important;
+}
+.accrualPhotoStep.complete{
+  border-color:#86efac !important;
+  background:#f0fdf4 !important;
+}
+.accrualPhotoStatus{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  min-width:0;
+}
+.accrualPhotoStatus b{
+  color:#0f172a;
+  font-size:14px;
+}
+.accrualPhotoStatus span{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.35;
+}
+.accrualPhotoStep .cameraButton{
+  width:auto !important;
+  min-width:142px;
+  margin:0 !important;
+}
+.accrualPhotoStep .evidenceGrid,
+.accrualPhotoStep > .evidenceItem,
+.accrualPhotoStep .accrualSubmitButton{
+  grid-column:1 / -1;
+}
+.accrualPhotoStep .evidenceItem{
+  max-width:360px;
+}
+.accrualSubmitButton{
+  width:100% !important;
+  min-height:46px !important;
+  margin:0 !important;
+}
+.accrualProgressSteps{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+  margin:0 0 18px;
+}
+.accrualProgressSteps span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  border-radius:999px;
+  background:#f1f5f9;
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.accrualProgressSteps span.active{
+  background:#dbeafe;
+  color:#1d4ed8;
+}
+.accrualHistoryHelp{
+  margin:0 0 12px;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.45;
+}
+.accrualMobileList{
+  display:none;
+}
+.accrualEmptyState{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:74px;
+  border:1px solid #eef2f7;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+@media(max-width:768px){
+  .accrualRequestCard,
+  .accrualHistoryCard{
+    padding:16px 14px !important;
+  }
+  .accrualSectionHead{
+    align-items:flex-start;
+    margin-bottom:12px;
+  }
+  .accrualFlowHint{
+    display:none;
+  }
+  .accrualSectionHead h3{
+    font-size:21px !important;
+    line-height:1.2 !important;
+  }
+  .accrualNotice{
+    grid-template-columns:1fr auto !important;
+    padding:11px 12px !important;
+  }
+  .accrualNotice > div p{
+    font-size:12px !important;
+    line-height:1.4 !important;
+  }
+  .accrualNoticeDetail{
+    font-size:12px !important;
+  }
+  .accrualTypeTabs{
+    margin-bottom:16px;
+  }
+  .accrualTypeTabs button{
+    min-height:44px !important;
+    padding:8px 6px !important;
+    font-size:14px !important;
+    word-break:keep-all;
+  }
+  .accrualCompactFields{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .accrualCompactFields label{
+    min-width:0 !important;
+    font-size:13px !important;
+  }
+  .accrualCompactFields input,
+  .accrualCompactFields select{
+    width:100% !important;
+    min-width:0 !important;
+  }
+  .accrualReasonField textarea{
+    min-height:104px !important;
+  }
+  .accrualPhotoStep{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+    padding:12px !important;
+  }
+  .accrualPhotoStep .cameraButton,
+  .accrualPhotoStep .accrualSubmitButton{
+    width:100% !important;
+    min-width:0 !important;
+  }
+  .accrualPhotoStep .evidenceGrid,
+  .accrualPhotoStep > .evidenceItem,
+  .accrualPhotoStep .accrualSubmitButton{
+    grid-column:1;
+  }
+  .accrualPhotoStep .evidenceItem{
+    max-width:none;
+  }
+  .accrualProgressSteps{
+    gap:4px;
+  }
+  .accrualProgressSteps span{
+    min-height:32px;
+    padding:0 5px;
+    font-size:11px;
+  }
+  .accrualDesktopTable{
+    display:none !important;
+  }
+  .accrualMobileList{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+  }
+  .accrualHistoryItem{
+    width:100%;
+    min-height:0 !important;
+    padding:13px !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:14px !important;
+    background:#fff !important;
+    color:#0f172a !important;
+    text-align:left !important;
+    box-shadow:none !important;
+  }
+  .accrualHistoryItem.needsAction{
+    border-color:#f59e0b !important;
+    background:#fffbeb !important;
+  }
+  .accrualHistoryTop,
+  .accrualHistoryMeta{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .accrualHistoryTop strong{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:15px;
+  }
+  .accrualHistoryTop .requestStatusBadge{
+    flex:0 0 auto;
+    max-width:150px;
+  }
+  .accrualHistoryMeta{
+    justify-content:flex-start;
+    margin-top:8px;
+    color:#334155;
+    font-size:13px;
+    font-weight:800;
+  }
+  .accrualHistoryMeta span + span::before{
+    content:'·';
+    margin-right:10px;
+    color:#94a3b8;
+  }
+  .accrualHistoryItem p{
+    margin:7px 0 4px !important;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#64748b;
+    font-size:13px;
+    line-height:1.35;
+  }
+  .accrualHistoryItem small{
+    color:#94a3b8;
+    font-size:11px;
+  }
+}
+
+@media(max-width:360px){
+  .accrualNotice{
+    grid-template-columns:1fr !important;
+  }
+  .accrualNoticeToggle{
+    justify-self:start;
+  }
+  .accrualCompactFields{
+    grid-template-columns:1fr !important;
+  }
+  .accrualProgressSteps span{
+    font-size:10.5px;
+  }
+}
 .modal section select + select{
   margin-top: 12px;
 }
@@ -9893,5 +10282,33 @@ td > .inlineLoadingState,
     max-width:112px !important;
     text-align:center !important;
     white-space:nowrap !important;
+  }
+}
+
+/* V29.53 terminal overrides: 기존 공통 모바일 규칙보다 적립 요청 전용 규칙 우선 */
+@media(max-width:768px){
+  .accrualRequestCard .accrualCompactFields{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .accrualRequestCard .accrualReasonField textarea{
+    height:auto !important;
+    min-height:104px !important;
+  }
+  .accrualRequestCard .accrualPhotoStep{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+  }
+  .accrualHistoryCard .accrualDesktopTable{
+    display:none !important;
+  }
+  .accrualHistoryCard .accrualMobileList{
+    display:flex !important;
+  }
+}
+@media(max-width:360px){
+  .accrualRequestCard .accrualCompactFields{
+    grid-template-columns:1fr !important;
   }
 }
