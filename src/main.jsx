@@ -17,7 +17,7 @@ import {
   sanitizeStoredEmployee
 } from './stage1Rules.js';
 
-const APP_BUILD_VERSION = 'V29.55';
+const APP_BUILD_VERSION = 'V29.56';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1403,7 +1403,7 @@ function FreepassMyPage({ user }) {
       {editMode && <section className="sectionCard innerEditBox">
         <h3>신청 수정</h3>
         <div className="formGrid">
-          <label>적립 발생일<input type="date" value={editDraft.request_date} onChange={e=>setEditDraft(p=>({...p,request_date:e.target.value}))} /></label>
+          <label>적립 발생일<input className="uiDateTimeInput" type="date" value={editDraft.request_date} onChange={e=>setEditDraft(p=>({...p,request_date:e.target.value}))} /></label>
           {selected.request_type === '사용' && <label>사용 구분<select value={editDraft.use_type} onChange={e=>setEditDraft(p=>({...p,use_type:e.target.value}))}><option>오전 늦게 출근</option><option>오후 일찍 퇴근</option></select></label>}
           <label>시간<select value={editDraft.hours} onChange={e=>setEditDraft(p=>({...p,hours:Number(e.target.value)}))}>{selected.request_type==='월차 전환'?<option value={10}>10시간</option>:<><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></>}</select></label>
         </div>
@@ -1520,7 +1520,7 @@ function FreepassRequestForm({ user }) {
     <div className="formGrid">
       <label>신청 유형<select value={requestType} onChange={e=>{ const v=e.target.value; setRequestType(v); if(v==='월차 전환') setHours(10); }}><option>사용</option><option>월차 전환</option></select></label>
       {requestType==='사용' && <label>사용 구분<select value={useType} onChange={e=>setUseType(e.target.value)}><option>오전 늦게 출근</option><option>오후 일찍 퇴근</option></select></label>}
-      <label>사용/적립일<input type="date" value={requestDate} onChange={e=>setRequestDate(e.target.value)} /></label>
+      <label>사용/적립일<input className="uiDateTimeInput" type="date" value={requestDate} onChange={e=>setRequestDate(e.target.value)} /></label>
       <label>시간<select value={hours} onChange={e=>setHours(Number(e.target.value))}>{requestType==='월차 전환'?<option value={10}>10시간</option>:<><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></>}</select></label>
     </div>
     {availability && <div className={`freepassAvailabilityBox ${availability.tone}`}>
@@ -1768,7 +1768,7 @@ function AccrualRequestTab({ user }) {
         {mode==='고객 추가 응대' && <>
           <div className="accrualStepTitle"><span>1</span><div><b>신청 정보</b><small>응대 날짜와 적립 시간을 선택하세요.</small></div></div>
           <div className="formGrid compactFormGrid accrualCompactFields">
-            <label>응대 발생일<input type="date" value={nightDate} onChange={e=>setNightDate(e.target.value)} /></label>
+            <label>응대 발생일<input className="uiDateTimeInput" type="date" value={nightDate} onChange={e=>setNightDate(e.target.value)} /></label>
             <label>복지 적립 시간<select value={nightHours} onChange={e=>setNightHours(Number(e.target.value))}><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></select></label>
           </div>
           <label className="accrualReasonField"><span>고객 응대 내용</span><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="예) 퇴근 후 기존 고객 기기변경 상담" /></label>
@@ -3138,7 +3138,7 @@ function statusOptionsFor(row){
           </label>
 
           {statusDraft.next === '주문 완료' && <label className="statusModalLabel">도착 예정일
-            <input type="date" value={statusDraft.expected_arrival_date} onChange={e=>setStatusDraft(p=>({...p,expected_arrival_date:e.target.value}))} />
+            <input className="uiDateTimeInput" type="date" value={statusDraft.expected_arrival_date} onChange={e=>setStatusDraft(p=>({...p,expected_arrival_date:e.target.value}))} />
           </label>}
 
           {statusDraft.next === '반품' && <div className="statusModalReturnBox">
@@ -4473,7 +4473,7 @@ async function save() {
           <section className="scheduleEditSection">
             <h3>D+93 / D+183 실제 처리 예정일</h3>
             <div className="scheduleEditBox">
-              <label>처리 예정일<input type="date" min={todayLocalISO()} value={scheduledDate} onChange={e=>setScheduledDate(e.target.value)} /></label>
+              <label>처리 예정일<input className="uiDateTimeInput" type="date" min={todayLocalISO()} value={scheduledDate} onChange={e=>setScheduledDate(e.target.value)} /></label>
               <label>변경 사유<input value={scheduleReason} onChange={e=>setScheduleReason(e.target.value)} placeholder="예: 고객 요청으로 5일 뒤 처리" /></label>
               <button className="primary" disabled={scheduleBusy} onClick={()=>saveScheduledDate(false)}>{scheduleBusy ? '저장 중' : '처리 예정일 저장'}</button>
               {target.scheduled_date && <button disabled={scheduleBusy} onClick={()=>saveScheduledDate(true)}>원 대상일로 되돌리기</button>}
@@ -4541,7 +4541,7 @@ async function save() {
                   </div>
                   <div className="minorInputGroup">
                     <label className="minorFieldLabel">* 미성년자 생년월일 입력</label>
-                    <input type="date" value={minorBirthDate} onChange={e => setMinorBirthDate(e.target.value)} className="requiredInput" />
+                    <input type="date" value={minorBirthDate} onChange={e => setMinorBirthDate(e.target.value)} className="requiredInput uiDateTimeInput" />
                     
                   </div>
                 </div>
@@ -4798,7 +4798,7 @@ function Employees({ user }) {
           <option>관리자</option><option>최고관리자</option>
         </select>
         <input type="password" autoComplete="new-password" aria-label="초기 비밀번호" placeholder="초기 비밀번호 4자리 이상" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
-        <input type="time" value={form.end_time} onChange={e=>setForm({...form,end_time:e.target.value})} title="프리패스 오후 사용 제한 기준 퇴근시간" />
+        <input className="uiDateTimeInput" type="time" value={form.end_time} onChange={e=>setForm({...form,end_time:e.target.value})} title="프리패스 오후 사용 제한 기준 퇴근시간" />
         <button className="primary" onClick={add}>직원 추가</button>
       </div></div>
 
@@ -4992,9 +4992,9 @@ function EmployeeDetailModal({ employee, stores, user, onClose, onUpdated, onOpe
         <section>
           <h3>입사/퇴사 정보</h3>
           <div className="employeeProfileGrid">
-            <label>입사일<input type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
-            <label>퇴사일<input type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
-            <label>퇴근시간<input type="time" value={profile.end_time} onChange={e=>setProfile({...profile,end_time:e.target.value})} /></label>
+            <label>입사일<input className="uiDateTimeInput" type="date" value={profile.hire_date} onChange={e=>setProfile({...profile,hire_date:e.target.value})} /></label>
+            <label>퇴사일<input className="uiDateTimeInput" type="date" value={profile.resign_date} onChange={e=>setProfile({...profile,resign_date:e.target.value})} /></label>
+            <label>퇴근시간<input className="uiDateTimeInput" type="time" value={profile.end_time} onChange={e=>setProfile({...profile,end_time:e.target.value})} /></label>
             <button className="primary detailSaveBtn" onClick={saveProfile}>상세 저장</button>
           </div>
           <p className="muted">퇴사 상태는 직원관리 메인에서 상태를 퇴사로 바꾼 뒤 최종저장하세요. 퇴근시간은 오후 프리패스 신청 마감 계산에 사용됩니다.</p>
@@ -5120,8 +5120,8 @@ function WorkHistoryInner({ employee, stores, user }) {
               <option>검수자</option>
               <option>관리자</option>
             </select>
-            <label>재입사/시작일<input type="date" value={form.start_date} onChange={e=>updateDraftRow(idx,{start_date:e.target.value})} /></label>
-            <label>퇴사일<input type="date" value={form.end_date} onChange={e=>updateDraftRow(idx,{end_date:e.target.value})} /></label>
+            <label>재입사/시작일<input className="uiDateTimeInput" type="date" value={form.start_date} onChange={e=>updateDraftRow(idx,{start_date:e.target.value})} /></label>
+            <label>퇴사일<input className="uiDateTimeInput" type="date" value={form.end_date} onChange={e=>updateDraftRow(idx,{end_date:e.target.value})} /></label>
             <button className="primary rehireSaveBtn" type="button" disabled={busy} onClick={()=>saveDraftRow(idx)}>{editingId ? '수정 저장' : '저장'}</button>
             {editingId ? <button className="miniBtn" type="button" onClick={resetEdit}>취소</button> : <button className="miniDangerBtn" type="button" onClick={()=>removeDraftRow(idx)}>삭제</button>}
           </div>
@@ -8022,7 +8022,7 @@ function TargetGenerator({ user }) {
         <p className="muted">통화 불가 고객은 이후 해피콜 생성 대상에서 제외됩니다.</p>
 
         <div className="formGrid compact">
-          <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
+          <input className="uiDateTimeInput" type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
           <button className="primary" onClick={generateTargets} disabled={busy}>대상 계산</button>
           {summary && <button className="primary" onClick={saveTargets} disabled={busy}>해피콜 대상 DB 저장</button>}
         </div>
