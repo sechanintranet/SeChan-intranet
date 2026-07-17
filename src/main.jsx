@@ -1691,6 +1691,33 @@ function AccrualRequestTab({ user }) {
     finally{ setBusy(false); }
   }
 
+  async function cancelHolidayDraft(){
+    if(!holidayDraft || holidayDraft.status !== '임시저장') return;
+    const ok = confirm('휴무 고객응대 진행을 전체 취소할까요?\n\n저장된 시작·종료 사진과 임시 진행 내용이 모두 삭제됩니다.');
+    if(!ok) return;
+    setBusy(true);
+    try{
+      const {error}=await supabase.from('freepass_requests')
+        .delete()
+        .eq('id', holidayDraft.id)
+        .eq('employee_id', user.id)
+        .eq('status', '임시저장');
+      if(error) throw error;
+      await writeAuditLog('휴무고객응대진행전체취소','freepass_requests',holidayDraft.id,user,`${holidayDraft.request_date || '-'} / 임시저장 취소`);
+      setStartPhoto(null);
+      setEndPhoto(null);
+      setEndHours(1);
+      setHolidayReason('');
+      setSelected(null);
+      await load();
+      alert('휴무 고객응대 진행이 취소되었습니다.');
+    }catch(e){
+      askErrorReport({user,currentTab:'프리패스 적립 요청',actionName:'휴무 고객응대 진행 전체 취소',error:e});
+    }finally{
+      setBusy(false);
+    }
+  }
+
   async function submitHolidayFinal(row){
     const existing = parseEvidencePhotos(row?.evidence_photo_data);
     const savedEndPhoto = existing.find(p => p?.type === '응대 종료' || p?.type === '퇴근');
@@ -1781,6 +1808,7 @@ function AccrualRequestTab({ user }) {
               <label className="cameraButton">{endPhoto?'종료 사진 다시 촬영':'종료 사진 촬영'}<input type="file" accept="image/*" capture="environment" onChange={e=>capturePhoto(e.target.files?.[0], setEndPhoto, '응대 종료')} /></label>
               {endPhoto && <div className="evidenceItem"><img className="evidencePreview" src={endPhoto.data} alt="응대 종료 사진" /><p>촬영일시: {freepassPhotoTimeLabel(endPhoto.captured_at)}</p><button type="button" onClick={()=>setEndPhoto(null)}>삭제/재촬영</button></div>}
               <button className="primary accrualSubmitButton" disabled={busy || !endPhoto} onClick={saveEndDraft}>{endPhoto ? '종료 사진 저장' : '사진 촬영 후 저장 가능'}</button>
+              <button type="button" className="holidayDraftCancelButton" disabled={busy} onClick={cancelHolidayDraft}>진행 전체 취소</button>
             </div>
           </div>}
 
@@ -1795,6 +1823,7 @@ function AccrualRequestTab({ user }) {
               <label>복지 적립 시간<select value={endHours} onChange={e=>setEndHours(Number(e.target.value))}><option value={1}>1시간</option><option value={2}>2시간</option><option value={3}>3시간</option></select></label>
             </div>
             <button className="primary accrualSubmitButton" disabled={busy || !holidayReason.trim()} onClick={()=>submitHolidayFinal(holidayDraft)}>동의 후 최종 신청</button>
+            <button type="button" className="holidayDraftCancelButton" disabled={busy} onClick={cancelHolidayDraft}>진행 전체 취소</button>
           </div>}
         </>}
       </div>

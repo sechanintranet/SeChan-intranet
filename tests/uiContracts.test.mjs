@@ -40,3 +40,11 @@ test('감사로그는 한 번에 100건씩 표시한다', () => {
   assert.match(main, /const pageLogs = filteredLogs\.slice/);
   assert.match(main, /pageLogs\.map\(l =>/);
 });
+
+test('휴무 고객응대 임시 진행은 2·3단계에서 전체 취소할 수 있다', () => {
+  assert.match(main, /async function cancelHolidayDraft\(\)/);
+  assert.match(main, /\.eq\('employee_id', user\.id\)/);
+  assert.match(main, /\.eq\('status', '임시저장'\)/);
+  assert.equal((main.match(/onClick=\{cancelHolidayDraft\}/g) || []).length, 2);
+  assert.match(styles, /\.holidayDraftCancelButton\{/);
+});
