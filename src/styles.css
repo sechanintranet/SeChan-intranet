@@ -10307,6 +10307,70 @@ td > .inlineLoadingState,
     display:flex !important;
   }
 }
+
+/* =========================================================
+   V29.55 내 프리패스: 로딩 상태·모바일 카드형 이력
+   ========================================================= */
+.freepassMyCardMeta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+  color:#64748b;
+  font-size:12px;
+  line-height:1.35;
+}
+.freepassMyCardMeta span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.freepassMyCardMeta b{
+  flex:0 0 auto;
+  color:#0f172a;
+  font-size:14px;
+  white-space:nowrap;
+}
+.freepassMyHistoryCard em{
+  flex:0 0 auto;
+  font-size:16px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.freepassMyHistoryCard em.positive{color:#155eef;}
+.freepassMyHistoryCard em.negative{color:#b42318;}
+
+@media(max-width:768px){
+  .freepassModule .sectionCard table.freepassMyDesktopTable{
+    display:none !important;
+  }
+  .freepassMyRequestMobileList,
+  .freepassMyLedgerMobileList{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+    width:100% !important;
+    margin-top:12px !important;
+  }
+  .freepassMyHistoryCard{
+    min-width:0 !important;
+    padding:14px !important;
+    overflow:hidden !important;
+  }
+  .freepassMyHistoryCard .mobileInfoCardMain{
+    align-items:center !important;
+  }
+  .freepassMyHistoryCard .mobileInfoCardMain > div{
+    min-width:0 !important;
+  }
+  .freepassMyHistoryCard .mobileInfoCardExtra{
+    white-space:normal !important;
+    word-break:keep-all !important;
+    overflow-wrap:anywhere !important;
+  }
+}
 @media(max-width:360px){
   .accrualRequestCard .accrualCompactFields{
     grid-template-columns:1fr !important;
@@ -10392,6 +10456,25 @@ td > .inlineLoadingState,
   width:100% !important;
   min-height:48px !important;
 }
+.holidayDraftCancelButton{
+  width:100%;
+  min-height:46px;
+  margin-top:10px;
+  border:1px solid #fecaca;
+  border-radius:12px;
+  background:#fff;
+  color:#b91c1c;
+  font-size:14px;
+  font-weight:900;
+}
+.holidayDraftCancelButton:hover:not(:disabled){
+  background:#fef2f2;
+  border-color:#fca5a5;
+}
+.holidayDraftCancelButton:disabled{
+  cursor:not-allowed;
+  opacity:.55;
+}
 
 @media(max-width:768px){
   .accrualRequestCard .accrualCompactFields{
@@ -10402,5 +10485,150 @@ td > .inlineLoadingState,
   }
   .holidayFinalFields{
     grid-template-columns:1fr !important;
+  }
+}
+
+/* =========================================================
+   V29.55 전수 UI QA: 로딩·모바일 카드·적립 신청정보 정리
+   ========================================================= */
+.accrualRequestCard .accrualCompactFields{
+  background:transparent !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  margin:0 0 14px !important;
+  padding:0 !important;
+  overflow:visible !important;
+}
+.accrualRequestCard .accrualCompactFields > label{
+  min-width:0 !important;
+}
+.rehireHistoryMobileList,
+.storeMobileList,
+.reviewMobileList,
+.assignmentMobileRows,
+.freepassBulkMobileList,
+.freepassResetMobileList,
+.managerEmployeeMobileList,
+.managerCallsMobileList{
+  display:none;
+}
+
+@media(max-width:768px){
+  .accrualRequestCard .accrualCompactFields{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    gap:10px !important;
+    width:100% !important;
+  }
+  .accrualRequestCard .accrualCompactFields input,
+  .accrualRequestCard .accrualCompactFields select{
+    min-width:0 !important;
+    max-width:100% !important;
+  }
+
+  .employeeDetailModal .rehireHistoryTableWrap,
+  .desktopStoreTable,
+  .desktopReviewListCard,
+  .assignmentTableWrap,
+  .freepassModule table.desktopFreepassBulkTable,
+  .freepassModule table.desktopFreepassResetTable,
+  .managerDesktopTable{
+    display:none !important;
+  }
+  .rehireHistoryMobileList,
+  .storeMobileList,
+  .reviewMobileList,
+  .assignmentMobileRows,
+  .freepassBulkMobileList,
+  .freepassResetMobileList,
+  .managerEmployeeMobileList,
+  .managerCallsMobileList{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:10px !important;
+    width:100% !important;
+    margin-top:12px !important;
+  }
+  .rehireHistoryMobileCard,
+  .storeMobileCard,
+  .reviewMobileCard,
+  .assignmentMobileCard,
+  .freepassBulkMobileCard,
+  .freepassResetMobileCard{
+    min-width:0 !important;
+    width:100% !important;
+    padding:14px !important;
+    overflow:hidden !important;
+  }
+  .storeMobileFields,
+  .freepassBulkMobileFields{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    gap:10px !important;
+    width:100% !important;
+  }
+  .storeMobileFields label,
+  .freepassBulkMobileFields label{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:6px !important;
+    min-width:0 !important;
+    font-size:12px !important;
+    font-weight:900 !important;
+    color:#475569 !important;
+  }
+  .reviewMobileMeta{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:4px !important;
+  }
+  .reviewMobileMeta small{color:#64748b !important;}
+  .reviewMobileCheck{
+    display:flex !important;
+    align-items:center !important;
+    gap:8px !important;
+    margin-top:10px !important;
+    font-size:13px !important;
+    font-weight:900 !important;
+  }
+  .reviewMobileCheck input,
+  .assignmentMobileCard input[type="checkbox"],
+  .freepassBulkMobileCard input[type="checkbox"],
+  .freepassResetMobileCard input[type="checkbox"]{
+    width:22px !important;
+    height:22px !important;
+    min-width:22px !important;
+    margin:0 !important;
+  }
+  .rehireHistoryMobileCard .historyRowActions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .rehireHistoryMobileCard .historyRowActions button,
+  .storeMobileFields input,
+  .storeMobileFields select,
+  .freepassBulkMobileFields input,
+  .freepassBulkMobileFields select,
+  .employeeAddGrid input,
+  .employeeAddGrid select,
+  .employeeAddGrid button,
+  .accessoryMainTabs button,
+  .accessoryTabs button,
+  .reviewBulkActions button,
+  .assignmentReassignBox button,
+  .assignmentReassignBox select,
+  .freepassModule .formGrid input,
+  .freepassModule .formGrid select,
+  .freepassModule .formGrid button{
+    min-height:44px !important;
+  }
+}
+
+@media(max-width:360px){
+  .accrualRequestCard .accrualCompactFields,
+  .storeMobileFields,
+  .freepassBulkMobileFields{
+    grid-template-columns:minmax(0,1fr) !important;
   }
 }
