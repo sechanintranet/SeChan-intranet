@@ -10287,11 +10287,6 @@ td > .inlineLoadingState,
 
 /* V29.53 terminal overrides: 기존 공통 모바일 규칙보다 적립 요청 전용 규칙 우선 */
 @media(max-width:768px){
-  .accrualRequestCard .accrualCompactFields{
-    display:grid !important;
-    grid-template-columns:1fr 1fr !important;
-    gap:8px !important;
-  }
   .accrualRequestCard .accrualReasonField textarea{
     height:auto !important;
     min-height:104px !important;
@@ -10371,25 +10366,30 @@ td > .inlineLoadingState,
     overflow-wrap:anywhere !important;
   }
 }
-@media(max-width:360px){
-  .accrualRequestCard .accrualCompactFields{
-    grid-template-columns:1fr !important;
-  }
-}
-
 /* =========================================================
    V29.54 적립 요청: 응대 발생일 정렬·휴무 고객응대 3단계 연속 흐름
    ========================================================= */
 .accrualRequestCard .accrualCompactFields{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+  gap:10px !important;
   align-items:end !important;
+  width:100% !important;
+  min-width:0 !important;
+  margin:0 0 14px !important;
+  padding:0 !important;
+  background:transparent !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
   overflow:visible !important;
-  padding:10px 12px !important;
 }
 .accrualRequestCard .accrualCompactFields label{
   display:flex !important;
   flex-direction:column !important;
   gap:7px !important;
   margin:0 !important;
+  min-width:0 !important;
   color:#0f172a !important;
   font-size:13px !important;
   font-weight:900 !important;
@@ -10477,9 +10477,6 @@ td > .inlineLoadingState,
 }
 
 @media(max-width:768px){
-  .accrualRequestCard .accrualCompactFields{
-    padding:10px !important;
-  }
   .holidaySavedPhotos{
     grid-template-columns:1fr;
   }
@@ -10491,18 +10488,6 @@ td > .inlineLoadingState,
 /* =========================================================
    V29.55 전수 UI QA: 로딩·모바일 카드·적립 신청정보 정리
    ========================================================= */
-.accrualRequestCard .accrualCompactFields{
-  background:transparent !important;
-  border:0 !important;
-  border-radius:0 !important;
-  box-shadow:none !important;
-  margin:0 0 14px !important;
-  padding:0 !important;
-  overflow:visible !important;
-}
-.accrualRequestCard .accrualCompactFields > label{
-  min-width:0 !important;
-}
 .rehireHistoryMobileList,
 .storeMobileList,
 .reviewMobileList,
@@ -10515,17 +10500,6 @@ td > .inlineLoadingState,
 }
 
 @media(max-width:768px){
-  .accrualRequestCard .accrualCompactFields{
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
-    gap:10px !important;
-    width:100% !important;
-  }
-  .accrualRequestCard .accrualCompactFields input,
-  .accrualRequestCard .accrualCompactFields select{
-    min-width:0 !important;
-    max-width:100% !important;
-  }
-
   .employeeDetailModal .rehireHistoryTableWrap,
   .desktopStoreTable,
   .desktopReviewListCard,
@@ -10630,5 +10604,112 @@ td > .inlineLoadingState,
   .storeMobileFields,
   .freepassBulkMobileFields{
     grid-template-columns:minmax(0,1fr) !important;
+  }
+}
+
+/* =========================================================
+   V29.56 common date/time field contract
+   - Keep native date/time controls inside their grid column on iPhone WebKit.
+   - Use one shared size rule instead of page-specific width patches.
+   ========================================================= */
+.uiDateTimeInput{
+  display:block !important;
+  inline-size:100% !important;
+  width:100% !important;
+  min-inline-size:0 !important;
+  min-width:0 !important;
+  max-inline-size:100% !important;
+  max-width:100% !important;
+  height:38px !important;
+  min-height:38px !important;
+  max-height:38px !important;
+  padding-block:0 !important;
+  line-height:normal !important;
+  box-sizing:border-box !important;
+  font-variant-numeric:tabular-nums;
+  text-align:center;
+}
+.uiDateTimeInput::-webkit-date-and-time-value{
+  min-inline-size:0;
+  min-width:0;
+  text-align:center;
+}
+.uiDateTimeInput::-webkit-datetime-edit{
+  min-inline-size:0;
+  min-width:0;
+  padding:0;
+}
+
+.scheduleEditSection,
+.scheduleEditBox,
+.scheduleEditBox label,
+.accrualRequestCard .accrualCompactFields,
+.accrualRequestCard .accrualCompactFields > label,
+.freepassModule .formGrid > label{
+  min-inline-size:0 !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+.scheduleEditBox{
+  width:100% !important;
+}
+.scheduleEditBox .uiDateTimeInput,
+.employeeProfileGrid .uiDateTimeInput{
+  height:42px !important;
+  min-height:42px !important;
+  max-height:42px !important;
+}
+.accrualRequestCard .accrualCompactFields input,
+.accrualRequestCard .accrualCompactFields select{
+  inline-size:100% !important;
+  width:100% !important;
+  min-inline-size:0 !important;
+  min-width:0 !important;
+  max-inline-size:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+
+@media(max-width:768px){
+  .uiDateTimeInput{
+    height:var(--sc-mobile-control-height, 42px) !important;
+    min-height:var(--sc-mobile-control-height, 42px) !important;
+    max-height:var(--sc-mobile-control-height, 42px) !important;
+    padding-block:0 !important;
+    line-height:normal !important;
+  }
+  .scheduleEditBox{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+  .freepassModule .formGrid .uiDateTimeInput{
+    height:44px !important;
+    min-height:44px !important;
+    max-height:44px !important;
+  }
+  .accrualRequestCard .accrualCompactFields{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    gap:10px !important;
+  }
+  .accrualRequestCard .accrualCompactFields .uiDateTimeInput{
+    height:48px !important;
+    min-height:48px !important;
+    max-height:48px !important;
+  }
+}
+
+@media(max-width:360px){
+  .accrualRequestCard .accrualCompactFields{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+}
+
+@media(max-width:768px){
+  @supports (-webkit-touch-callout:none){
+    .uiDateTimeInput{
+      -webkit-appearance:none !important;
+      appearance:none !important;
+      background-color:#fff !important;
+    }
   }
 }

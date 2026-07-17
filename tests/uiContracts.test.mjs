@@ -48,3 +48,16 @@ test('휴무 고객응대 임시 진행은 2·3단계에서 전체 취소할 수
   assert.equal((main.match(/onClick=\{cancelHolidayDraft\}/g) || []).length, 2);
   assert.match(styles, /\.holidayDraftCancelButton\{/);
 });
+
+test('all date and time controls use the shared responsive UI contract', () => {
+  const controls = main.split(/\r?\n/).filter(line => /type="(?:date|time)"/.test(line));
+  assert.ok(controls.length > 0);
+  for (const control of controls) assert.match(control, /uiDateTimeInput/);
+
+  assert.match(styles, /\.uiDateTimeInput\{/);
+  assert.match(styles, /min-inline-size:0 !important;/);
+  assert.match(styles, /max-inline-size:100% !important;/);
+  assert.match(styles, /\.uiDateTimeInput::\-webkit-date-and-time-value/);
+  assert.match(styles, /\.scheduleEditBox\{[\s\S]*?grid-template-columns:minmax\(0,1fr\) !important;/);
+  assert.match(styles, /\.accrualRequestCard \.accrualCompactFields\{[\s\S]*?grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) !important;/);
+});
