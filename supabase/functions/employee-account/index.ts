@@ -249,13 +249,23 @@ async function resetPassword(actor: { name: string }, employeeId: string) {
     authUserId = created.user.id;
     await service.from('employee_legacy_credentials').delete().eq('employee_id', employee.id);
   } else {
-    const { error } = await service.auth.admin.updateUserById(authUserId, { password: temporaryPassword });
+    const { error } = await service.auth.admin.updateUserById(authUserId, {
+      password: temporaryPassword,
+      ban_duration: 'none'
+    });
     if (error) return json(500, { error: '임시 비밀번호를 설정하지 못했습니다.' });
     const { error: employeeError } = await service.from('employees').update({
       password_change_required: true,
       password_changed_at: null
     }).eq('id', employee.id);
     if (employeeError) return json(500, { error: '비밀번호 변경 필요 상태를 저장하지 못했습니다.' });
+  }
+  const { error: unlockError } = await service
+    .from('employee_login_lock_state')
+    .delete()
+    .eq('employee_id', employee.id);
+  if (unlockError) {
+    return json(500, { error: '임시 비밀번호는 설정됐지만 로그인 잠금을 해제하지 못했습니다. 다시 발급해주세요.' });
   }
   await service.from('audit_logs').insert({
     action: '비밀번호초기화', target_type: 'employee', target_id: employee.id, actor_name: actor.name,

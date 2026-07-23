@@ -5,6 +5,13 @@ export function createAsyncQueryCache({ ttlMs = 60000, now = () => Date.now() } 
     entries.clear();
   }
 
+  function deleteWhere(predicate) {
+    if (typeof predicate !== 'function') return;
+    for (const key of entries.keys()) {
+      if (predicate(key)) entries.delete(key);
+    }
+  }
+
   async function getOrLoad(key, loader, { force = false } = {}) {
     const currentTime = now();
     const cached = entries.get(key);
@@ -27,5 +34,5 @@ export function createAsyncQueryCache({ ttlMs = 60000, now = () => Date.now() } 
     }
   }
 
-  return { clear, getOrLoad };
+  return { clear, deleteWhere, getOrLoad };
 }

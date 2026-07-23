@@ -10820,3 +10820,128 @@ td > .inlineLoadingState,
 .temporaryPasswordResult span{font-size:13px;color:#475569;}
 .temporaryPasswordResult strong{font-size:20px;letter-spacing:.04em;word-break:break-all;}
 .temporaryPasswordResult p{margin:0;color:#b42318;font-size:12px;}
+/* V29.63 attendance and feature rollout */
+.attendancePage,
+.attendancePage * { box-sizing: border-box; }
+.attendancePage { width: min(1440px, 100%); margin: 0 auto; padding: 28px 24px 56px; color: #111827; }
+.attendanceTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.attendanceTitleRow h2 { margin: 2px 0 0; font-size: 30px; line-height: 1.2; }
+.attendanceEyebrow { margin: 0; color: #2563eb; font-size: 13px; font-weight: 800; }
+.attendanceRefresh { min-height: 42px; padding: 0 16px; border: 1px solid #d8dee8; border-radius: 12px; background: #fff; font-weight: 700; }
+.attendanceTopTabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 6px; margin-bottom: 18px; border: 1px solid #dfe4ec; border-radius: 16px; background: #f7f9fc; }
+.attendanceTopTabs button,
+.accessScopeTabs button { min-width: 0; min-height: 46px; border: 0; border-radius: 12px; background: transparent; color: #667085; font-weight: 800; white-space: nowrap; }
+.attendanceTopTabs button.active,
+.accessScopeTabs button.active { background: #111827; color: #fff; box-shadow: 0 4px 12px rgba(17,24,39,.14); }
+.attendanceMessage { width: 100%; margin: 0 0 14px; padding: 13px 15px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; color: #1e3a8a; line-height: 1.45; }
+.attendanceState { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 104px; width: 100%; border: 1px solid #e3e7ee; border-radius: 14px; background: #fff; color: #667085; text-align: center; white-space: normal; }
+.attendanceState.empty { min-height: 82px; padding: 20px; }
+.attendanceSpinner { width: 12px; height: 12px; border-radius: 50%; background: #2563eb; animation: attendancePulse 1s ease-in-out infinite; }
+@keyframes attendancePulse { 50% { opacity: .25; transform: scale(.75); } }
+.attendanceSummaryGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.attendanceSummaryGrid article { min-width: 0; min-height: 108px; padding: 20px; border: 1px solid #e1e6ed; border-radius: 18px; background: #fff; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+.attendanceSummaryGrid span { color: #667085; font-size: 14px; }
+.attendanceSummaryGrid strong { overflow-wrap: anywhere; font-size: 22px; line-height: 1.25; }
+.attendancePanel { min-width: 0; margin-bottom: 16px; padding: 22px; border: 1px solid #dfe4ec; border-radius: 20px; background: #fff; box-shadow: 0 2px 8px rgba(16,24,40,.04); }
+.attendancePanel h3 { margin: 0 0 8px; font-size: 21px; line-height: 1.35; }
+.attendanceHelp { margin: 0 0 18px; color: #667085; line-height: 1.55; }
+.attendanceCheckinPanel { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.attendanceCheckinPanel p { margin: 0; color: #667085; line-height: 1.5; }
+.attendancePrimary,
+.attendanceSecondary { min-height: 46px; padding: 0 18px; border-radius: 12px; font-weight: 800; white-space: nowrap; }
+.attendancePrimary { border: 0; background: #2563eb; color: #fff; }
+.attendanceSecondary { border: 1px solid #cfd6e2; background: #fff; color: #111827; }
+.attendancePrimary:disabled,
+.attendanceSecondary:disabled { cursor: not-allowed; opacity: .45; }
+.attendanceTwoColumn { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.attendanceForm,
+.storeAttendanceForm { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.attendanceForm label,
+.storeAttendanceForm label,
+.accessTarget { display: flex; min-width: 0; flex-direction: column; gap: 7px; font-weight: 750; }
+.attendanceForm input,
+.attendanceForm select,
+.attendanceForm textarea,
+.storeAttendanceForm input,
+.storeAttendanceForm select,
+.storeAttendanceForm textarea,
+.accessTarget select { width: 100%; min-width: 0; min-height: 48px; padding: 10px 13px; border: 1px solid #d9dfe8; border-radius: 12px; background: #fff; color: #111827; font: inherit; }
+.attendanceForm textarea,
+.storeAttendanceForm textarea { min-height: 94px; resize: vertical; }
+.attendanceForm .full,
+.storeAttendanceForm .full { grid-column: 1 / -1; }
+.toggleLabel { min-height: 48px; padding: 0 14px; border: 1px solid #d9dfe8; border-radius: 12px; flex-direction: row !important; align-items: center; }
+.toggleLabel input { width: 20px; min-height: 20px; margin: 0; }
+.attendanceCards { display: grid; gap: 10px; margin-top: 18px; }
+.attendanceCards article,
+.attendanceMobileList article { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px; border: 1px solid #e1e6ed; border-radius: 14px; background: #fbfcfe; }
+.attendanceCards article > div,
+.attendanceMobileList article > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.attendanceCards span,
+.attendanceMobileList span { color: #667085; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.attendanceRetry { min-height: 34px; padding: 6px 12px; border: 1px solid #b9c8e6; border-radius: 10px; background: #eef4ff; color: #2458a6; font-weight: 800; white-space: nowrap; }
+.attendanceCardRight { flex: 0 0 auto; align-items: flex-end; }
+.attendanceCardRight button,
+.attendanceApprovalButtons button { min-height: 38px; padding: 0 12px; border: 1px solid #d8dee8; border-radius: 10px; background: #fff; font-weight: 700; }
+.attendanceBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 4px 9px; border-radius: 999px; background: #eef2f6; color: #475467; font-size: 12px; font-style: normal; font-weight: 800; white-space: nowrap; }
+.attendanceBadge.pending { background: #fff7d6; color: #8a5a00; }
+.attendanceBadge.approved { background: #dcfce7; color: #166534; }
+.attendanceBadge.rejected { background: #fee2e2; color: #991b1b; }
+.attendanceApprovalButtons { flex: 0 0 auto; display: flex !important; flex-direction: row !important; gap: 8px !important; }
+.attendanceApprovalButtons .attendancePrimary { color: #fff; border-color: #2563eb; background: #2563eb; }
+.attendanceDesktopTable { width: 100%; overflow-x: auto; }
+.attendanceDesktopTable table { width: 100%; border-collapse: collapse; }
+.attendanceDesktopTable th,
+.attendanceDesktopTable td { padding: 12px 10px; border-bottom: 1px solid #e8ebf0; text-align: left; white-space: nowrap; font-size: 13px; }
+.attendanceDesktopTable th { background: #f7f9fc; }
+.attendanceMobileList { display: none; }
+.accessScopeTabs { width: min(440px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; margin-bottom: 16px; border: 1px solid #dfe4ec; border-radius: 14px; background: #f7f9fc; }
+.accessTarget { margin-bottom: 16px; }
+.featureAccessGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.featureAccessGrid article { min-width: 0; min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #e1e6ed; border-radius: 14px; }
+.featureAccessGrid article > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.featureAccessGrid span { color: #667085; font-size: 12px; }
+.featureAccessGrid select { width: 150px; min-width: 0; min-height: 42px; border: 1px solid #d9dfe8; border-radius: 10px; background: #fff; padding: 0 10px; }
+
+@media (max-width: 768px) {
+  .attendancePage { padding: 18px 14px 40px; }
+  .attendanceTitleRow h2 { font-size: 26px; }
+  .attendanceTopTabs { grid-template-columns: 1fr; }
+  .attendanceSummaryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .attendanceSummaryGrid article { min-height: 92px; padding: 16px; }
+  .attendanceSummaryGrid strong { font-size: 19px; }
+  .attendancePanel { padding: 16px; border-radius: 17px; }
+  .attendanceCheckinPanel { align-items: stretch; flex-direction: column; }
+  .attendanceCheckinPanel .attendancePrimary { width: 100%; }
+  .attendanceTwoColumn { grid-template-columns: 1fr; }
+  .attendanceForm,
+  .storeAttendanceForm { grid-template-columns: 1fr; }
+  .attendanceForm .full,
+  .storeAttendanceForm .full { grid-column: auto; }
+  .attendanceDesktopTable { display: none; }
+  .attendanceMobileList { display: grid; gap: 9px; }
+  .attendanceCards article { align-items: stretch; }
+  .attendanceCardRight { align-items: flex-end; }
+  .attendanceCards.approval article { flex-direction: column; }
+  .attendanceApprovalButtons { width: 100%; }
+  .attendanceApprovalButtons button { flex: 1; }
+  .featureAccessGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 430px) {
+  .attendancePage { padding-left: 12px; padding-right: 12px; }
+  .attendanceSummaryGrid { gap: 8px; }
+  .attendanceSummaryGrid article { padding: 13px; }
+  .attendanceSummaryGrid span { font-size: 12px; }
+  .attendanceSummaryGrid strong { font-size: 17px; }
+  .attendanceCards article,
+  .attendanceMobileList article { padding: 13px; }
+  .featureAccessGrid article { align-items: stretch; flex-direction: column; }
+  .featureAccessGrid select { width: 100%; }
+}
+
+@media (max-width: 340px) {
+  .attendanceSummaryGrid { grid-template-columns: 1fr; }
+  .attendanceTitleRow { align-items: flex-start; }
+  .attendanceRefresh { padding: 0 11px; }
+}

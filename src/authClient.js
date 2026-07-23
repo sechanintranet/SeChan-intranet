@@ -26,7 +26,32 @@ export async function loadAuthenticatedEmployee(supabase, authUserId) {
 }
 
 export async function signInEmployee(supabase, employeeId, password) {
-  return supabase.auth.signInWithPassword({ email: employeeAuthEmail(employeeId), password });
+  const { data, error } = await supabase.functions.invoke('employee-auth', {
+    body: { action: 'login', employee_id: employeeId, password }
+  });
+  if (error) {
+    return {
+      data: null,
+      error: new Error(await edgeFunctionErrorMessage(error, data, '직원 또는 비밀번호가 맞지 않습니다.'))
+    };
+  }
+  if (data?.requires_password_change && data?.challenge) {
+    return { data, error: null };
+  }
+  if (!data?.session?.access_token || !data?.session?.refresh_token) {
+    return { data: null, error: new Error(data?.error || '로그인 정보를 확인하지 못했습니다.') };
+  }
+  const sessionResult = await supabase.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token
+  });
+  if (sessionResult.error) {
+    return { data: null, error: new Error('로그인 정보를 저장하지 못했습니다. 다시 시도해주세요.') };
+  }
+  return {
+    data: { ...data, session: sessionResult.data.session },
+    error: null
+  };
 }
 
 async function edgeFunctionErrorMessage(error, data, fallback) {
@@ -55,7 +80,7 @@ export async function beginLegacyPasswordMigration(supabase, employeeId, passwor
   const { data, error } = await supabase.functions.invoke('employee-auth', {
     body: { action: 'begin-migration', employee_id: employeeId, password }
   });
-  if (error) throw new Error(data?.error || error.message || '기존 로그인 확인 중 오류가 발생했습니다.');
+  if (error) throw new Error(await edgeFunctionErrorMessage(error, data, '기존 로그인 확인 중 오류가 발생했습니다.'));
   if (!data?.challenge && !data?.migrated) throw new Error(data?.error || '안전한 로그인 전환에 실패했습니다.');
   return data;
 }
@@ -66,7 +91,9 @@ export async function completeLegacyPasswordMigration(supabase, challenge, newPa
   const { data, error } = await supabase.functions.invoke('employee-auth', {
     body: { action: 'complete-migration', challenge, new_password: newPassword }
   });
-  if (error || !data?.completed) throw new Error(data?.error || error?.message || '비밀번호 변경을 완료하지 못했습니다.');
+  if (error || !data?.completed) {
+    throw new Error(await edgeFunctionErrorMessage(error, data, '비밀번호 변경을 완료하지 못했습니다.'));
+  }
   return data;
 }
 
