@@ -81,3 +81,20 @@ test('직원 상세 팝업은 상단 고정 메뉴와 분리된 최상위 영역
   assert.match(main, /function EmployeeDetailModal[\s\S]*?return createPortal\(\([\s\S]*?employeeDetailModalBg[\s\S]*?\), document\.body\);/);
   assert.match(styles, /html\.modal-open main,[\s\S]*?body\.modal-open main\{[\s\S]*?z-index:auto !important;/);
 });
+
+test('프리패스 목록은 큰 증빙 사진을 제외하고 상세에서 한 건만 불러온다', () => {
+  const listColumns = main.match(/const FREEPASS_REQUEST_LIST_COLUMNS = \[([\s\S]*?)\]\.join\(','\);/)?.[1] || '';
+  assert.ok(listColumns);
+  assert.doesNotMatch(listColumns, /evidence_photo_data/);
+  assert.match(main, /function loadFreepassRequestEvidence\(row\)/);
+  assert.match(main, /\.select\('id,evidence_photo_data,evidence_deleted_at'\)/);
+  assert.match(main, /openAccrualDetail\(r\)/);
+  assert.match(main, /openApprovalDetail\(r\)/);
+});
+
+test('해피콜 저장 뒤에는 실제 변경된 자료의 캐시만 비운다', () => {
+  assert.doesNotMatch(main, /subscribeNetworkMutationSuccess/);
+  assert.match(main, /invalidateHappycallDataCache\(\['happycall_targets'\]\)/);
+  assert.match(main, /invalidateHappycallDataCache\(\['happycall_logs'\]\)/);
+  assert.match(main, /invalidateHappycallDataCache\(\['customers'\]\)/);
+});

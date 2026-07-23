@@ -2,6 +2,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const service = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false }
@@ -93,6 +94,135 @@ async function clientKey(req: Request, employeeId: string) {
   return sha256(`${employeeId}|${forwarded}|${agent.slice(0, 160)}`);
 }
 
+type LoginLockState = {
+  failure_count?: number;
+  lock_stage?: number;
+  locked_until?: string | null;
+  admin_reset_required?: boolean;
+};
+
+type EmployeeLoginRow = {
+  id: string;
+  name: string;
+  status: string;
+  auth_user_id?: string | null;
+};
+
+function activeTemporaryLock(state: LoginLockState | null) {
+  if (!state?.locked_until) return false;
+  return new Date(state.locked_until).getTime() > Date.now();
+}
+
+function lockoutResponse(state: LoginLockState | null) {
+  if (state?.admin_reset_required || Number(state?.lock_stage || 0) >= 2) {
+    return json(423, {
+      code: 'ADMIN_RESET_REQUIRED',
+      error: '로그인 실패 횟수를 다시 초과했습니다. 관리자에게 임시 비밀번호 발급을 요청해주세요.'
+    });
+  }
+  if (activeTemporaryLock(state)) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((new Date(String(state?.locked_until)).getTime() - Date.now()) / 1000)
+    );
+    return json(429, {
+      code: 'TEMPORARY_LOGIN_LOCK',
+      error: '비밀번호를 8회 잘못 입력해 로그인이 3분간 잠겼습니다. 3분 뒤 다시 시도해주세요.',
+      retry_after_seconds: retryAfterSeconds
+    });
+  }
+  return null;
+}
+
+async function loadLoginLockState(employeeId: string) {
+  const { data, error } = await service
+    .from('employee_login_lock_state')
+    .select('failure_count,lock_stage,locked_until,admin_reset_required')
+    .eq('employee_id', employeeId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data || null) as LoginLockState | null;
+}
+
+async function clearLoginFailures(req: Request, employeeId: string) {
+  const key = await clientKey(req, employeeId);
+  await Promise.all([
+    service.from('employee_auth_attempts').insert({
+      employee_id: employeeId,
+      client_key: key,
+      succeeded: true
+    }),
+    service.from('employee_login_lock_state').delete().eq('employee_id', employeeId)
+  ]);
+}
+
+async function registerLoginFailure(req: Request, employeeId: string) {
+  const key = await clientKey(req, employeeId);
+  const { error: attemptError } = await service.from('employee_auth_attempts').insert({
+    employee_id: employeeId,
+    client_key: key,
+    succeeded: false
+  });
+  if (attemptError) throw attemptError;
+
+  const { data, error } = await service.rpc('record_employee_login_failure', {
+    p_employee_id: employeeId
+  });
+  if (error) throw error;
+  const state = Array.isArray(data) ? data[0] : data;
+  return (state || null) as LoginLockState | null;
+}
+
+async function applyAuthLoginBan(authUserId: string | null | undefined, state: LoginLockState | null) {
+  if (!authUserId) return;
+
+  const banDuration = state?.admin_reset_required || Number(state?.lock_stage || 0) >= 2
+    ? '876000h'
+    : activeTemporaryLock(state)
+      ? '3m'
+      : null;
+
+  if (!banDuration) return;
+  const { error } = await service.auth.admin.updateUserById(authUserId, {
+    ban_duration: banDuration
+  });
+  if (error) throw error;
+}
+
+function sessionResponse(
+  session: { access_token?: string; refresh_token?: string; expires_in?: number; expires_at?: number; token_type?: string } | null,
+  extra: Record<string, unknown> = {}
+) {
+  if (!session?.access_token || !session?.refresh_token) {
+    return json(500, { error: '로그인 정보를 안전하게 만들지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  return json(200, {
+    authenticated: true,
+    session: {
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_in: session.expires_in,
+      expires_at: session.expires_at,
+      token_type: session.token_type
+    },
+    ...extra
+  });
+}
+
+async function invalidPasswordResponse(
+  req: Request,
+  employeeId: string,
+  authUserId?: string | null
+) {
+  const state = await registerLoginFailure(req, employeeId);
+  await applyAuthLoginBan(authUserId, state);
+  return lockoutResponse(state) || json(401, {
+    code: 'INVALID_LOGIN',
+    error: '직원 또는 비밀번호가 맞지 않습니다.',
+    attempts_remaining: Math.max(0, 8 - Number(state?.failure_count || 0))
+  });
+}
+
 async function createEmployeeAuth(employee: { id: string; name: string }, password: string, passwordChangeRequired: boolean) {
   const email = authEmail(employee.id);
   const { data: created, error: createError } = await service.auth.admin.createUser({
@@ -129,31 +259,44 @@ async function createEmployeeAuth(employee: { id: string; name: string }, passwo
   return { email, userId: created.user.id };
 }
 
-async function beginMigration(req: Request, employeeId: string, password: string) {
+async function authenticateEmployee(
+  req: Request,
+  employeeId: string,
+  password: string,
+  legacyOnly = false
+) {
   if (!employeeId || !password) return json(400, { error: '직원과 비밀번호를 확인해주세요.' });
-
-  const key = await clientKey(req, employeeId);
-  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-  const { count } = await service
-    .from('employee_auth_attempts')
-    .select('id', { count: 'exact', head: true })
-    .eq('client_key', key)
-    .gte('attempted_at', since)
-    .eq('succeeded', false);
-
-  if ((count || 0) >= 8) {
-    return json(429, { error: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요.' });
-  }
 
   const { data: employee } = await service
     .from('employees')
     .select('id,name,status,auth_user_id')
     .eq('id', employeeId)
-    .maybeSingle();
+    .maybeSingle() as { data: EmployeeLoginRow | null };
 
-  if (!employee || employee.status !== '재직' || employee.auth_user_id) {
-    await service.from('employee_auth_attempts').insert({ employee_id: employee?.id || null, client_key: key, succeeded: false });
+  if (!employee || employee.status !== '재직') {
     return json(401, { error: '직원 또는 비밀번호가 맞지 않습니다.' });
+  }
+
+  const currentLock = await loadLoginLockState(employee.id);
+  const blocked = lockoutResponse(currentLock);
+  if (blocked) return blocked;
+
+  if (employee.auth_user_id) {
+    if (legacyOnly) {
+      return json(401, { error: '직원 또는 비밀번호가 맞지 않습니다.' });
+    }
+    const verifier = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const { data: signedIn, error: signInError } = await verifier.auth.signInWithPassword({
+      email: authEmail(employee.id),
+      password
+    });
+    if (signInError || !signedIn.session) {
+      return invalidPasswordResponse(req, employee.id, employee.auth_user_id);
+    }
+    await clearLoginFailures(req, employee.id);
+    return sessionResponse(signedIn.session);
   }
 
   const { data: credential } = await service
@@ -166,13 +309,23 @@ async function beginMigration(req: Request, employeeId: string, password: string
     ? await constantTimeTextEqual(password, credential.legacy_password)
     : false;
 
-  await service.from('employee_auth_attempts').insert({ employee_id: employeeId, client_key: key, succeeded: matches });
-  if (!matches) return json(401, { error: '직원 또는 비밀번호가 맞지 않습니다.' });
+  if (!matches) return invalidPasswordResponse(req, employee.id, employee.auth_user_id);
+  await clearLoginFailures(req, employee.id);
 
   if (passwordPolicy(password)) {
     const migrated = await createEmployeeAuth(employee, password, false);
     if (migrated.error) return json(500, { error: '안전한 로그인 계정으로 전환하지 못했습니다. 관리자에게 문의해주세요.' });
-    return json(200, { migrated: true, email: migrated.email });
+    const verifier = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const { data: signedIn, error: signInError } = await verifier.auth.signInWithPassword({
+      email: migrated.email,
+      password
+    });
+    if (signInError || !signedIn.session) {
+      return json(500, { error: '안전한 로그인 전환은 완료됐지만 로그인하지 못했습니다. 다시 로그인해주세요.' });
+    }
+    return sessionResponse(signedIn.session, { migrated: true, email: migrated.email });
   }
 
   await service.from('employee_auth_migration_challenges')
@@ -191,6 +344,10 @@ async function beginMigration(req: Request, employeeId: string, password: string
   if (error) return json(500, { error: '비밀번호 변경 준비 중 오류가 발생했습니다.' });
 
   return json(200, { requires_password_change: true, challenge: token, expires_at: expiresAt });
+}
+
+async function beginMigration(req: Request, employeeId: string, password: string) {
+  return authenticateEmployee(req, employeeId, password, true);
 }
 
 async function completeMigration(challenge: string, newPassword: string) {
@@ -234,6 +391,9 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
+    if (body?.action === 'login') {
+      return authenticateEmployee(req, String(body.employee_id || ''), String(body.password || ''));
+    }
     if (body?.action === 'begin-migration') {
       return beginMigration(req, String(body.employee_id || ''), String(body.password || ''));
     }

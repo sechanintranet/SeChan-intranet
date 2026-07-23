@@ -57,3 +57,19 @@ test('does not keep failed requests in the cache', async () => {
   }), ['recovered']);
   assert.equal(calls, 2);
 });
+
+test('invalidates only cache entries matched by a table-specific predicate', async () => {
+  const cache = createAsyncQueryCache();
+  let targetCalls = 0;
+  let logCalls = 0;
+
+  await cache.getOrLoad('user|happycall_targets|columns|date', async () => ++targetCalls);
+  await cache.getOrLoad('user|happycall_logs|columns|date', async () => ++logCalls);
+
+  cache.deleteWhere(key => String(key).includes('|happycall_logs|'));
+
+  assert.equal(await cache.getOrLoad('user|happycall_targets|columns|date', async () => ++targetCalls), 1);
+  assert.equal(await cache.getOrLoad('user|happycall_logs|columns|date', async () => ++logCalls), 2);
+  assert.equal(targetCalls, 1);
+  assert.equal(logCalls, 2);
+});

@@ -7,8 +7,7 @@ import './styles.css';
 import {
   createClientUuid,
   runNetworkMutation,
-  runNetworkRead,
-  subscribeNetworkMutationSuccess
+  runNetworkRead
 } from './networkMutation.js';
 import { createAsyncQueryCache } from './asyncQueryCache.js';
 import { loadPagedRows } from './pagedRows.js';
@@ -29,7 +28,6 @@ import {
   validatePasswordPolicy
 } from './authSecurity.js';
 import {
-  beginLegacyPasswordMigration,
   changeAuthenticatedPassword,
   completeLegacyPasswordMigration,
   loadActiveLoginDirectory,
@@ -41,8 +39,13 @@ import {
   freepassBulkEmployeeKey,
   prepareFreepassBulkAdjustment
 } from './freepassBulkAdjustment.js';
+import AttendanceModule, { FeatureAccessManager } from './AttendanceModule.jsx';
+import {
+  featureKeyForTab,
+  resolveAllFeatureAccess
+} from './featureAccess.js';
 
-const APP_BUILD_VERSION = 'V29.62';
+const APP_BUILD_VERSION = 'V29.63';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -113,11 +116,17 @@ const happycallFullQueryCache = createAsyncQueryCache({ ttlMs: 60000 });
 const HAPPYCALL_CACHE_TABLES = new Set(['happycall_targets', 'happycall_logs', 'customers']);
 let happycallCacheAuthScope = 'anonymous';
 
-function invalidateHappycallDataCache() {
-  happycallFullQueryCache.clear();
+function invalidateHappycallDataCache(tableNames = null) {
+  if (!tableNames?.length) {
+    happycallFullQueryCache.clear();
+    return;
+  }
+  const tables = new Set(tableNames);
+  happycallFullQueryCache.deleteWhere(key => {
+    const [, tableName] = String(key).split('|');
+    return tables.has(tableName);
+  });
 }
-
-subscribeNetworkMutationSuccess(invalidateHappycallDataCache);
 
 supabase.auth.onAuthStateChange((_event, session) => {
   const nextScope = session?.user?.id || 'anonymous';
@@ -216,6 +225,24 @@ const EMPLOYEE_LIST_COLUMNS = 'id,name,store_name,status,created_at,role,hire_da
 const REFUSED_CUSTOMER_LIST_COLUMNS = 'id,join_no,target_id,refused_by,refused_at,memo,customer_name,is_minor,minor_birth_date';
 const FREEPASS_LEDGER_LIST_COLUMNS = 'id,employee_id,employee_name,employee_store,type,hours,reason,effective_date,created_by,created_at,source_request_id,reset_cycle';
 const FREEPASS_REQUEST_LOG_COLUMNS = 'id,employee_name,employee_store,request_type,request_date,hours,reason,status,requested_at,created_at,manager_approved_by,final_approved_by';
+const FREEPASS_REQUEST_LIST_COLUMNS = [
+  'id','employee_id','employee_name','employee_store','request_type','use_type','request_date','use_start_time',
+  'hours','reason','evidence_deleted_at','status','manager_status','manager_approved_by','manager_approved_at',
+  'manager_rejected_by','manager_rejected_at','final_status','final_approved_by','final_approved_at',
+  'final_rejected_by','final_rejected_at','reject_reason','requested_at','created_at','reset_cycle',
+  'consent_agreed','consent_agreed_at','consent_text','consent_snapshot'
+].join(',');
+
+async function loadFreepassRequestEvidence(row) {
+  if (!row?.id || row.evidence_deleted_at || row.evidence_photo_data !== undefined) return row;
+  const { data, error } = await runNetworkRead(() => supabase
+    .from('freepass_requests')
+    .select('id,evidence_photo_data,evidence_deleted_at')
+    .eq('id', row.id)
+    .maybeSingle());
+  if (error) throw error;
+  return { ...row, ...(data || {}), evidence_photo_data: data?.evidence_photo_data || null };
+}
 
 
 const CALL_RESULTS = {
@@ -566,21 +593,14 @@ function Login({ onAuthenticated }) {
     try { sessionStorage.setItem(PENDING_LOGIN_KEY, rememberLogin ? 'remember' : 'session'); } catch {}
     setBusy(true);
     try {
-      const { error: authError } = await signInEmployee(supabase, emp.id, password);
-      if (!authError) {
-        await onAuthenticated({ remember: rememberLogin });
+      const { data: authData, error: authError } = await signInEmployee(supabase, emp.id, password);
+      if (authError) throw authError;
+      if (authData?.requires_password_change && authData?.challenge) {
+        setMigration({ employee: emp, challenge: authData.challenge });
+        setPassword('');
         return;
       }
-
-      const result = await beginLegacyPasswordMigration(supabase, emp.id, password);
-      if (result.migrated) {
-        const { error: migratedLoginError } = await signInEmployee(supabase, emp.id, password);
-        if (migratedLoginError) throw migratedLoginError;
-        await onAuthenticated({ remember: rememberLogin });
-        return;
-      }
-      setMigration({ employee: emp, challenge: result.challenge });
-      setPassword('');
+      await onAuthenticated({ remember: rememberLogin });
     } catch (error) {
       try { sessionStorage.removeItem(PENDING_LOGIN_KEY); } catch {}
       setErr(error?.message || '직원 또는 비밀번호가 맞지 않습니다.');
@@ -1393,8 +1413,8 @@ function FreepassMyPage({ user }) {
     setLoading(true);
     try{
       const [{data:l,error:ledgerError},{data:r,error:requestError},limit] = await Promise.all([
-        supabase.from('freepass_ledger').select('*').eq('employee_name',user.name).order('created_at',{ascending:false}),
-        supabase.from('freepass_requests').select('*').eq('employee_name',user.name).order('requested_at',{ascending:false}),
+        supabase.from('freepass_ledger').select(FREEPASS_LEDGER_LIST_COLUMNS).eq('employee_name',user.name).order('created_at',{ascending:false}),
+        supabase.from('freepass_requests').select(FREEPASS_REQUEST_LIST_COLUMNS).eq('employee_name',user.name).order('requested_at',{ascending:false}),
         getFreepassMonthlyLimit()
       ]);
       if(ledgerError) throw ledgerError;
@@ -1598,8 +1618,8 @@ function FreepassRequestForm({ user }) {
   const employeeEndTime = employeeWorkEndTime(employeeProfile || user);
   const availability = freepassUseAvailability({ userName:user.name, requestType, useType, requestDate, hours: requestType === '월차 전환' ? 10 : hours, employeeEndTime });
   useEffect(()=>{
-    supabase.from('freepass_ledger').select('*').then(({data})=>setLedger(data||[]));
-    supabase.from('freepass_requests').select('*').eq('employee_name', user.name).then(({data})=>setRequests(data||[]));
+    supabase.from('freepass_ledger').select(FREEPASS_LEDGER_LIST_COLUMNS).then(({data})=>setLedger(data||[]));
+    supabase.from('freepass_requests').select(FREEPASS_REQUEST_LIST_COLUMNS).eq('employee_name', user.name).then(({data})=>setRequests(data||[]));
     getFreepassMonthlyLimit().then(setMonthlyLimit);
     loadEmployeeProfile();
   },[user?.id,user?.name]);
@@ -1717,6 +1737,7 @@ function AccrualRequestTab({ user }) {
   const [selected,setSelected]=useState(null);
   const [busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true);
+  const [evidenceLoading,setEvidenceLoading]=useState(false);
   const [noticeOpen,setNoticeOpen]=useState(false);
 
   function normalizeAccrualType(v){
@@ -1746,17 +1767,36 @@ function AccrualRequestTab({ user }) {
     try{
       const {data,error}=await supabase
         .from('freepass_requests')
-        .select('*')
+        .select(FREEPASS_REQUEST_LIST_COLUMNS)
         .eq('employee_name', user.name)
         .in('request_type', ['고객 추가 응대','휴무 고객응대','야근 적립','휴무출근 적립'])
         .order('requested_at', { ascending:false });
       if(error) throw error;
-      setRows(data||[]);
+      const listRows = data || [];
+      const draft = findHolidayAccrualDraft(listRows);
+      if (draft) {
+        const draftWithEvidence = await loadFreepassRequestEvidence(draft);
+        setRows(listRows.map(row => row.id === draft.id ? draftWithEvidence : row));
+      } else {
+        setRows(listRows);
+      }
     }catch(e){
       setRows([]);
       askErrorReport({user,currentTab:'프리패스 적립 요청',actionName:'적립 요청 신청현황 조회',error:e});
     }finally{
       setLoading(false);
+    }
+  }
+
+  async function openAccrualDetail(row){
+    setSelected(row);
+    setEvidenceLoading(true);
+    try{
+      setSelected(await loadFreepassRequestEvidence(row));
+    }catch(e){
+      askErrorReport({user,currentTab:'프리패스 적립 요청',actionName:'적립 요청 사진 조회',error:e});
+    }finally{
+      setEvidenceLoading(false);
     }
   }
 
@@ -1997,7 +2037,7 @@ function AccrualRequestTab({ user }) {
         {!loading && historyRows.length > 0 && <table className="accrualDesktopTable">
           <thead><tr><th>접수 날짜·시각</th><th>유형</th><th>응대 발생일</th><th>시간</th><th>내용</th><th>동의</th><th>상태</th></tr></thead>
           <tbody>
-            {historyRows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}>
+            {historyRows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>openAccrualDetail(r)}>
               <td>{formatKST(r.requested_at || r.created_at)}</td>
               <td>{normalizeAccrualType(r.request_type)}</td>
               <td>{r.request_date || '-'}</td>
@@ -2010,7 +2050,7 @@ function AccrualRequestTab({ user }) {
         </table>}
         {!loading && historyRows.length > 0 && <div className="accrualMobileList">
           {historyRows.map(r=>{
-            return <button type="button" key={r.id} className="accrualHistoryItem" onClick={()=>setSelected(r)}>
+            return <button type="button" key={r.id} className="accrualHistoryItem" onClick={()=>openAccrualDetail(r)}>
               <div className="accrualHistoryTop"><strong>{normalizeAccrualType(r.request_type)}</strong><span className={`requestStatusBadge ${pushStatusClass(r.status)}`}>{pushStatusLabel(r.status)}</span></div>
               <div className="accrualHistoryMeta"><span>{r.request_date || '-'}</span><span>{Number(r.hours||0) ? `${r.hours}시간` : '시간 미정'}</span></div>
               <p>{r.reason || '응대 내용 없음'}</p>
@@ -2033,9 +2073,9 @@ function AccrualRequestTab({ user }) {
           <p><b>동의 여부</b><br />{selected.consent_agreed ? `동의완료 (${formatKST(selected.consent_agreed_at)})` : '-'}</p>
         </section>
         {selected.consent_text && <div className="freepassConsentRecord"><b>동의 문구 기록</b><p>{selected.consent_text}</p></div>}
-        <div className="evidenceGrid">
+        {evidenceLoading ? <InlineLoadingState /> : <div className="evidenceGrid">
           {parseEvidencePhotos(selected.evidence_photo_data).map((p,idx)=><div className="evidenceItem" key={idx}><b>{p.type || `사진 ${idx+1}`}</b><img className="evidencePreview" src={p.data || p} alt={p.type || `증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}
-        </div>
+        </div>}
       </div></div>}
     </div>
   );
@@ -2044,6 +2084,7 @@ function FreepassApprovalQueue({ user, mode }) {
   const [rows,setRows]=useState([]);
   const [selected,setSelected]=useState(null);
   const [loading,setLoading]=useState(true);
+  const [evidenceLoading,setEvidenceLoading]=useState(false);
   const [processingId,setProcessingId]=useState(null);
   const [selectedLog, setSelectedLog] = useState(null);
 
@@ -2065,7 +2106,7 @@ function FreepassApprovalQueue({ user, mode }) {
       const targetStatus = mode === 'manager' ? '점장승인대기' : '최종승인대기';
       let query = supabase
         .from('freepass_requests')
-        .select('*')
+        .select(FREEPASS_REQUEST_LIST_COLUMNS)
         .eq('status', targetStatus)
         .order('requested_at',{ascending:false});
       if(mode==='manager' && user.role==='점장') query = query.eq('employee_store', user.store_name);
@@ -2079,12 +2120,24 @@ function FreepassApprovalQueue({ user, mode }) {
     }
   }
 
+  async function openApprovalDetail(row){
+    setSelected(row);
+    setEvidenceLoading(true);
+    try{
+      setSelected(await loadFreepassRequestEvidence(row));
+    }catch(e){
+      askErrorReport({user,currentTab:'프리패스 승인',actionName:'승인 증빙 사진 조회',error:e});
+    }finally{
+      setEvidenceLoading(false);
+    }
+  }
+
   async function approve(row){
     if(processingId) return;
     setProcessingId(row.id);
     try{
       if(mode==='manager'){
-        const {data:current,error:readError}=await supabase.from('freepass_requests').select('*').eq('id',row.id).maybeSingle();
+        const {data:current,error:readError}=await supabase.from('freepass_requests').select(FREEPASS_REQUEST_LIST_COLUMNS).eq('id',row.id).maybeSingle();
         if(readError) throw readError;
         if(!current || current.status !== '점장승인대기'){
           alert('이미 처리된 신청입니다. 목록을 새로고침합니다.');
@@ -2103,7 +2156,7 @@ function FreepassApprovalQueue({ user, mode }) {
       } else {
         if(!isSuperAdmin(user)) return alert('최종 승인은 최고관리자만 가능합니다.');
 
-        const {data:current,error:readError}=await supabase.from('freepass_requests').select('*').eq('id',row.id).maybeSingle();
+        const {data:current,error:readError}=await supabase.from('freepass_requests').select(FREEPASS_REQUEST_LIST_COLUMNS).eq('id',row.id).maybeSingle();
         if(readError) throw readError;
         if(!current || current.status !== '최종승인대기'){
           alert('이미 처리된 신청입니다. 목록을 새로고침합니다.');
@@ -2198,7 +2251,7 @@ function FreepassApprovalQueue({ user, mode }) {
         <table className="freepassApprovalTable">
           <thead><tr><th>신청자</th><th>매장</th><th>유형</th><th>일자</th><th>시간</th><th>사유</th><th>상태</th></tr></thead>
           <tbody>
-            {rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>setSelected(r)}>
+            {rows.map(r=><tr key={r.id} className="clickableRow" onClick={()=>openApprovalDetail(r)}>
               <td>{r.employee_name}</td>
               <td>{r.employee_store}</td>
               <td>{displayRequestType(r)} {r.use_type||''}</td>
@@ -2223,7 +2276,7 @@ function FreepassApprovalQueue({ user, mode }) {
             meta={[r.request_date, `${r.hours}시간`, r.reason || '-']}
             status={pushStatusLabel(r.status)}
             badgeClass={pushStatusClass(r.status)}
-            onClick={() => setSelected(r)}
+            onClick={() => openApprovalDetail(r)}
           />
         ))}
         {!loading && !rows.length && <EmptyStateText>승인 대기 건이 없습니다.</EmptyStateText>}
@@ -2245,7 +2298,8 @@ function FreepassApprovalQueue({ user, mode }) {
               <p><b>동의</b><br/>{selected.consent_agreed ? `동의완료 ${selected.consent_agreed_at ? formatKST(selected.consent_agreed_at) : ''}` : '-'}</p>
             </section>
             {selected.consent_text && <div className="freepassConsentRecord"><b>동의 문구</b><p>{selected.consent_text}</p></div>}
-            {selected.evidence_photo_data&&<div className="evidenceGrid large">{(() => { try { const arr = JSON.parse(selected.evidence_photo_data); return Array.isArray(arr) ? arr : [{data:selected.evidence_photo_data}]; } catch { return [{data:selected.evidence_photo_data}]; } })().map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview large" src={p.data || p} alt={`증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}</div>}
+            {evidenceLoading && <InlineLoadingState />}
+            {!evidenceLoading && selected.evidence_photo_data&&<div className="evidenceGrid large">{(() => { try { const arr = JSON.parse(selected.evidence_photo_data); return Array.isArray(arr) ? arr : [{data:selected.evidence_photo_data}]; } catch { return [{data:selected.evidence_photo_data}]; } })().map((p,idx)=><div className="evidenceItem" key={idx}><img className="evidencePreview large" src={p.data || p} alt={`증빙 ${idx+1}`} />{p.captured_at && <p>촬영일시: {freepassPhotoTimeLabel(p.captured_at)}</p>}</div>)}</div>}
           </div>
           <div className="reviewActions stickyApprovalActions freepassApprovalActions">
             <button className="primary" disabled={!!processingId} onClick={()=>approve(selected)}>{processingId===selected.id?'처리 중':'승인'}</button>
@@ -2759,7 +2813,7 @@ function FreepassSemiannualReset({ user }) {
   useEffect(()=>{ load(); },[]);
   async function load(){
     setLoading(true);
-    const {data:l}=await supabase.from('freepass_ledger').select('*').order('created_at',{ascending:false});
+    const {data:l}=await supabase.from('freepass_ledger').select(FREEPASS_LEDGER_LIST_COLUMNS).order('created_at',{ascending:false});
     const {data:e}=await supabase.from('employees').select(EMPLOYEE_LIST_COLUMNS).eq('status','재직').order('store_name');
     setLedger(l||[]);
     const sorted=sortEmployeesForLogin(e||[]);
@@ -3336,7 +3390,7 @@ function statusOptionsFor(row){
     </div>
   );
 }
-function HomeDashboard({ user, setTab }) {
+function HomeDashboard({ user, setTab, featureAccess }) {
   const [happyCount,setHappyCount]=useState(0);
   const [reviewCount,setReviewCount]=useState(0);
   const [freepassMine,setFreepassMine]=useState(0);
@@ -3417,12 +3471,13 @@ function HomeDashboard({ user, setTab }) {
   }
 
   const cards = [
-    {title:'내 해피콜', value:happyCount, desc:'진행 필요', tab:'mycalls', show:!isSuperAdmin(user)},
-    {title:'해피콜 검수', value:reviewCount, desc:'확인 필요', tab:'review', show:isAdminLike(user)},
-    {title:'내 프리패스', value:freepassMine, desc:'진행 중 신청', tab:'freepass', show:true},
-    {title:'악세사리 주문', value:0, desc:'주문 관리', tab:'accessories', show:true},
-    {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', freepassTab:'점장 승인', show:user.role==='점장'||isAdminLike(user)},
-    {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', freepassTab:'최종 승인', show:isSuperAdmin(user)},
+    {title:'내 해피콜', value:happyCount, desc:'진행 필요', tab:'mycalls', show:featureAccess.happycall && !isSuperAdmin(user)},
+    {title:'해피콜 검수', value:reviewCount, desc:'확인 필요', tab:'review', show:featureAccess.happycall && isAdminLike(user)},
+    {title:'내 프리패스', value:freepassMine, desc:'진행 중 신청', tab:'freepass', show:featureAccess.freepass},
+    {title:'악세사리 주문', value:0, desc:'주문 관리', tab:'accessories', show:featureAccess.accessories},
+    {title:'근무', value:'출근', desc:'출근 및 근무 이력', tab:'attendance', show:featureAccess.attendance},
+    {title:'점장 승인', value:managerPending, desc:'승인 대기', tab:'freepass', freepassTab:'점장 승인', show:featureAccess.freepass && (user.role==='점장'||isAdminLike(user))},
+    {title:'최종 승인', value:finalPending, desc:'최고관리자 확인', tab:'freepass', freepassTab:'최종 승인', show:featureAccess.freepass && isSuperAdmin(user)},
     {title:'건의/문의', value:suggestions, desc:'진행 중', tab:'suggestions', show:true},
     {title:'오류보고', value:errors, desc:'미해결', tab:'errors', show:isAdminLike(user)},
   ].filter(c=>c.show);
@@ -3458,7 +3513,7 @@ function HomeDashboard({ user, setTab }) {
 
 
 
-function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword }) {
+function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword, featureAccess }) {
   if (!open) return null;
   const isAdmin = isAdminLike(user);
   const isManager = user.role === '점장';
@@ -3479,13 +3534,14 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
         <div className="drawerGroup">
           <h4>메인</h4>
           <button onClick={()=>go('home')}>홈</button>
-          {!isSuperAdmin(user) && <button onClick={()=>go('mycalls')}>내 해피콜</button>}
-          <button onClick={()=>go('freepass')}>프리패스</button>
-          <button onClick={()=>go('accessories')}>악세사리 주문</button>
+          {featureAccess.happycall && !isSuperAdmin(user) && <button onClick={()=>go('mycalls')}>내 해피콜</button>}
+          {featureAccess.freepass && <button onClick={()=>go('freepass')}>프리패스</button>}
+          {featureAccess.accessories && <button onClick={()=>go('accessories')}>악세사리 주문</button>}
+          {featureAccess.attendance && <button onClick={()=>go('attendance')}>근무</button>}
           <button onClick={()=>go('suggestions')}>건의/문의</button>
         </div>
 
-        {(isManager || isChecker || isAdmin) && <div className="drawerGroup">
+        {featureAccess.happycall && (isManager || isChecker || isAdmin) && <div className="drawerGroup">
           <h4>해피콜</h4>
           {isManager && <button onClick={()=>go('manager')}>매장 현황</button>}
           {isManager && <button onClick={()=>go('storecalls')}>매장 리스트</button>}
@@ -3502,6 +3558,7 @@ function MobileSideDrawer({ open, onClose, user, setTab, onLogout, onPassword })
           <h4>관리</h4>
           <button onClick={()=>go('employees')}>직원관리</button>
           <button onClick={()=>go('stores')}>매장관리</button>
+          {isSuperAdmin(user) && <button onClick={()=>go('featureAccess')}>기능 사용 권한</button>}
           <button onClick={()=>go('audit')}>감사로그</button>
           <button onClick={()=>go('errors')}>오류보고</button>
         </div>}
@@ -3525,9 +3582,39 @@ function MainApp({ user, onLogout, onUserUpdate }) {
   const [showPassword, setShowPassword] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState('');
+  const [featureAccess, setFeatureAccess] = useState({ happycall: true, freepass: true, accessories: true, attendance: isSuperAdmin(user) });
+  const [featureAccessReady, setFeatureAccessReady] = useState(false);
   const isAdmin = isAdminLike(user);
   const isManager = user.role === '점장';
   const isChecker = user.role === '검수자' || isAdminLike(user);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [{ data: stores }, { data: overrides }] = await Promise.all([
+          supabase.from('stores').select('id,name').eq('name', user.store_name).limit(1),
+          supabase.from('feature_access_overrides').select('scope_type,employee_id,store_id,feature_key,enabled')
+        ]);
+        const resolved = resolveAllFeatureAccess({ employeeId: user.id, storeId: stores?.[0]?.id || '', overrides: overrides || [] });
+        if (active) setFeatureAccess({
+          ...Object.fromEntries(Object.entries(resolved).map(([key, value]) => [key, value.enabled])),
+          attendance: isSuperAdmin(user) || resolved.attendance.enabled
+        });
+      } catch (error) {
+        console.warn('feature access fallback', error);
+      } finally {
+        if (active) setFeatureAccessReady(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [user.id, user.store_name]);
+
+  useEffect(() => {
+    if (!featureAccessReady) return;
+    const featureKey = featureKeyForTab(tab);
+    if (featureKey && !featureAccess[featureKey]) setTab('home');
+  }, [tab, featureAccess, featureAccessReady]);
 
   return (
     <div className="app">
@@ -3540,19 +3627,20 @@ function MainApp({ user, onLogout, onUserUpdate }) {
         </div>
         <div className="headerRight"><img className="headerLogo" src="./sechan-logo.png" alt="세찬컴퍼니 로고" onError={e=>{e.currentTarget.style.display='none'}} /><div className="headerActions desktopHeaderActions"><button onClick={() => setShowPassword(true)} className="compactHeaderButton">비밀번호 변경</button><button onClick={onLogout} className="compactHeaderButton">로그아웃</button></div><button className="mobileHamburgerBtn" onClick={()=>setMobileDrawerOpen(true)} aria-label="메뉴 열기">☰</button></div>
       </header>
-      <MobileSideDrawer open={mobileDrawerOpen} onClose={()=>setMobileDrawerOpen(false)} user={user} setTab={setTab} onLogout={onLogout} onPassword={()=>{setMobileDrawerOpen(false); setShowPassword(true);}} />
+      <MobileSideDrawer open={mobileDrawerOpen} onClose={()=>setMobileDrawerOpen(false)} user={user} setTab={setTab} onLogout={onLogout} onPassword={()=>{setMobileDrawerOpen(false); setShowPassword(true);}} featureAccess={featureAccess} />
 
       <div className="navHoverShell" onMouseLeave={()=>setOpenMenu('')}>
       <nav className="topNav compactNav">
         <button className={tab==='home'?'active':''} onClick={()=>setTab('home')}>홈</button>
-        <div className="compactGroup desktopMegaTrigger" onMouseEnter={()=>setOpenMenu('happycall')}>
+        {featureAccess.happycall && <div className="compactGroup desktopMegaTrigger" onMouseEnter={()=>setOpenMenu('happycall')}>
           <button type="button" className={`compactHead ${openMenu === 'happycall' ? 'active' : ''}`} onClick={e=>e.preventDefault()}>
             해피콜
           </button>
-        </div>
+        </div>}
 
-        <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>
-              <button className={tab==='accessories'?'active':''} onClick={()=>setTab('accessories')}>악세사리 주문</button>
+        {featureAccess.freepass && <button className={tab==='freepass'?'active':''} onClick={()=>setTab('freepass')}>프리패스</button>}
+        {featureAccess.accessories && <button className={tab==='accessories'?'active':''} onClick={()=>setTab('accessories')}>악세사리 주문</button>}
+        {featureAccess.attendance && <button className={tab==='attendance'?'active':''} onClick={()=>setTab('attendance')}>근무</button>}
 
         <button className={tab==='pushSettings'?'active':''} onClick={()=>setTab('pushSettings')}>알림 설정</button>
 
@@ -3569,7 +3657,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
       </nav>
       {(openMenu === 'happycall' || openMenu === 'settings') && (
         <div className="navMegaPanel">
-          {openMenu === 'happycall' && (
+          {openMenu === 'happycall' && featureAccess.happycall && (
             <div className="navMegaInner">
               <div className="navMegaColumn">
                 <h4>해피콜</h4>
@@ -3604,6 +3692,7 @@ function MainApp({ user, onLogout, onUserUpdate }) {
                 <h4>기본 설정</h4>
                 <button className={tab==='employees'?'active':''} onClick={()=>setTab('employees')}>직원관리</button>
                 <button className={tab==='stores'?'active':''} onClick={()=>setTab('stores')}>매장관리</button>
+                {isSuperAdmin(user) && <button className={tab==='featureAccess'?'active':''} onClick={()=>setTab('featureAccess')}>기능 사용 권한</button>}
               </div>
               <div className="navMegaColumn">
                 <h4>기록/오류</h4>
@@ -3618,27 +3707,29 @@ function MainApp({ user, onLogout, onUserUpdate }) {
 
       <main>
         {tab === 'dashboard' && <Dashboard user={user} />}
-        {tab === 'mycalls' && !isSuperAdmin(user) && <CallList user={user} mode="mine" />}
+        {tab === 'mycalls' && featureAccess.happycall && !isSuperAdmin(user) && <CallList user={user} mode="mine" />}
         {tab === 'suggestions' && <SuggestionsPage user={user} />}
-        {tab === 'home' && <HomeDashboard user={user} setTab={setTab} />}
-        {tab === 'freepass' && <FreepassModule user={user} />}
-        {tab === 'accessories' && <AccessoryOrdersPage user={user} />}
+        {tab === 'home' && <HomeDashboard user={user} setTab={setTab} featureAccess={featureAccess} />}
+        {tab === 'freepass' && featureAccess.freepass && <FreepassModule user={user} />}
+        {tab === 'accessories' && featureAccess.accessories && <AccessoryOrdersPage user={user} />}
+        {tab === 'attendance' && featureAccess.attendance && <AttendanceModule supabase={supabase} user={user} superAdmin={isSuperAdmin(user)} />}
+        {tab === 'featureAccess' && isSuperAdmin(user) && <FeatureAccessManager supabase={supabase} />}
         {tab === 'pushSettings' && <PushSettings user={user} />}
         {tab === 'guide' && <UsageGuide user={user} />}
-        {tab === 'manager' && <ManagerStoreDashboardV6 user={user} />}
-        {tab === 'storecalls' && <CallList user={user} mode="store" readOnly={true} />}
-        {tab === 'storePerformance' && <EmployeePerformanceDashboard user={user} mode="store" />}
-        {tab === 'review' && <ReviewDashboard user={user} />}
-        {tab === 'performance' && <EmployeePerformanceDashboard user={user} mode="all" />}
+        {tab === 'manager' && featureAccess.happycall && <ManagerStoreDashboardV6 user={user} />}
+        {tab === 'storecalls' && featureAccess.happycall && <CallList user={user} mode="store" readOnly={true} />}
+        {tab === 'storePerformance' && featureAccess.happycall && <EmployeePerformanceDashboard user={user} mode="store" />}
+        {tab === 'review' && featureAccess.happycall && <ReviewDashboard user={user} />}
+        {tab === 'performance' && featureAccess.happycall && <EmployeePerformanceDashboard user={user} mode="all" />}
         {tab === 'audit' && <AuditLogsViewer />}
-        {tab === 'refused' && <RefusedCustomersViewer />}
+        {tab === 'refused' && featureAccess.happycall && <RefusedCustomersViewer />}
         {tab === 'errors' && <ErrorReportsViewer user={user} />}
-        {tab === 'allcalls' && <CallList user={user} mode="all" />}
-        {tab === 'assignmentStatus' && isAdmin && <HappycallAssignmentStatus user={user} />}
+        {tab === 'allcalls' && featureAccess.happycall && <CallList user={user} mode="all" />}
+        {tab === 'assignmentStatus' && featureAccess.happycall && isAdmin && <HappycallAssignmentStatus user={user} />}
         {tab === 'employees' && <Employees user={user} />}
         {tab === 'stores' && <Stores user={user} />}
-        {tab === 'rawupload' && <RawUpload user={user} />}
-        {tab === 'targetgen' && <TargetGenerator user={user} />}
+        {tab === 'rawupload' && featureAccess.happycall && <RawUpload user={user} />}
+        {tab === 'targetgen' && featureAccess.happycall && <TargetGenerator user={user} />}
       </main>
       {showPassword && <PasswordChangeModal user={user} onClose={() => setShowPassword(false)} onUserUpdate={onUserUpdate} />}
     </div>
@@ -4258,7 +4349,7 @@ function BulkTempAssignModal({ user, targets, latestLogByTarget, onClose, onSave
         if (error) throw error;
       }
       await writeAuditLog('임시처리자일괄변경', 'happycall_targets', user.store_name, user, `D+93/D+183 ${selectedIds.length}건 → ${assignee}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_targets']);
       alert(`임시 배정 완료: ${selectedIds.length}건`);
       onSaved();
       onClose();
@@ -4452,6 +4543,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
         scheduled_change_reason: scheduleReason.trim()
       };
       await runNetworkMutation(() => supabase.from('happycall_targets').update(payload).eq('id', target.id));
+      invalidateHappycallDataCache(['happycall_targets']);
       await writeAuditLog('해피콜처리예정일변경', 'happycall_targets', target.id, user, `${callTypeLabel(target.call_type)} / ${baseDate} → ${nextDate || baseDate} / ${payload.scheduled_change_reason}`);
       alert(reset ? '원 대상일로 되돌렸습니다.' : '처리 예정일이 변경되었습니다. 지정일 전에는 미완료로 집계되지 않습니다.');
       onSaved();
@@ -4487,7 +4579,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
       if (error) throw error;
 
       await writeAuditLog('임시처리자변경', 'happycall_target', target.id, user, `${target.join_no} / ${target.assigned_employee} → ${tempAssignee}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_targets']);
       alert('임시 처리자가 변경되었습니다.');
       onSaved();
       onClose();
@@ -4510,7 +4602,7 @@ useEffect(() => { loadDetail(); }, [target.id]);
         reason: joinNoReason,
         user
       });
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_targets', 'happycall_logs', 'customers']);
       alert('가입번호가 수정되었습니다.');
       onSaved();
       onClose();
@@ -4596,6 +4688,7 @@ async function save() {
         p_voc_id: detail === '불만사항있음' ? vocOperationIdRef.current : null,
         p_voc_issue: detail === '불만사항있음' ? memo : null
       }));
+      invalidateHappycallDataCache(['happycall_logs']);
 
       await writeAuditLog('해피콜저장', 'happycall_target', target.id, user, `${target.join_no} / ${result} / ${detail}`);
       saveOperationIdRef.current = null;
@@ -6459,7 +6552,7 @@ function HappycallAssignmentStatus({ user }) {
       if (error) throw error;
 
       await writeAuditLog('고객담당자영구변경', 'customers', 'bulk', user, `${rows.length}명 / ${selectedEmployee} → ${targetEmp.store_name} · ${targetEmp.name}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['customers']);
       alert(`${rows.length}명의 고객 담당자가 ${targetEmp.name}님으로 변경되었습니다.`);
       setSelectedIds([]);
       setTargetEmployeeId('');
@@ -6487,7 +6580,7 @@ function HappycallAssignmentStatus({ user }) {
       if (error) throw error;
 
       await writeAuditLog('해피콜일회성재배정', 'happycall_targets', 'bulk', user, `${rows.length}건 / ${selectedEmployee} → ${targetEmp.store_name} · ${targetEmp.name}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_targets']);
       alert(`${rows.length}건의 해피콜 처리자가 ${targetEmp.name}님으로 변경되었습니다.`);
       setSelectedIds([]);
       setTargetEmployeeId('');
@@ -6847,7 +6940,7 @@ function ReviewDashboard({ user }) {
       }).in('id', ids);
       if (error) throw error;
       await writeAuditLog('검수일괄완료', 'happycall_log', 'bulk', user, `${rows.length}건 일괄 승인`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_logs']);
       alert(`${rows.length}건 검수 완료 처리되었습니다.`);
       setSelectedReviewIds([]);
       load();
@@ -6884,7 +6977,7 @@ function ReviewDashboard({ user }) {
       }
 
       await writeAuditLog('검수일괄반려', 'happycall_log', 'bulk', user, `${rows.length}건 일괄 반려 / ${memo}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_logs']);
       alert(`${rows.length}건 반려 처리되었습니다.`);
       setSelectedReviewIds([]);
       load();
@@ -7032,7 +7125,7 @@ function ReviewModal({ item, user, onClose, onSaved }) {
       if (error) throw error;
 
       await writeAuditLog('검수완료', 'happycall_log', log.id, user, `${target.join_no} / ${target.assigned_employee} / ${log.call_result} / ${log.call_detail}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_logs']);
       alert('검수 완료 처리되었습니다.');
       onSaved();
       onClose();
@@ -7063,7 +7156,7 @@ function ReviewModal({ item, user, onClose, onSaved }) {
       }
 
       await writeAuditLog('검수반려', 'happycall_log', log.id, user, `${target.join_no} / ${target.assigned_employee} / 반려사유: ${memo}`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_logs']);
       alert('반려 처리되었습니다.');
       onSaved();
       onClose();
@@ -7281,7 +7374,7 @@ function RawUpload({ user }) {
         saved += chunk.length;
       }
       await writeAuditLog('RAW저장', 'customers', 'bulk', user, `customers ${saved}건 저장/업데이트`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['customers']);
       alert(`저장 완료: ${saved}건 저장/업데이트`);
     } catch (e) {
       alert('DB 저장 오류: ' + e.message);
@@ -7564,7 +7657,7 @@ function normalizeStoreNameForAssignment(v) {
   return String(v || '').trim();
 }
 
-const HAPPY_CALL_EXCLUDED_STORES = new Set(['사무실', '에스플러스', '퍼스트', '주주백석', '에스플러스(이성범)']);
+const HAPPY_CALL_EXCLUDED_STORES = new Set(['사무실', '에스플러스', '퍼스트', '주주백석', '에스플러스(이성범)', '별통신']);
 
 function isHappycallExcludedStore(storeName) {
   const normalized = String(storeName || '').replace(/\s+/g, '').trim();
@@ -8095,7 +8188,7 @@ function TargetGenerator({ user }) {
       }
 
       await writeAuditLog('해피콜대상저장', 'happycall_targets', targetDate, user, `${targetDate} 신규 ${saved}건 / 기존 ${summary.saveRows.length - saved}건 건너뜀`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_targets']);
       alert(`저장 완료: 신규 ${saved}건 / 기존 ${summary.saveRows.length - saved}건 건너뜀`);
     } catch(e) {
       alert('DB 저장 오류: ' + e.message);
@@ -8161,7 +8254,7 @@ function TargetGenerator({ user }) {
       if (error) throw error;
 
       await writeAuditLog('해피콜대상삭제', 'happycall_targets', targetDate, user, `${targetDate} 삭제 ${deletableIds.length}건 / 로그연결 제외 ${count - deletableIds.length}건`);
-      invalidateHappycallDataCache();
+      invalidateHappycallDataCache(['happycall_targets']);
       alert(`삭제 완료: ${deletableIds.length}건\n로그 연결 제외: ${count - deletableIds.length}건`);
       setSummary(null);
       setPreview([]);

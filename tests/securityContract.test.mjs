@@ -7,6 +7,7 @@ const authClient = readFileSync(new URL('../src/authClient.js', import.meta.url)
 const authFunction = readFileSync(new URL('../supabase/functions/employee-auth/index.ts', import.meta.url), 'utf8');
 const accountFunction = readFileSync(new URL('../supabase/functions/employee-account/index.ts', import.meta.url), 'utf8');
 const passwordHistoryMigration = readFileSync(new URL('../supabase/migrations/20260721183000_v29_61_password_expiry_history.sql', import.meta.url), 'utf8');
+const loginLockoutMigration = readFileSync(new URL('../supabase/migrations/20260723050919_v29_63_employee_login_lockout.sql', import.meta.url), 'utf8');
 const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -20,7 +21,8 @@ test('employee passwords are not read or written directly by the browser', () =>
   assert.doesNotMatch(main, /from\(['"]employees['"]\)\s*\.select\(['"]\*['"]\)/s);
   assert.doesNotMatch(main, /from\(['"]employees['"]\)[\s\S]{0,100}update\(\{\s*password\s*:/);
   assert.doesNotMatch(main, /\.eq\(['"]password['"]/);
-  assert.match(authClient, /supabase\.auth\.signInWithPassword/);
+  assert.match(authClient, /action:\s*'login'/);
+  assert.match(authClient, /supabase\.auth\.setSession/);
   assert.doesNotMatch(authClient, /supabase\.auth\.updateUser/);
   assert.match(authClient, /action:\s*'change-password'/);
 });
@@ -28,7 +30,11 @@ test('employee passwords are not read or written directly by the browser', () =>
 test('legacy login transition is one-time and rate limited', () => {
   assert.match(authFunction, /employee_auth_migration_challenges/);
   assert.match(authFunction, /employee_auth_attempts/);
-  assert.match(authFunction, /\(count \|\| 0\)\s*>=\s*8/);
+  assert.match(authFunction, /record_employee_login_failure/);
+  assert.match(authFunction, /TEMPORARY_LOGIN_LOCK/);
+  assert.match(authFunction, /ADMIN_RESET_REQUIRED/);
+  assert.match(authFunction, /3분간 잠겼습니다/);
+  assert.match(authFunction, /관리자에게 임시 비밀번호 발급을 요청/);
   assert.match(authFunction, /used_at/);
   assert.match(authFunction, /service\.auth\.admin\.createUser/);
   assert.match(authFunction, /if \(passwordPolicy\(password\)\)/);
@@ -64,6 +70,26 @@ test('remember login stores only a seven day browser trust marker and never a pa
   assert.doesNotMatch(main, /REMEMBER_LOGIN_KEY[\s\S]{0,500}password/);
   assert.match(main, /clearLoginPreference\(\);[\s\S]{0,120}supabase\.auth\.signOut/);
   assert.match(main, /setInterval\(\(\)\s*=>\s*syncAuthenticatedEmployee[\s\S]{0,100}30\s*\*\s*1000/);
+});
+
+test('첫 8회 실패는 3분 잠금이고 다음 8회 실패는 관리자 초기화가 필요하다', () => {
+  assert.match(loginLockoutMigration, /employee_login_lock_state/);
+  assert.match(loginLockoutMigration, /v_now \+ interval '3 minutes'/);
+  assert.match(loginLockoutMigration, /next_count >= 8/);
+  assert.match(loginLockoutMigration, /lock_stage = 2/);
+  assert.match(loginLockoutMigration, /admin_reset_required = true/);
+  assert.match(loginLockoutMigration, /enable row level security/);
+  assert.match(loginLockoutMigration, /revoke all on table public\.employee_login_lock_state from public, anon, authenticated/);
+});
+
+test('로그인 성공과 관리자 임시 비밀번호 발급은 잠금 상태를 해제한다', () => {
+  assert.match(authFunction, /clearLoginFailures/);
+  assert.match(authFunction, /employee_login_lock_state'\)\.delete\(\)\.eq\('employee_id'/);
+  assert.match(authFunction, /ban_duration:\s*banDuration/);
+  assert.match(authFunction, /'3m'/);
+  assert.match(authFunction, /'876000h'/);
+  assert.match(accountFunction, /employee_login_lock_state'\)[\s\S]{0,100}\.delete\(\)[\s\S]{0,100}\.eq\('employee_id'/);
+  assert.match(accountFunction, /ban_duration:\s*'none'/);
 });
 
 test('password changes are server verified and the previous password cannot be reused', () => {
