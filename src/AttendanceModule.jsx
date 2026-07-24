@@ -541,7 +541,16 @@ function StoreAttendanceSettings({ supabase }) {
     {message && <div className="attendanceMessage">{message}</div>}
     <form className="storeAttendanceForm" onSubmit={save}>
       <label>매장<select value={storeId} onChange={event => setStoreId(event.target.value)}>{(data.stores || []).map(store => <option key={store.id} value={store.id}>{store.name}</option>)}</select></label>
-      <label className="toggleLabel"><input type="checkbox" checked={form.enabled} onChange={event => setForm({ ...form, enabled: event.target.checked })} /> 출근 기능 활성화</label>
+      <label className="attendanceToggleLabel">
+        <span>출근 기능 활성화</span>
+        <input
+          type="checkbox"
+          role="switch"
+          aria-label="출근 기능 활성화"
+          checked={form.enabled}
+          onChange={event => setForm({ ...form, enabled: event.target.checked })}
+        />
+      </label>
       <label>확인 방식<select value={form.auth_mode} onChange={event => setForm({ ...form, auth_mode: event.target.value })}><option value="either">WiFi 또는 GPS</option><option value="wifi">WiFi만</option><option value="gps">GPS만</option></select></label>
       <label>기본 출근시간<input type="time" value={form.default_start_time} onChange={event => setForm({ ...form, default_start_time: event.target.value })} /></label>
       <AttendanceLocationPicker value={form} onMessage={setMessage} onChange={changes => setForm(previous => ({ ...previous, ...changes }))} />
